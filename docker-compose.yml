@@ -1,0 +1,206 @@
+# ============================================================================
+#  ToroGo - Infraestructura local de desarrollo
+#  Levanta:  PHP 8.4 (FPM) + Nginx + PostgreSQL 18 + Redis + MinIO + Mailpit + Node
+#
+#  USO BASICO (desde la raiz del proyecto):
+#    docker compose up -d app nginx postgres redis minio mailpit
+#    docker compose ps
+#    docker compose logs -f app
+#
+#  NOTA: el servicio "node" (Vite) NO se levanta con el comando de arriba.
+#        Se usa aparte para compilar el frontend. Ver micro-paso 1.5.
+# ============================================================================
+
+name: torogo
+
+services:
+
+  # --------------------------------------------------------------------------
+  # APP : contenedor PHP-FPM donde vive Laravel
+  # --------------------------------------------------------------------------
+  app:
+    build:
+      context: ./docker/php
+      args:
+        PHP_VERSION: "8.4"
+    image: torogo/php:8.4
+    container_name: torogo_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      # Codigo fuente (bind mount). En Windows/WSL2 es lo que editas en tu IDE.
+      - ./:/var/www/html
+      # vendor como VOLUMEN NOMBRADO: evita que composer escriba ~10.000
+      # archivos al disco de Windows en cada install. Gran mejora de velocidad.
+      - vendor:/var/www/html/vendor
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # NGINX : servidor web. Expone la app en http://localhost:8080
+  # --------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: torogo_nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    depends_on:
+      - app
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # POSTGRESQL 18
+  # OJO: en Postgres 18 la imagen oficial cambio el punto de montaje.
+  #      El volumen va en /var/lib/postgresql  (NO en /var/lib/postgresql/data).
+  #      Montarlo en el path viejo provoca que el contenedor NO arranque.
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:18-alpine
+    container_name: torogo_postgres
+    restart: unless-stopped
+    ports:
+      # Desde tu PC (DBeaver/TablePlus): localhost:5432
+      - "${DB_FORWARD_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-torogo}
+      POSTGRES_USER: ${DB_USERNAME:-torogo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-torogo_local_pwd}
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+      PGTZ: ${APP_TIMEZONE:-America/El_Salvador}
+    command:
+      - postgres
+      - -c
+      - timezone=${APP_TIMEZONE:-America/El_Salvador}
+      - -c
+      - log_timezone=${APP_TIMEZONE:-America/El_Salvador}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-torogo} -d ${DB_DATABASE:-torogo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # REDIS : cache + colas (QUEUE_CONNECTION=redis)
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: torogo_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # MINIO : almacenamiento de archivos compatible con S3
+  #
+  #  IMPORTANTE - dos cosas que cambiamos a proposito:
+  #  1) La imagen esta en quay.io, NO en Docker Hub (minio/minio ya no publica ahi).
+  #  2) Fijamos la version de ABRIL 2025 a proposito: a partir de mayo 2025 MinIO
+  #     recorto el panel web de la edicion community (dejo casi solo el explorador
+  #     de objetos, sin gestion de usuarios/claves/politicas). Con este tag el panel
+  #     vuelve a estar completo, que es justo lo que necesitas para desarrollo.
+  #     Es una build de abril 2025: perfecta para local, no la uses en produccion.
+  #
+  #  Consola web: http://localhost:9001
+  # --------------------------------------------------------------------------
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: torogo_minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-torogo}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-torogo_local_pwd}
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"       # API S3
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"   # Panel web
+    volumes:
+      - miniodata:/data
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # MAILPIT : buzon de correo falso. Captura TODO el correo saliente.
+  # Bandeja web: http://localhost:8025
+  # --------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: torogo_mailpit
+    restart: unless-stopped
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # NODE : compilar el frontend (Vite + Tailwind)
+  # NO se levanta en el arranque inicial. Se usa asi:
+  #   docker compose run --rm node npm install
+  #   docker compose run --rm node npm run build
+  # Y cuando estemos escribiendo UI, para hot-reload:
+  #   docker compose up -d node
+  # --------------------------------------------------------------------------
+  node:
+    image: node:22-alpine
+    container_name: torogo_node
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    volumes:
+      - ./:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    networks:
+      - torogo
+
+# ----------------------------------------------------------------------------
+# VOLUMENES NOMBRADOS (los datos sobreviven a "docker compose down")
+# Solo se borran con:  docker compose down -v   <-- ESTO BORRA TU BASE DE DATOS
+# ----------------------------------------------------------------------------
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  vendor:
+  node_modules:
+
+networks:
+  torogo:
+    driver: bridge

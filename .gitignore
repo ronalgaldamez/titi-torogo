@@ -1,0 +1,40 @@
+# ============================================================================
+#  ToroGo - Archivos que NO se suben a Git
+#  Este archivo es un SUPERCONJUNTO del .gitignore oficial de Laravel 12,
+#  asi que no se pierde nada cuando Laravel se instale encima.
+# ============================================================================
+
+# --- Laravel ---
+/.phpunit.cache
+/vendor
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/.env
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+
+# --- Editores / IDE ---
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+*.swp
+
+# --- Node ---
+/node_modules
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
