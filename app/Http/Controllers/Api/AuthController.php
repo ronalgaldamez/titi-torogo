@@ -88,6 +88,28 @@ class AuthController extends Controller
     }
 
     /**
+     * POST /api/logout
+     *
+     * Revoca SOLO el token con el que se hizo esta peticion: el usuario cierra
+     * sesion en este telefono sin desconectar sus otros dispositivos.
+     *
+     * Para cerrar sesion en TODOS los dispositivos a la vez (por ejemplo,
+     * cuando se da de baja a un motorizado) se usa:
+     *     $user->tokens()->delete();
+     * Eso es lo que va a hacer el panel de administracion mas adelante.
+     */
+    public function logout(Request $request): JsonResponse
+    {
+        // El "?->" cubre el caso de una sesion por cookie en vez de token:
+        // ahi currentAccessToken() devuelve null y no hay token que borrar.
+        $request->user()->currentAccessToken()?->delete();
+
+        return response()->json([
+            'message' => 'Sesion cerrada.',
+        ]);
+    }
+
+    /**
      * Emite el token y arma la respuesta que consumen las apps Flutter.
      *
      * Lo comparten login y register para que ambos devuelvan EXACTAMENTE
