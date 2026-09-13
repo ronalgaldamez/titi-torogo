@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -31,6 +32,32 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * El atributo 'role' NO es fillable (ver App\Models\User). Si lo pusieramos
+     * en definition() o dentro de un state(), Eloquent lo descartaria EN SILENCIO
+     * y los tests pasarian con el perfil equivocado sin avisar. Por eso se
+     * asigna de forma directa con afterMaking().
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Client);
+    }
+
+    public function admin(): static
+    {
+        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Admin);
+    }
+
+    public function restaurant(): static
+    {
+        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Restaurant);
+    }
+
+    public function courier(): static
+    {
+        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Courier);
     }
 
     /**
