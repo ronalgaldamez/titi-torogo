@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +17,7 @@ use Illuminate\Validation\ValidationException;
  * Autenticacion de la API movil.
  *
  * Los 4 perfiles (cliente, restaurante, motorizado, admin) entran por el
- * mismo endpoint: comparten el login y lo que cambia son sus permisos.
+ * mismo login: comparten credenciales y token; lo que cambia son permisos.
  */
 class AuthController extends Controller
 {
@@ -40,17 +42,38 @@ class AuthController extends Controller
             ]);
         }
 
-        // Sanctum aplica solo la expiracion de config/sanctum.php (7 dias).
-        $token = $user->createToken(
-            $request->validated('device_name') ?? 'app-movil'
-        );
+        return $this->tokenResponse($user, $request->validated('device_name'));
+    }
 
-        return response()->json([
-            'token' => $token->plainTextToken,
-            'token_type' => 'Bearer',
-            'expires_in_minutes' => (int) config('sanctum.expiration'),
-            'user' => new UserResource($user),
-        ]);
+    /**
+     * POST /api/register
+     *
+     * Registro de CLIENTES. Devuelve el token de una vez para que la app
+     * no tenga que pedir el login despues (el AGENDS pide "Login/Registro
+     * combinado").
+     *
+     * Restaurante, Motorizado y Admin NO pasan por aqui: los crea el
+     * administrador desde el panel.
+     */
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        $user = new User;
+
+        // Asignamos campo por campo, nunca User::create($request->all()).
+        // Asi es imposible que un campo que no esperamos se cuele.
+        $user->name = $request->validated('name');
+        $user->email = $request->validated('email');
+        $user->password = $request->validated('password'); // el cast 'hashed' lo encripta
+
+        // EL PUNTO CRITICO DE SEGURIDAD:
+        // El perfil se fuerza aqui, en el servidor. Alguien puede mandar
+        // {"role":"admin"} en el body y da igual: 'role' no esta en las
+        // reglas de RegisterRequest ni en $fillable del modelo. Doble barrera.
+        $user->role = UserRole::Client;
+
+        $user->save();
+
+        return $this->tokenResponse($user, $request->validated('device_name'), 201);
     }
 
     /**
@@ -62,5 +85,25 @@ class AuthController extends Controller
     public function me(Request $request): UserResource
     {
         return new UserResource($request->user());
+    }
+
+    /**
+     * Emite el token y arma la respuesta que consumen las apps Flutter.
+     *
+     * Lo comparten login y register para que ambos devuelvan EXACTAMENTE
+     * la misma forma de respuesta.
+     *
+     * La expiracion (7 dias) la aplica Sanctum desde config/sanctum.php.
+     */
+    private function tokenResponse(User $user, ?string $deviceName, int $status = 200): JsonResponse
+    {
+        $token = $user->createToken($deviceName ?? 'app-movil');
+
+        return response()->json([
+            'token' => $token->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_in_minutes' => (int) config('sanctum.expiration'),
+            'user' => new UserResource($user),
+        ], $status);
     }
 }
