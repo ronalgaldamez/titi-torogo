@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -63,5 +64,16 @@ class User extends Authenticatable
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);
+    }
+
+    /**
+     * El restaurante de esta cuenta.
+     *
+     * Solo tiene sentido cuando role = Restaurant; en los otros tres perfiles
+     * devuelve null. El login vive aqui y la info comercial en Restaurant.
+     */
+    public function restaurant(): HasOne
+    {
+        return $this->hasOne(Restaurant::class);
     }
 }
