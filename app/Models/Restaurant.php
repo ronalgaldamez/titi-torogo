@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -83,5 +84,21 @@ class Restaurant extends Model
         $base = $this->prep_time_minutes;
 
         return $this->is_busy ? (int) round($base * 1.5) : $base;
+    }
+
+    /**
+     * Las categorias de su menu, ya ordenadas como las acomodo el restaurante.
+     */
+    public function menuCategories(): HasMany
+    {
+        return $this->hasMany(MenuCategory::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Todos sus productos.
+     */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
     }
 }
