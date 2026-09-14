@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Model;
  *
  * El poligono viene dibujado en Google My Maps y se importa con
  * DeliveryZoneSeeder. No se dibuja dos veces.
+ *
+ * Las tarifas viven aqui y no en el restaurante: el motorizado es de la
+ * plataforma, asi que la plataforma define el precio del envio. Cada zona
+ * puede tener su precio, y una zona mas lejana cobra mas.
  */
 class DeliveryZone extends Model
 {
@@ -19,7 +23,8 @@ class DeliveryZone extends Model
     protected $fillable = [
         'name',
         'polygon',
-        'delivery_fee',
+        'courier_fee',
+        'platform_fee',
     ];
 
     /*
@@ -34,7 +39,8 @@ class DeliveryZone extends Model
     {
         return [
             'polygon' => 'array',
-            'delivery_fee' => 'decimal:2',
+            'courier_fee' => 'decimal:2',
+            'platform_fee' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -43,7 +49,7 @@ class DeliveryZone extends Model
      * ¿Esta zona cubre el punto dado?
      *
      * Es la pregunta que responde el Home: el cliente manda su ubicacion,
-     * averiguamos en que zona cae, y mostramos los restaurantes de esa zona.
+     * averiguamos en que zona cae, y mostramos los restaurantes disponibles.
      */
     public function contains(float $latitude, float $longitude): bool
     {
@@ -57,5 +63,20 @@ class DeliveryZone extends Model
         }
 
         return Geometry::pointInPolygon($latitude, $longitude, $ring);
+    }
+
+    /**
+     * Lo que paga el cliente por el envio: las dos lineas juntas.
+     *
+     * Se calcula y no se guarda, para que el recibo nunca pueda mostrar
+     * un total que no coincida con sus partes.
+     *
+     * Se usa bcadd (y no una suma normal) porque los montos llegan como
+     * texto desde el cast decimal, y bcadd suma decimales exactos: con
+     * floats, $1.10 + $2.20 puede dar 3.3000000000000003.
+     */
+    public function deliveryFee(): string
+    {
+        return bcadd($this->courier_fee, $this->platform_fee, 2);
     }
 }

@@ -14,6 +14,11 @@ namespace App\Support;
 class Geometry
 {
     /**
+     * Radio de la Tierra en kilometros.
+     */
+    private const EARTH_RADIUS_KM = 6371.0;
+
+    /**
      * ¿El punto cae dentro del poligono?
      *
      * Usa el algoritmo del "rayo" (ray casting): se lanza una linea
@@ -43,5 +48,23 @@ class Geometry
         }
 
         return $inside;
+    }
+
+    /**
+     * Distancia en kilometros entre dos puntos (formula de Haversine).
+     *
+     * Asume la Tierra como esfera: el error es de ~0.3% frente al elipsoide.
+     * Para un pueblo, eso son metros de diferencia en distancias de 5 km —
+     * irrelevante para mostrar "a 1.2 km" en la app.
+     */
+    public static function distanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $deltaLat = deg2rad($lat2 - $lat1);
+        $deltaLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($deltaLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($deltaLon / 2) ** 2;
+
+        return self::EARTH_RADIUS_KM * 2 * asin(sqrt($a));
     }
 }

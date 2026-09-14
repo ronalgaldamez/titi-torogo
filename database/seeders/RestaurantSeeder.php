@@ -57,6 +57,11 @@ class RestaurantSeeder extends Seeder
             $restaurant->latitude = $data['latitude'];
             $restaurant->longitude = $data['longitude'];
             $restaurant->prep_time_minutes = $data['prep_time_minutes'];
+
+            // null = "usá la tarifa de mi zona" (ver DeliveryZone). El dinero
+            // del envio lo define la plataforma porque el motorizado es de la
+            // plataforma: el restaurante no controla la distancia ni el costo.
+            // Un restaurante puede poner 0.00 para ofrecer "envio gratis".
             $restaurant->delivery_fee = $data['delivery_fee'];
 
             // is_active / is_open / is_busy no son fillable: asignacion directa.
@@ -87,7 +92,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 30,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -99,7 +104,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 15,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -111,7 +116,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 25,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -123,7 +128,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 30,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -135,7 +140,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 25,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -147,7 +152,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 35,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -159,7 +164,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => self::MALL_DEL_SOL_LAT,
                 'longitude' => self::MALL_DEL_SOL_LNG,
                 'prep_time_minutes' => 15,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 // CERRADO a proposito: caso real para probar el filtro.
                 'is_open' => false,
             ],
@@ -174,7 +179,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => 14.091578362725258,
                 'longitude' => -89.14654055652022,
                 'prep_time_minutes' => 20,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -186,7 +191,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => 14.090810937308126,
                 'longitude' => -89.1460564502686,
                 'prep_time_minutes' => 25,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -198,7 +203,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => 14.08348291269134,
                 'longitude' => -89.14305386065153,
                 'prep_time_minutes' => 30,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
             [
@@ -210,7 +215,7 @@ class RestaurantSeeder extends Seeder
                 'latitude' => 14.081704798815732,
                 'longitude' => -89.14083786485189,
                 'prep_time_minutes' => 25,
-                'delivery_fee' => 1.50,
+                'delivery_fee' => null,
                 'is_open' => true,
             ],
         ];

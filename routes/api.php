@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\RestaurantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -8,12 +9,11 @@ use Illuminate\Support\Facades\Route;
 | API movil de ToroGo (Flutter)
 |--------------------------------------------------------------------------
 |
-| Rutas publicas:   login, register  (ambas con limite de intentos)
-| Rutas protegidas: todo lo que exige token -> middleware('auth:sanctum')
-|
 | Todas las rutas de este archivo ya llevan el prefijo /api automaticamente.
 |
 */
+
+// ---------------------------- Autenticacion ----------------------------
 
 /*
  * throttle:login -> 5 intentos por minuto por correo + IP (ver AppServiceProvider).
@@ -32,12 +32,20 @@ Route::post('/register', [AuthController::class, 'register'])
     ->middleware('throttle:register')
     ->name('api.register');
 
+// --------------------------- Home del cliente --------------------------
+
 /*
-|--------------------------------------------------------------------------
-| Rutas protegidas
-|--------------------------------------------------------------------------
+ * Publica a proposito: mostrar los restaurantes ANTES de pedir registro
+ * baja muchisimo la friccion — el usuario ve lo que hay y despues crea su
+ * cuenta. Si preferis exigir sesion, agregale ->middleware('auth:sanctum').
+ */
+Route::get('/restaurants', [RestaurantController::class, 'index'])
+    ->name('api.restaurants.index');
+
+// ---------------------------- Rutas protegidas -------------------------
+
+/*
 | Exigen el header:   Authorization: Bearer <token>
-|
 */
 
 Route::middleware('auth:sanctum')->group(function () {

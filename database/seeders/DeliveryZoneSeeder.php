@@ -41,7 +41,15 @@ class DeliveryZoneSeeder extends Seeder
             'type' => 'Polygon',
             'coordinates' => [$ring],
         ];
-        $zone->delivery_fee = 1.50;
+        // Las DOS lineas que ve el cliente en el recibo:
+        //   courier_fee  -> va completa al motorizado
+        //   platform_fee -> es el ingreso de ToroGo
+        // El cliente paga la suma ($2.00), calculada por DeliveryZone::deliveryFee().
+        //
+        // Si algun dia se dibuja una zona mas lejana, a ESA zona se le sube
+        // el courier_fee y Tejutla conserva el suyo. Cada zona su precio.
+        $zone->courier_fee = 1.50;
+        $zone->platform_fee = 0.50;
         $zone->is_active = true;
 
         $zone->save();
