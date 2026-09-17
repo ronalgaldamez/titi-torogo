@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document id="1vmrTb0qn5Zm0-XRCz_JvNlG9hgOaqtPK">
+	<name>Mapa de envios</name>
+	<gx:CascadingStyle kml:id="__managed_style_196103609B41D37F2717_normal">
+		<styleUrl>https://earth.google.com/balloon_components/base/1.1.0.0/card_template.kml#main</styleUrl>
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_196103609B41D37F2717">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_196103609B41D37F2717_normal</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_196103609B41D37F2717_highlight</styleUrl>
+		</Pair>
+	</StyleMap>
+	<gx:CascadingStyle kml:id="__managed_style_0CD9800C6341D37F2717_normal">
+		<styleUrl>https://earth.google.com/balloon_components/base/1.1.0.0/card_template.kml#main</styleUrl>
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_196103609B41D37F2717_highlight">
+		<styleUrl>https://earth.google.com/balloon_components/base/1.1.0.0/card_template.kml#main</styleUrl>
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_0CD9800C6341D37F2717_highlight">
+		<styleUrl>https://earth.google.com/balloon_components/base/1.1.0.0/card_template.kml#main</styleUrl>
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<BalloonStyle>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0CD9800C6341D37F2717">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_0CD9800C6341D37F2717_normal</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_0CD9800C6341D37F2717_highlight</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Folder id="38ae56b8_0">
+		<name>Zona de Envios</name>
+		<open>1</open>
+		<styleUrl>#__managed_style_0CD9800C6341D37F2717</styleUrl>
+	</Folder>
+	<Placemark id="0EADF198CA413D64EAB4">
+		<name>Area Delimitada</name>
+		<LookAt>
+			<longitude>-89.14811554322476</longitude>
+			<latitude>14.10629705117659</latitude>
+			<altitude>273.9431213044358</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>3485.798578707618</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_196103609B41D37F2717</styleUrl>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						-89.15297432406368,14.11398504637411,0 -89.15409486734802,14.11349315337103,0 -89.15521673285333,14.11153992208648,0 -89.15611311296526,14.110236120527,0 -89.15749048165978,14.10921625080234,0 -89.15960915403261,14.10839979091142,0 -89.16186381494377,14.10781762120236,0 -89.16086581969257,14.10652799618238,0 -89.16091875464453,14.10520980492007,0 -89.16019957078431,14.10373191495355,0 -89.15897473218217,14.10342675522306,0 -89.1589463863553,14.10110914391816,0 -89.15749415990771,14.0987596119087,0 -89.15194477724121,14.10110481752667,0 -89.14930728463101,14.0949594482169,0 -89.14684753707209,14.08809577730075,0 -89.14801701501901,14.0877558808882,0 -89.14905693917039,14.08780696132815,0 -89.15002700069257,14.08492310314992,0 -89.14519135118239,14.08419076506798,0 -89.1424414941565,14.07750699036841,0 -89.14306566417058,14.07701597193216,0 -89.1431311885645,14.07512741734186,0 -89.14305931607164,14.07259339267713,0 -89.13847749552755,14.0705637990015,0 -89.1350327178676,14.07022664088825,0 -89.13602754974518,14.07224048931569,0 -89.13787838629081,14.07185773430875,0 -89.13814183911137,14.07218062510979,0 -89.1377331133213,14.0726011112071,0 -89.13859677006766,14.07288110071195,0 -89.13906045779444,14.07332945461407,0 -89.13888688677035,14.07363097098543,0 -89.13815976120877,14.07390751926754,0 -89.13799622215311,14.07458633251799,0 -89.13742933533219,14.07513210381392,0 -89.13786072929345,14.07535534286234,0 -89.13820709327085,14.07570438023285,0 -89.13749219047494,14.07579131076609,0 -89.1368303620855,14.07560669985202,0 -89.13908814920332,14.07787215225675,0 -89.14061400040765,14.0801721896156,0 -89.13373815203036,14.07922317839687,0 -89.12938794603481,14.07860453450038,0 -89.13305382251708,14.08057829404493,0 -89.13353542947411,14.08283117428582,0 -89.13636425214638,14.08324885061163,0 -89.13720391486142,14.08520437589404,0 -89.13892112043909,14.08592089980309,0 -89.14256200131634,14.08481961502452,0 -89.14379945728426,14.08591667388051,0 -89.1440989318842,14.08667380680793,0 -89.14337455526081,14.08709740420424,0 -89.14294900897731,14.08667614388505,0 -89.14134853901749,14.0876550163953,0 -89.14159949016152,14.08826693122186,0 -89.14218494485107,14.08944213981707,0 -89.14488841585467,14.08950341928786,0 -89.14608488915263,14.09121591906081,0 -89.14680720592422,14.09326578525851,0 -89.14856387784691,14.09687375974327,0 -89.14895974742721,14.09860878126525,0 -89.14972134306774,14.10051999272242,0 -89.14844975887112,14.10134410765956,0 -89.14783635438924,14.10160306875606,0 -89.14811504097983,14.10253135189032,0 -89.14865973344618,14.10375813987329,0 -89.14911797404793,14.10351135887517,0 -89.1493775526655,14.10387589669003,0 -89.14951692159546,14.10416962645647,0 -89.14942763081844,14.10448455113698,0 -89.1475824255845,14.1045472110703,0 -89.14613536658062,14.10462193603285,0 -89.14529817328619,14.10565384246244,0 -89.14839962618967,14.10540450739559,0 -89.15171107316152,14.10547004189952,0 -89.15240736518057,14.10630863221305,0 -89.15278905367167,14.10726342062446,0 -89.15333773203255,14.10878585131285,0 -89.15285860740923,14.11077616277364,0 -89.15210601993145,14.11265858109207,0 -89.15297432406368,14.11398504637411,0 
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+</Document>
+</kml>
