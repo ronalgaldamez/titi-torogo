@@ -17,20 +17,22 @@ import 'package:http/http.dart' as http;
 ///
 /// Asi el mismo codigo sirve en los tres casos, sin comentar y descomentar.
 class ApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({http.Client? client, this.authToken})
+      : _client = client ?? http.Client();
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://localhost:8080/api',
   );
 
+  /// Token de Sanctum. Si viene, se manda en cada peticion como
+  /// "Authorization: Bearer <token>". Es lo que identifica al usuario
+  /// ante el backend.
+  final String? authToken;
+
   final http.Client _client;
 
   /// GET que devuelve el JSON ya decodificado.
-  ///
-  /// Si algo sale mal lanza [ApiException] con un mensaje que se le puede
-  /// mostrar al usuario tal cual, para que la pantalla no tenga que adivinar
-  /// que paso ni traducir codigos HTTP.
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, dynamic>? query,
@@ -39,8 +41,51 @@ class ApiClient {
       queryParameters: query?.map((key, value) => MapEntry(key, '$value')),
     );
 
-    final http.Response response = await _get(uri);
+    return _decode(await _send(
+      () => _client.get(uri, headers: _jsonHeaders()),
+    ));
+  }
 
+  /// POST con cuerpo JSON. Lo usa el login.
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final Uri uri = Uri.parse('$baseUrl$path');
+
+    return _decode(await _send(
+      () => _client.post(
+        uri,
+        headers: _jsonHeaders(contentType: true),
+        body: jsonEncode(body ?? <String, dynamic>{}),
+      ),
+    ));
+  }
+
+  Map<String, String> _jsonHeaders({bool contentType = false}) {
+    return <String, String>{
+      'Accept': 'application/json',
+      if (contentType) 'Content-Type': 'application/json',
+      if (authToken != null) 'Authorization': 'Bearer $authToken',
+    };
+  }
+
+  /// Hace la peticion y convierte cualquier fallo de red en un [ApiException]
+  /// con un mensaje entendible, para que la pantalla no tenga que adivinar
+  /// que paso.
+  Future<http.Response> _send(Future<http.Response> Function() request) async {
+    try {
+      return await request();
+    } catch (_) {
+      throw ApiException(
+        'No pudimos conectarnos con ToroGo. Revisa tu conexion a internet.',
+      );
+    }
+  }
+
+  /// Convierte la respuesta en JSON, o lanza [ApiException] con el mensaje
+  /// que mando Laravel.
+  Map<String, dynamic> _decode(http.Response response) {
     // El cuerpo puede no ser JSON (un error del servidor, un proxy, etc.).
     // Se parsea con cuidado para no reventar con una excepcion rara.
     dynamic decoded;
@@ -61,21 +106,6 @@ class ApiClient {
     }
 
     return decoded;
-  }
-
-  /// Hace la peticion y convierte cualquier fallo de red en un [ApiException]
-  /// con un mensaje entendible.
-  Future<http.Response> _get(Uri uri) async {
-    try {
-      return await _client.get(
-        uri,
-        headers: const <String, String>{'Accept': 'application/json'},
-      );
-    } catch (_) {
-      throw ApiException(
-        'No pudimos conectarnos con ToroGo. Revisa tu conexion a internet.',
-      );
-    }
   }
 
   /// Saca el mensaje de error que manda Laravel.
