@@ -17,6 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \App\Http\Middleware\ForceJsonResponse::class,
         ]);
+
+        // Alias cortos para las rutas. Se declaran aqui, una sola vez, y en
+        // routes/api.php se escriben por nombre ('restaurant') en vez de
+        // repetir el nombre completo de la clase en cada grupo.
+        $middleware->alias([
+            'restaurant' => \App\Http\Middleware\EnsureRestaurantAccount::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

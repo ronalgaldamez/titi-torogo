@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\RestaurantController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,3 +53,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
 });
+
+// ------------------------ Panel del restaurante ------------------------
+
+/*
+| Solo para cuentas de restaurante con ficha creada. El middleware
+| 'restaurant' hace las dos verificaciones (ver EnsureRestaurantAccount).
+|
+| OJO con el singular: /api/restaurant/... es EL restaurante de la sesion.
+| /api/restaurants (plural) sigue siendo el catalogo publico del cliente.
+| Confundirlos seria abrir el menu editable a cualquiera.
+*/
+Route::middleware(['auth:sanctum', 'restaurant'])
+    ->prefix('restaurant')
+    ->group(function () {
+        Route::get('/menu', [MenuController::class, 'index'])
+            ->name('api.restaurant.menu.index');
+    });
