@@ -69,4 +69,22 @@ Route::middleware(['auth:sanctum', 'restaurant'])
     ->group(function () {
         Route::get('/menu', [MenuController::class, 'index'])
             ->name('api.restaurant.menu.index');
+
+        Route::post('/menu/categories', [MenuController::class, 'storeCategory'])
+            ->name('api.restaurant.menu.categories.store');
+
+        Route::post('/menu/products', [MenuController::class, 'storeProduct'])
+            ->name('api.restaurant.menu.products.store');
+
+        // El toggle de agotado. PATCH porque cambia UN campo del plato.
+        Route::patch('/menu/products/{product}/availability', [MenuController::class, 'updateProductAvailability'])
+            ->name('api.restaurant.menu.products.availability');
+
+        // Editar el plato completo (el formulario de la app).
+        Route::put('/menu/products/{product}', [MenuController::class, 'updateProduct'])
+            ->name('api.restaurant.menu.products.update');
+
+        // Borrado suave del plato.
+        Route::delete('/menu/products/{product}', [MenuController::class, 'destroyProduct'])
+            ->name('api.restaurant.menu.products.destroy');
     });
