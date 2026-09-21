@@ -6,6 +6,8 @@ import 'core/theme.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/login_screen.dart';
 import 'features/cliente/home/home_screen.dart';
+import 'features/restaurante/menu/restaurant_menu_screen.dart';
+import 'models/user.dart';
 
 void main() {
   runApp(const ToroGoApp());
@@ -26,12 +28,16 @@ class ToroGoApp extends StatelessWidget {
 }
 
 /// Con que pantalla arranca la app.
-enum _Start { loading, login, home }
+enum _Start { loading, login, home, restaurantMenu }
 
 /// Decide la pantalla inicial y controla la sesion.
 ///
-///   Con token guardado -> Home   (la sesion sigue viva)
-///   Sin token          -> Login  (y desde ahi se puede explorar sin cuenta)
+///   Con token guardado -> la pantalla de SU perfil
+///   Sin token          -> Login (y desde ahi se puede explorar sin cuenta)
+///
+/// El PERFIL manda: un cliente entra al catalogo y un restaurante a su menu.
+/// Motorizado y admin todavia no tienen pantalla propia, asi que por ahora
+/// caen en el Home, que es publico y no rompe nada.
 class _Startup extends StatefulWidget {
   const _Startup();
 
@@ -47,6 +53,15 @@ class _StartupState extends State<_Startup> {
   /// que cerrar y el boton de salir no debe aparecer.
   bool _authenticated = false;
 
+  /// El valor 'restaurant' es el mismo que manda la API en `user.role`
+  /// (UserRole::Restaurant en el backend). Si alla cambia, cambia aqui.
+  static const String _restaurantRole = 'restaurant';
+
+  /// A que pantalla entra una sesion ya iniciada.
+  static _Start _startFor(String? role) {
+    return role == _restaurantRole ? _Start.restaurantMenu : _Start.home;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,16 +69,19 @@ class _StartupState extends State<_Startup> {
   }
 
   Future<void> _check() async {
-    final String? token = await AuthStorage().readToken();
-    final bool hasSession = token != null && token.isNotEmpty;
+    final AuthStorage storage = AuthStorage();
+    final String? token = await storage.readToken();
+    final String? role = await storage.readRole();
 
     if (!mounted) {
       return;
     }
 
+    final bool hasSession = token != null && token.isNotEmpty;
+
     setState(() {
       _authenticated = hasSession;
-      _start = hasSession ? _Start.home : _Start.login;
+      _start = hasSession ? _startFor(role) : _Start.login;
     });
   }
 
@@ -94,11 +112,16 @@ class _StartupState extends State<_Startup> {
           onLogout: _authenticated ? _logout : null,
         );
 
+      case _Start.restaurantMenu:
+        return RestaurantMenuScreen(
+          onLogout: _authenticated ? _logout : null,
+        );
+
       case _Start.login:
         return LoginScreen(
-          onAuthenticated: () => setState(() {
+          onAuthenticated: (User user) => setState(() {
             _authenticated = true;
-            _start = _Start.home;
+            _start = _startFor(user.role);
           }),
           onSkip: () => setState(() {
             _authenticated = false;

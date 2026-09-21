@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_storage.dart';
 import '../../core/theme.dart';
+import '../../models/user.dart';
 import 'auth_repository.dart';
 
 /// La pantalla de inicio de sesion.
@@ -20,8 +21,10 @@ class LoginScreen extends StatefulWidget {
     super.key,
   });
 
-  /// Login correcto: la app navega al Home.
-  final VoidCallback onAuthenticated;
+  /// Login correcto: la app navega segun el PERFIL (el cliente al catalogo,
+  /// el restaurante a su menu). Por eso recibe el usuario completo y no solo
+  /// un aviso de "ya entro": el perfil es lo que decide a donde va.
+  final ValueChanged<User> onAuthenticated;
 
   /// "Explorar sin cuenta": el Home es publico, asi que se puede mirar
   /// el catalogo sin registrarse. Pedir cuenta ANTES de mostrar algo es
@@ -67,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _repository.login(
+      final AuthResult result = await _repository.login(
         email: _email.text.trim(),
         password: _password.text,
       );
@@ -76,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      widget.onAuthenticated();
+      widget.onAuthenticated(result.user);
     } on ApiException catch (error) {
       if (!mounted) {
         return;
