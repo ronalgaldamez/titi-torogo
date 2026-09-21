@@ -25,9 +25,9 @@ class ApiClient {
     defaultValue: 'http://localhost:8080/api',
   );
 
-  /// Token de Sanctum. Si viene, se manda en cada peticion como
-  /// "Authorization: Bearer <token>". Es lo que identifica al usuario
-  /// ante el backend.
+  /// Token de Sanctum. Si viene, se manda en cada peticion en el header
+  /// `Authorization`, con el formato `Bearer TU_TOKEN`. Es lo que identifica
+  /// al usuario ante el backend.
   final String? authToken;
 
   final http.Client _client;
@@ -50,16 +50,54 @@ class ApiClient {
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
-  }) async {
-    final Uri uri = Uri.parse('$baseUrl$path');
+  }) {
+    return _sendJson('POST', path, body);
+  }
 
-    return _decode(await _send(
-      () => _client.post(
-        uri,
-        headers: _jsonHeaders(contentType: true),
-        body: jsonEncode(body ?? <String, dynamic>{}),
-      ),
-    ));
+  /// PUT con cuerpo JSON. Reemplaza el recurso completo: editar un plato.
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+  }) {
+    return _sendJson('PUT', path, body);
+  }
+
+  /// PATCH con cuerpo JSON. Cambia UN campo: el toggle de agotado.
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) {
+    return _sendJson('PATCH', path, body);
+  }
+
+  /// DELETE. El backend responde con un mensaje ("Plato eliminado del menu."),
+  /// asi que igual devuelve un JSON y la pantalla puede mostrar ese texto.
+  Future<Map<String, dynamic>> delete(String path) {
+    return _sendJson('DELETE', path, null);
+  }
+
+  /// El cuerpo comun de las peticiones que MANDAN datos (POST, PUT, PATCH,
+  /// DELETE).
+  ///
+  /// Existe para no repetir cuatro veces lo mismo: armar la URL, poner los
+  /// headers y codificar el cuerpo. `http.Client` no tiene un metodo generico
+  /// que acepte cualquier verbo, asi que se arma un `http.Request` a mano.
+  Future<Map<String, dynamic>> _sendJson(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+  ) async {
+    final http.Request request =
+        http.Request(method, Uri.parse('$baseUrl$path'))
+          ..headers.addAll(_jsonHeaders(contentType: true))
+          // Siempre "{}" y nunca vacio: mandar el Content-Type sin cuerpo hace
+          // que algunos servidores y proxies se comporten raro.
+          ..body = jsonEncode(body ?? <String, dynamic>{});
+
+    return _decode(await _send(() async {
+      final http.StreamedResponse streamed = await _client.send(request);
+      return http.Response.fromStream(streamed);
+    }));
   }
 
   Map<String, String> _jsonHeaders({bool contentType = false}) {

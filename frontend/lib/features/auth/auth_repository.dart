@@ -36,13 +36,16 @@ class AuthRepository {
       },
     );
 
-    // El token se guarda ANTES de devolver el resultado: si la app se cierra
-    // justo despues del login, la sesion ya quedo guardada.
-    await _storage.saveToken(json['token'] as String);
+    final User user = User.fromJson(json['user'] as Map<String, dynamic>);
 
-    return AuthResult(
-      user: User.fromJson(json['user'] as Map<String, dynamic>),
+    // El token y el perfil se guardan ANTES de devolver el resultado: si la
+    // app se cierra justo despues del login, la sesion ya quedo guardada.
+    await _storage.saveSession(
+      token: json['token'] as String,
+      role: user.role,
     );
+
+    return AuthResult(user: user);
   }
 
   /// Cierra la sesion.
