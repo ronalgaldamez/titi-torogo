@@ -7,6 +7,7 @@ import '../../../core/theme.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
 import 'menu_repository.dart';
+import 'product_form_screen.dart';
 
 /// El menu del restaurante: la pantalla de "Gestion de Menu" del AGENDS.
 ///
@@ -152,6 +153,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ],
       ),
       body: _body(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openForm(),
+        backgroundColor: AppTheme.coral,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Agregar plato'),
+      ),
     );
   }
 
@@ -188,7 +196,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           AppSpacing.md,
           AppSpacing.sm,
           AppSpacing.md,
-          AppSpacing.xl,
+          // Espacio de sobra abajo: el boton flotante de "Agregar plato" tapa
+          // la ultima fila si la lista termina justo en el borde.
+          AppSpacing.xl * 3,
         ),
         children: <Widget>[
           for (final MenuCategory category in _categories) ...<Widget>[
@@ -212,8 +222,36 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               product: product,
               saving: _saving.contains(product.id),
               onChanged: (bool value) => _toggle(product, value),
+              onTap: () => _openForm(
+                product: product,
+                categoryId: category.id,
+              ),
             ))
         .toList();
+  }
+
+  /// Abre el formulario para agregar un plato o para editar uno existente.
+  ///
+  /// Al volver, si guardo algo, se recarga el menu ENTERO en vez de parchear
+  /// la lista a mano. Crear, editar o borrar cambian los conteos, el orden y
+  /// hasta la categoria en la que cae el plato: pedirlo de nuevo es mas
+  /// simple y siempre queda bien.
+  Future<void> _openForm({Product? product, int? categoryId}) async {
+    final bool? saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => ProductFormScreen(
+          categories: _categories,
+          product: product,
+          categoryId: categoryId,
+        ),
+      ),
+    );
+
+    if (!mounted || saved != true) {
+      return;
+    }
+
+    await _load();
   }
 
   Future<void> _confirmLogout() async {
@@ -288,17 +326,22 @@ class _CategoryHeader extends StatelessWidget {
   }
 }
 
-/// Una fila del menu: el plato a la izquierda y su interruptor a la derecha.
+/// Una fila del menu: el plato a la izquierda, su interruptor a la derecha.
+///
+/// Tocar la fila abre el formulario para editarlo. El interruptor es SOLO
+/// para agotar: son dos acciones distintas y por eso estan separadas.
 class _ProductTile extends StatelessWidget {
   const _ProductTile({
     required this.product,
     required this.saving,
     required this.onChanged,
+    required this.onTap,
   });
 
   final Product product;
   final bool saving;
   final ValueChanged<bool> onChanged;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -308,75 +351,85 @@ class _ProductTile extends StatelessWidget {
     final bool available = product.isAvailable;
     final String? description = product.description;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
+            child: Row(
               children: <Widget>[
-                Text(
-                  product.name,
-                  style: text.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    // Agotado: tachado y en gris. Asi el restaurante ve de un
-                    // vistazo que sigue en el menu pero hoy no se puede pedir.
-                    color: available ? AppTheme.navy : colors.onSurfaceVariant,
-                    decoration:
-                        available ? null : TextDecoration.lineThrough,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        product.name,
+                        style: text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          // Agotado: tachado y en gris. Asi el restaurante ve
+                          // de un vistazo que sigue en el menu pero hoy no se
+                          // puede pedir.
+                          color: available
+                              ? AppTheme.navy
+                              : colors.onSurfaceVariant,
+                          decoration:
+                              available ? null : TextDecoration.lineThrough,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (description != null &&
+                          description.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${product.price}',
+                        style: text.titleSmall?.copyWith(
+                          color: AppTheme.coral,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                if (description != null && description.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: text.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                const SizedBox(width: AppSpacing.sm),
+                if (saving)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Switch(
+                    value: available,
+                    onChanged: onChanged,
                   ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  '\$${product.price}',
-                  style: text.titleSmall?.copyWith(
-                    color: AppTheme.coral,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          if (saving)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else
-            Switch(
-              value: available,
-              onChanged: onChanged,
-            ),
-        ],
+        ),
       ),
     );
   }
