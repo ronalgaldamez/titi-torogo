@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMenuCategoryRequest;
 use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateMenuCategoryRequest;
 use App\Http\Requests\UpdateProductAvailabilityRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\MenuCategoryResource;
@@ -13,6 +14,7 @@ use App\Models\MenuCategory;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * La gestion del menu: lo que el restaurante ve y edita de su propia carta.
@@ -37,13 +39,28 @@ class MenuController extends Controller
     {
         // El middleware ya cargo la relacion, asi que esto no vuelve a
         // consultar la base: Eloquent la tiene guardada en el mismo modelo.
-        $categories = $request->user()->restaurant
+        $restaurant = $request->user()->restaurant;
+
+        $categories = $restaurant
             ->menuCategories()  // ya vienen ordenadas por sort_order
             ->with('products')  // products ya viene ordenada por sort_order
             ->get();
 
+        // Los platos SIN categoria viajan aparte, en su propia lista.
+        //
+        // Existen de verdad, por dos caminos: al crear un plato se puede no
+        // elegir categoria, y al BORRAR una categoria sus platos quedan
+        // sueltos (no se borran, ver destroyCategory). Si no se devolvieran,
+        // esos platos desaparecerian de la pantalla sin que nadie los haya
+        // borrado: la peor clase de bug, porque es silencioso.
+        $uncategorized = $restaurant->products()
+            ->whereNull('menu_category_id')
+            ->orderBy('sort_order')
+            ->get();
+
         return response()->json([
             'categories' => MenuCategoryResource::collection($categories),
+            'uncategorized' => ProductResource::collection($uncategorized),
         ]);
     }
 
@@ -84,6 +101,72 @@ class MenuController extends Controller
         return response()->json([
             'category' => new MenuCategoryResource($category),
         ], 201);
+    }
+
+    /**
+     * PUT /api/restaurant/menu/categories/{category}
+     *
+     * Renombra una categoria (y de paso deja reordenarla).
+     */
+    public function updateCategory(UpdateMenuCategoryRequest $request, int $category): JsonResponse
+    {
+        $restaurant = $request->user()->restaurant;
+
+        // Sobre la relacion, como todo lo demas: la categoria de otro
+        // restaurante responde 404 y no se puede ni mirar.
+        $model = $restaurant->menuCategories()->findOrFail($category);
+
+        $model->name = $request->validated('name');
+
+        $sortOrder = $request->validated('sort_order');
+
+        if ($sortOrder !== null) {
+            $model->sort_order = $sortOrder;
+        }
+
+        $model->save();
+
+        // Los productos van vacios pero PRESENTES, igual que al crear: la app
+        // recibe siempre la misma forma y no pregunta si la clave existe.
+        $model->load('products');
+
+        return response()->json([
+            'category' => new MenuCategoryResource($model),
+        ]);
+    }
+
+    /**
+     * DELETE /api/restaurant/menu/categories/{category}
+     *
+     * Borra una categoria. LOS PLATOS NO SE BORRAN: quedan sin categoria.
+     *
+     * Hay que desengancharlos A MANO, y esa es la parte que se olvida:
+     * la llave foranea de 'products.menu_category_id' usa nullOnDelete, pero
+     * eso solo dispara con un DELETE de verdad. El borrado de aca es SUAVE
+     * (el modelo usa SoftDeletes, o sea un UPDATE), asi que la base no toca
+     * nada y los platos quedarian apuntando a una categoria que ya no se
+     * muestra: existirian, pero invisibles.
+     *
+     * Va en una transaccion para que no pueda quedar a medias: o se sueltan
+     * los platos y se borra la categoria, o no pasa nada.
+     */
+    public function destroyCategory(Request $request, int $category): JsonResponse
+    {
+        $restaurant = $request->user()->restaurant;
+
+        $model = $restaurant->menuCategories()->findOrFail($category);
+
+        DB::transaction(function () use ($restaurant, $model): void {
+            $restaurant->products()
+                ->where('menu_category_id', $model->id)
+                ->update(['menu_category_id' => null]);
+
+            $model->delete();
+        });
+
+        return response()->json([
+            'message' => 'Categoría eliminada. Sus platos quedaron sin categoría.',
+        ]);
     }
 
     /**
