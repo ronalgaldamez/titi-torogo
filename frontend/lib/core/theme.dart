@@ -51,6 +51,24 @@ class AppTheme {
   /// Fondo claro de marca, para paneles suaves (avisos, estados vacios).
   static const Color tealSoft = Color(0xFFE0F2F5);
 
+  /// Portada de color de un restaurante, repartida por id.
+  ///
+  /// Son los 4 tonos de la marca, asi que una lista se ve viva SIN salirse de
+  /// "paleta limitada y consistente" (AGENDS).
+  ///
+  /// Vive en el tema y no dentro de cada pantalla por una razon concreta: la
+  /// tarjeta del Home y el encabezado de la carta tienen que pintar el MISMO
+  /// color para el mismo restaurante. Si cada uno eligiera el suyo, el local
+  /// cambiaria de color al abrirlo.
+  static List<Color> coverFor(int id) => _covers[id % _covers.length];
+
+  static const List<List<Color>> _covers = <List<Color>>[
+    <Color>[teal, Colors.white],
+    <Color>[coral, Colors.white],
+    <Color>[mint, navy],
+    <Color>[tealDeep, Colors.white],
+  ];
+
   static ThemeData light() {
     final ColorScheme scheme = ColorScheme.fromSeed(
       seedColor: teal,
