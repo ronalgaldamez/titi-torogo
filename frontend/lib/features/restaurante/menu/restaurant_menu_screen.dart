@@ -6,6 +6,7 @@ import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
+import 'categories_screen.dart';
 import 'menu_repository.dart';
 import 'product_form_screen.dart';
 
@@ -32,6 +33,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final Session _session = Session(AuthStorage());
 
   List<MenuCategory> _categories = <MenuCategory>[];
+
+  /// Platos que no estan en ninguna categoria.
+  ///
+  /// Existen de verdad: se pueden crear sin categoria, y al borrar una
+  /// categoria sus platos quedan sueltos (no se borran). Se muestran igual,
+  /// en su propia seccion, para que no desaparezcan de la vista.
+  List<Product> _uncategorized = <Product>[];
+
   String? _error;
   bool _loading = true;
 
@@ -57,14 +66,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     try {
       final ApiClient api = await _session.client();
-      final List<MenuCategory> categories = await MenuRepository(api).load();
+      final MenuData data = await MenuRepository(api).load();
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _categories = categories;
+        _categories = data.categories;
+        _uncategorized = data.uncategorized;
         _loading = false;
       });
     } on ApiException catch (error) {
@@ -109,6 +119,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       .toList(),
                 ))
             .toList();
+
+        _uncategorized = _uncategorized
+            .map((Product item) => item.id == updated.id ? updated : item)
+            .toList();
       });
     } on ApiException catch (error) {
       if (!mounted) {
@@ -123,6 +137,49 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         setState(() => _saving.remove(product.id));
       }
     }
+  }
+
+  /// Abre el formulario para agregar un plato o para editar uno existente.
+  ///
+  /// Al volver, si guardo algo, se recarga el menu ENTERO en vez de parchear
+  /// la lista a mano. Crear, editar o borrar cambian los conteos, el orden y
+  /// hasta la categoria en la que cae el plato: pedirlo de nuevo es mas
+  /// simple y siempre queda bien.
+  Future<void> _openForm({Product? product, int? categoryId}) async {
+    final bool? saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => ProductFormScreen(
+          categories: _categories,
+          product: product,
+          categoryId: categoryId,
+        ),
+      ),
+    );
+
+    if (!mounted || saved != true) {
+      return;
+    }
+
+    await _load();
+  }
+
+  /// Abre la pantalla de categorias.
+  ///
+  /// Se recarga SIEMPRE al volver, aunque no se sepa si cambio algo: una
+  /// peticion de mas es mas barata que una pantalla mostrando datos viejos.
+  Future<void> _openCategories() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) =>
+            CategoriesScreen(categories: _categories),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _load();
   }
 
   @override
@@ -143,6 +200,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           ),
         ),
         actions: <Widget>[
+          IconButton(
+            onPressed: _openCategories,
+            icon: const Icon(Icons.category_outlined),
+            color: AppTheme.navy,
+            tooltip: 'Categorías',
+          ),
           if (widget.onLogout != null)
             IconButton(
               onPressed: _confirmLogout,
@@ -178,13 +241,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
     }
 
-    if (_categories.isEmpty) {
+    if (_categories.isEmpty && _uncategorized.isEmpty) {
       return _Message(
         icon: Icons.restaurant_menu_rounded,
         title: 'Tu menú está vacío',
-        message: 'Todavía no tenés categorías ni platos cargados.',
-        actionLabel: 'Reintentar',
-        onAction: _load,
+        message: 'Creá una categoría para empezar a cargar tus platos.',
+        actionLabel: 'Crear categoría',
+        onAction: _openCategories,
       );
     }
 
@@ -202,56 +265,45 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ),
         children: <Widget>[
           for (final MenuCategory category in _categories) ...<Widget>[
-            _CategoryHeader(category: category),
-            ..._rowsOf(category),
+            _CategoryHeader(
+              title: category.name,
+              subtitle: _countLabel(category.productCount),
+            ),
+            ..._rowsOf(category.products, categoryId: category.id),
             const SizedBox(height: AppSpacing.lg),
+          ],
+          // Los platos sin categoria van al final, en su propia seccion. Solo
+          // aparece si hay alguno.
+          if (_uncategorized.isNotEmpty) ...<Widget>[
+            _CategoryHeader(
+              title: 'Sin categoría',
+              subtitle: _countLabel(_uncategorized.length),
+            ),
+            ..._rowsOf(_uncategorized),
           ],
         ],
       ),
     );
   }
 
-  /// Las filas de una categoria, o el aviso de que esta vacia.
-  List<Widget> _rowsOf(MenuCategory category) {
-    if (category.products.isEmpty) {
+  static String _countLabel(int count) =>
+      count == 1 ? '1 plato' : '$count platos';
+
+  /// Las filas de una lista de platos, o el aviso de que la categoria esta
+  /// vacia.
+  List<Widget> _rowsOf(List<Product> products, {int? categoryId}) {
+    if (products.isEmpty) {
       return const <Widget>[_EmptyCategory()];
     }
 
-    return category.products
+    return products
         .map((Product product) => _ProductTile(
               product: product,
               saving: _saving.contains(product.id),
               onChanged: (bool value) => _toggle(product, value),
-              onTap: () => _openForm(
-                product: product,
-                categoryId: category.id,
-              ),
+              onTap: () => _openForm(product: product, categoryId: categoryId),
             ))
         .toList();
-  }
-
-  /// Abre el formulario para agregar un plato o para editar uno existente.
-  ///
-  /// Al volver, si guardo algo, se recarga el menu ENTERO en vez de parchear
-  /// la lista a mano. Crear, editar o borrar cambian los conteos, el orden y
-  /// hasta la categoria en la que cae el plato: pedirlo de nuevo es mas
-  /// simple y siempre queda bien.
-  Future<void> _openForm({Product? product, int? categoryId}) async {
-    final bool? saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (BuildContext context) => ProductFormScreen(
-          categories: _categories,
-          product: product,
-          categoryId: categoryId,
-        ),
-      ),
-    );
-
-    if (!mounted || saved != true) {
-      return;
-    }
-
-    await _load();
   }
 
   Future<void> _confirmLogout() async {
@@ -279,12 +331,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 }
 
-/// El encabezado de una categoria: una barrita de color, el nombre y
-/// cuantos platos tiene.
+/// El encabezado de una seccion: una barrita de color, el nombre y cuantos
+/// platos tiene.
 class _CategoryHeader extends StatelessWidget {
-  const _CategoryHeader({required this.category});
+  const _CategoryHeader({required this.title, required this.subtitle});
 
-  final MenuCategory category;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +358,7 @@ class _CategoryHeader extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              category.name,
+              title,
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: AppTheme.navy,
@@ -315,9 +368,7 @@ class _CategoryHeader extends StatelessWidget {
             ),
           ),
           Text(
-            category.productCount == 1
-                ? '1 plato'
-                : '${category.productCount} platos',
+            subtitle,
             style: text.labelMedium?.copyWith(color: AppTheme.teal),
           ),
         ],

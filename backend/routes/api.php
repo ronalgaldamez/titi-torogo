@@ -73,6 +73,13 @@ Route::middleware(['auth:sanctum', 'restaurant'])
         Route::post('/menu/categories', [MenuController::class, 'storeCategory'])
             ->name('api.restaurant.menu.categories.store');
 
+        Route::put('/menu/categories/{category}', [MenuController::class, 'updateCategory'])
+            ->name('api.restaurant.menu.categories.update');
+
+        // Borra la categoria, NO sus platos: los deja sin categoria.
+        Route::delete('/menu/categories/{category}', [MenuController::class, 'destroyCategory'])
+            ->name('api.restaurant.menu.categories.destroy');
+
         Route::post('/menu/products', [MenuController::class, 'storeProduct'])
             ->name('api.restaurant.menu.products.store');
 
