@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
@@ -10,7 +11,10 @@ import 'features/restaurante/menu/restaurant_menu_screen.dart';
 import 'models/user.dart';
 
 void main() {
-  runApp(const ToroGoApp());
+  // ProviderScope es lo que hace funcionar a Riverpod: guarda el estado
+  // compartido (el carrito) por encima de todas las pantallas. Sin esto, cada
+  // pantalla que pidiera el carrito recibiria uno nuevo y vacio.
+  runApp(const ProviderScope(child: ToroGoApp()));
 }
 
 class ToroGoApp extends StatelessWidget {
