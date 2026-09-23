@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/theme.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
 import '../../../models/restaurant.dart';
+import '../carrito/cart.dart';
+import '../carrito/cart_provider.dart';
+import '../carrito/cart_sheet.dart';
 import 'restaurant_detail_repository.dart';
 
 /// La carta de un restaurante.
@@ -15,10 +19,9 @@ import 'restaurant_detail_repository.dart';
 /// El menu que se ve es el del CLIENTE: sin platos agotados y sin categorias
 /// vacias. El filtro lo hace el backend.
 ///
-/// OJO: por ahora es solo mirar. Agregar al carrito viene en el paso
-/// siguiente, y por eso los platos todavia NO se tocan: un boton que no hace
-/// nada es peor que no tener boton.
-class RestaurantDetailScreen extends StatefulWidget {
+/// Tocar un plato abre su detalle, con el boton de agregar al carrito. Y abajo
+/// aparece la barrita con lo que ya llevas.
+class RestaurantDetailScreen extends ConsumerStatefulWidget {
   const RestaurantDetailScreen({
     required this.restaurant,
     this.latitude,
@@ -36,10 +39,12 @@ class RestaurantDetailScreen extends StatefulWidget {
   final double? longitude;
 
   @override
-  State<RestaurantDetailScreen> createState() => _RestaurantDetailScreenState();
+  ConsumerState<RestaurantDetailScreen> createState() =>
+      _RestaurantDetailScreenState();
 }
 
-class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
+class _RestaurantDetailScreenState
+    extends ConsumerState<RestaurantDetailScreen> {
   late Future<RestaurantDetail> _future;
 
   @override
@@ -71,6 +76,97 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         : 'No pudimos cargar la carta.';
   }
 
+  /// Abre el detalle del plato.
+  ///
+  /// La biblia lo pide como modal o bottom sheet: el cliente mira el plato sin
+  /// perder de vista la carta que tenia atras.
+  void _openProduct(Product product) {
+    final Cart cart = ref.read(cartProvider);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.card),
+        ),
+      ),
+      builder: (BuildContext sheetContext) => _ProductSheet(
+        product: product,
+        quantityInCart: cart.quantityOf(product.id),
+        onAdd: () {
+          Navigator.of(sheetContext).pop();
+          _add(product);
+        },
+      ),
+    );
+  }
+
+  /// Agrega una unidad del plato al carrito.
+  Future<void> _add(Product product) async {
+    final CartNotifier cart = ref.read(cartProvider.notifier);
+    final Restaurant restaurant = widget.restaurant;
+
+    final bool added = await cart.add(
+      product,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+    );
+
+    // Se agrego bien, o la pantalla ya no esta.
+    if (added || !mounted) {
+      return;
+    }
+
+    // El carrito es de OTRO restaurante. No se vacia solo: se pregunta.
+    final bool confirmed = await _confirmReplace(restaurant.name) ?? false;
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    await cart.clear();
+    await cart.add(
+      product,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+    );
+  }
+
+  /// Pregunta si se empieza de nuevo con el carrito del otro restaurante.
+  ///
+  /// Se pregunta en vez de vaciarlo sin avisar porque el cliente puede haber
+  /// armado un pedido con calma en el otro local.
+  Future<bool?> _confirmReplace(String restaurantName) {
+    final String? current = ref.read(cartProvider).restaurantName;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('¿Empezar de nuevo?'),
+        content: Text(
+          'Tu pedido es de ${current ?? 'otro restaurante'}. Para pedir en '
+          '$restaurantName hay que vaciarlo, porque un pedido va a un solo '
+          'restaurante.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.coral,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Vaciar y agregar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
@@ -91,6 +187,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           overflow: TextOverflow.ellipsis,
         ),
       ),
+      // La barrita del carrito. Se muestra sola cuando hay algo adentro.
+      bottomNavigationBar: const CartBar(),
       body: FutureBuilder<RestaurantDetail>(
         future: _future,
         builder: (
@@ -129,7 +227,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     in snapshot.data!.categories) ...<Widget>[
                   _CategoryHeader(category: category),
                   for (final Product product in category.products)
-                    _ProductRow(product: product),
+                    _ProductRow(
+                      product: product,
+                      onTap: () => _openProduct(product),
+                    ),
                   const SizedBox(height: AppSpacing.lg),
                 ],
             ],
@@ -374,65 +475,72 @@ class _CategoryHeader extends StatelessWidget {
 
 /// Un plato de la carta.
 ///
-/// Todavia NO se toca: sin carrito, un toque no tendria nada que hacer. En el
-/// paso siguiente esta fila pasa a abrir el detalle del plato con el boton de
-/// agregar.
+/// Se toca para ver el detalle y agregarlo. El toque NO agrega directo: la
+/// biblia pide el detalle del plato, y ademas agregar sin querer es la forma
+/// mas facil de armarle a alguien un pedido que no pidio.
 class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.product});
+  const _ProductRow({required this.product, required this.onTap});
 
   final Product product;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final ColorScheme colors = Theme.of(context).colorScheme;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  product.name,
-                  style: text.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.navy,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        product.name,
+                        style: text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.navy,
+                        ),
+                      ),
+                      if (product.description != null &&
+                          product.description!.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 2),
+                        Text(
+                          product.description!,
+                          style: text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (product.description != null &&
-                    product.description!.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
-                  Text(
-                    product.description!,
-                    style: text.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  '\$${product.price}',
+                  style: text.titleSmall?.copyWith(
+                    color: AppTheme.coral,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
+                ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            '\$${product.price}',
-            style: text.titleSmall?.copyWith(
-              color: AppTheme.coral,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -513,6 +621,98 @@ class _ErrorBox extends StatelessWidget {
             child: const Text('Reintentar'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// La hoja con el detalle de un plato, y el boton de agregar.
+///
+/// La biblia la pide asi: *"Detalle de producto (modal/bottom sheet)"*.
+class _ProductSheet extends StatelessWidget {
+  const _ProductSheet({
+    required this.product,
+    required this.quantityInCart,
+    required this.onAdd,
+  });
+
+  final Product product;
+
+  /// Cuantas unidades hay ya en el carrito. Se avisa para que el cliente no
+  /// agregue dos veces creyendo que la primera no entro.
+  final int quantityInCart;
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final ColorScheme colors = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              product.name,
+              style: text.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppTheme.navy,
+              ),
+            ),
+            if (product.description != null &&
+                product.description!.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                product.description!,
+                style: text.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '\$${product.price}',
+              style: text.headlineSmall?.copyWith(
+                color: AppTheme.coral,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (quantityInCart > 0) ...<Widget>[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                quantityInCart == 1
+                    ? 'Ya tenés 1 en el carrito.'
+                    : 'Ya tenés $quantityInCart en el carrito.',
+                style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              height: 52,
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onAdd,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.coral,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                ),
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
+                label: const Text(
+                  'Agregar al carrito',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

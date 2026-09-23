@@ -51,6 +51,24 @@ class Product {
     );
   }
 
+  /// Para guardar el carrito en el telefono.
+  ///
+  /// Usa las MISMAS claves que la API (snake_case) para que un producto
+  /// guardado se pueda volver a leer con [Product.fromJson] sin traducciones
+  /// en el medio. Si los dos formatos se separaran, un dia guardariamos una
+  /// cosa y leeria otra.
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'name': name,
+      'description': description,
+      'price': price,
+      'image_url': imageUrl,
+      'is_available': isAvailable,
+      'sort_order': sortOrder,
+    };
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id'] as int,
