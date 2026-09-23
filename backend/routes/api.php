@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CourierOrderController;
 use App\Http\Controllers\Api\MenuController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
+use App\Http\Controllers\Api\RestaurantOrderController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +55,30 @@ Route::get('/restaurants', [RestaurantController::class, 'index'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
+
+    // ------------------------------ Pedidos ------------------------------
+
+    /*
+    | Cualquier cuenta con sesion puede pedir: pedir NO es un privilegio de un
+    | perfil. El dueno del restaurante tambien come, y el motorizado tambien.
+    | Lo que cambia por perfil es lo que cada uno puede VER y HACER con el
+    | pedido, y eso vive en las rutas de abajo.
+    |
+    | La clave contra el doble cobro viaja en el cuerpo ('idempotency_key'),
+    | no en la URL: es parte del pedido, no una direccion.
+    */
+    Route::post('/orders', [OrderController::class, 'store'])
+        ->name('api.orders.store');
+
+    /*
+    | Ver MIS pedidos. Las consultas salen de la relacion del usuario, asi que
+    | cada uno ve solo los suyos: el pedido de otro responde 404.
+    */
+    Route::get('/orders', [OrderController::class, 'index'])
+        ->name('api.orders.index');
+
+    Route::get('/orders/{order}', [OrderController::class, 'show'])
+        ->name('api.orders.show');
 });
 
 // ------------------------ Panel del restaurante ------------------------
@@ -94,4 +121,50 @@ Route::middleware(['auth:sanctum', 'restaurant'])
         // Borrado suave del plato.
         Route::delete('/menu/products/{product}', [MenuController::class, 'destroyProduct'])
             ->name('api.restaurant.menu.products.destroy');
+
+        // ---------------------------- Pedidos ----------------------------
+
+        // Sin ?status, devuelve los pedidos EN CURSO (el historial se pide
+        // con ?status=delivered).
+        Route::get('/orders', [RestaurantOrderController::class, 'index'])
+            ->name('api.restaurant.orders.index');
+
+        // Aceptar, rechazar, preparando, listo para recoger.
+        // PATCH y no PUT: cambia UN campo del pedido, el estado.
+        Route::patch('/orders/{order}', [RestaurantOrderController::class, 'updateStatus'])
+            ->name('api.restaurant.orders.status');
+    });
+
+// ------------------------- App del motorizado --------------------------
+
+/*
+| Solo para cuentas de motorizado (ver EnsureCourierAccount).
+|
+| OJO con el orden de estas rutas: '/orders/available' va ANTES de
+| '/orders/{order}'. Si estuviera despues, Laravel leeria "available" como el
+| id de un pedido y respondería 404 buscando un pedido llamado "available".
+*/
+Route::middleware(['auth:sanctum', 'courier'])
+    ->prefix('courier')
+    ->group(function () {
+        // "Disponible / No disponible".
+        Route::patch('/availability', [CourierOrderController::class, 'updateAvailability'])
+            ->name('api.courier.availability');
+
+        // Los pedidos que YO llevo (tracking activo).
+        Route::get('/orders', [CourierOrderController::class, 'index'])
+            ->name('api.courier.orders.index');
+
+        // Los que estan listos para recoger y sin repartidor, cerca de mi.
+        Route::get('/orders/available', [CourierOrderController::class, 'available'])
+            ->name('api.courier.orders.available');
+
+        // Tomar el pedido. POST y no PATCH: no lo edita, me lo ASIGNA — y esa
+        // asignacion puede pasar UNA sola vez.
+        Route::post('/orders/{order}/take', [CourierOrderController::class, 'take'])
+            ->name('api.courier.orders.take');
+
+        // Recogido y entregado.
+        Route::patch('/orders/{order}', [CourierOrderController::class, 'updateStatus'])
+            ->name('api.courier.orders.status');
     });

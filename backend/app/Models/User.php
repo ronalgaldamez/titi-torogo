@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -75,5 +76,32 @@ class User extends Authenticatable
     public function restaurant(): HasOne
     {
         return $this->hasOne(Restaurant::class);
+    }
+
+    /**
+     * Las direcciones guardadas del cliente.
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    /**
+     * Los pedidos que hizo COMO CLIENTE.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Los pedidos que lleva COMO MOTORIZADO.
+     *
+     * Lleva el nombre de la llave explicito porque la convencion de Laravel
+     * buscaria 'user_id' — que es la del cliente, no la del motorizado.
+     */
+    public function courierOrders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'courier_id');
     }
 }
