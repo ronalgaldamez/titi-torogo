@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RestaurantDetailRequest;
 use App\Http\Requests\RestaurantIndexRequest;
 use App\Http\Resources\DeliveryZoneResource;
+use App\Http\Resources\MenuCategoryResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\DeliveryZone;
+use App\Models\MenuCategory;
 use App\Models\Restaurant;
 use App\Support\Geometry;
 use Illuminate\Http\JsonResponse;
@@ -73,6 +76,71 @@ class RestaurantController extends Controller
         return response()->json([
             'zone' => new DeliveryZoneResource($zone),
             'restaurants' => RestaurantResource::collection($restaurants),
+        ]);
+    }
+
+    /**
+     * GET /api/restaurants/{restaurant}?latitude=..&longitude=..
+     *
+     * El detalle: el restaurante con su menu, agrupado por categorias.
+     *
+     * Es la pantalla a la que se llega desde el Home — y es PUBLICA, igual
+     * que el listado: el cliente mira la carta antes de crear su cuenta.
+     */
+    public function show(
+        RestaurantDetailRequest $request,
+        int $restaurant,
+    ): JsonResponse {
+        $model = Restaurant::query()
+            ->where('is_active', true)
+            ->findOrFail($restaurant);
+
+        // AL REVES QUE EL MENU DEL RESTAURANTE: aca van solo los platos
+        // DISPONIBLES.
+        //
+        // El dueno necesita ver los agotados para poder reactivarlos; el
+        // cliente no tiene por que ver lo que hoy no hay. La misma tabla, dos
+        // preguntas distintas.
+        $categories = $model->menuCategories()
+            ->with([
+                'products' => fn ($query) => $query->where('is_available', true),
+            ])
+            ->get()
+            // Y una categoria que se quedo SIN ningun plato disponible no se
+            // muestra: una seccion vacia en la carta es ruido.
+            ->filter(fn (MenuCategory $category): bool => $category->products->isNotEmpty())
+            ->values();
+
+        // La ubicacion es OPCIONAL. Si la app la mando, se resuelven la
+        // distancia y la tarifa igual que en el Home; si no, las dos viajan
+        // en null y la app las completa despues.
+        $latitude = $request->validated('latitude');
+        $longitude = $request->validated('longitude');
+
+        if ($latitude !== null && $longitude !== null) {
+            $latitude = (float) $latitude;
+            $longitude = (float) $longitude;
+
+            $model->setAttribute('distance_km', Geometry::distanceKm(
+                $latitude,
+                $longitude,
+                $model->latitude,
+                $model->longitude,
+            ));
+
+            $zone = $this->findZone($latitude, $longitude);
+
+            // Si no hay zona, queda null: la app ya sabe mostrar "todavia no
+            // llegamos ahi" y no tiene sentido inventar una tarifa.
+            $model->setAttribute(
+                'resolved_delivery_fee',
+                $model->delivery_fee ?? $zone?->deliveryFee(),
+            );
+        }
+
+        return response()->json([
+            'restaurant' => new RestaurantResource($model),
+            'categories' => MenuCategoryResource::collection($categories),
         ]);
     }
 
