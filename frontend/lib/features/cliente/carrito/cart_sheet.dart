@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../pedido/checkout_screen.dart';
 import 'cart.dart';
 import 'cart_provider.dart';
 
@@ -35,7 +36,17 @@ class CartBar extends ConsumerWidget {
           borderRadius: BorderRadius.circular(AppRadius.pill),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: () => CartSheet.show(context),
+            onTap: () async {
+              final bool? go = await CartSheet.show(context);
+
+              if ((go ?? false) && context.mounted) {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => const CheckoutScreen(),
+                  ),
+                );
+              }
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
@@ -101,8 +112,14 @@ class CartSheet extends ConsumerWidget {
   const CartSheet({super.key});
 
   /// Abre la hoja desde abajo.
-  static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+  ///
+  /// Devuelve `true` si el cliente toco "Continuar".
+  ///
+  /// Abrir el checkout lo hace QUIEN ABRIO LA HOJA (la barrita) y no la hoja
+  /// misma: cuando este `show` termina, el contexto de la hoja se esta
+  /// cerrando, y usarlo para navegar es pedir un error.
+  static Future<bool?> show(BuildContext context) {
+    return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
@@ -189,7 +206,27 @@ class CartSheet extends ConsumerWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: FilledButton(
+                  // pop(true): le avisa a la barrita que abra el checkout.
+                  // La hoja NO navega sola (ver CartSheet.show).
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.coral,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continuar',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
