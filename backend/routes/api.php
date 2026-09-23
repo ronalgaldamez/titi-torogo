@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CourierOrderController;
 use App\Http\Controllers\Api\MenuController;
@@ -46,6 +47,15 @@ Route::post('/register', [AuthController::class, 'register'])
 Route::get('/restaurants', [RestaurantController::class, 'index'])
     ->name('api.restaurants.index');
 
+/*
+ * El detalle con el menu. Tambien publica, por lo mismo.
+ *
+ * Va DESPUES de /restaurants y no hay conflicto: son rutas distintas
+ * ('/restaurants' y '/restaurants/{restaurant}').
+ */
+Route::get('/restaurants/{restaurant}', [RestaurantController::class, 'show'])
+    ->name('api.restaurants.show');
+
 // ---------------------------- Rutas protegidas -------------------------
 
 /*
@@ -55,6 +65,28 @@ Route::get('/restaurants', [RestaurantController::class, 'index'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
+
+    // ---------------------------- Direcciones ----------------------------
+
+    /*
+    | Las direcciones guardadas del cliente ("Mis direcciones" en la biblia, y
+    | el paso "elegir entre guardadas" del checkout).
+    |
+    | Cada uno ve solo las suyas: las consultas salen de la relacion del
+    | usuario, asi que la direccion de otro responde 404.
+    */
+    Route::get('/addresses', [AddressController::class, 'index'])
+        ->name('api.addresses.index');
+
+    Route::post('/addresses', [AddressController::class, 'store'])
+        ->name('api.addresses.store');
+
+    // El formulario manda la direccion completa.
+    Route::put('/addresses/{address}', [AddressController::class, 'update'])
+        ->name('api.addresses.update');
+
+    Route::delete('/addresses/{address}', [AddressController::class, 'destroy'])
+        ->name('api.addresses.destroy');
 
     // ------------------------------ Pedidos ------------------------------
 
