@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // repetir el nombre completo de la clase en cada grupo.
         $middleware->alias([
             'restaurant' => \App\Http\Middleware\EnsureRestaurantAccount::class,
+            'courier' => \App\Http\Middleware\EnsureCourierAccount::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -101,4 +101,12 @@ class Restaurant extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    /**
+     * Los pedidos que le hicieron.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
 }

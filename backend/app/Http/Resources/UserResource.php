@@ -27,6 +27,12 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role->value,
             'role_label' => $this->role->label(),
+
+            // Solo lo usa el motorizado ("Disponible / No disponible"). Va en
+            // el usuario y no en un pedido porque es el estado de la PERSONA:
+            // sirve para saber si esta trabajando en este momento. En los
+            // otros perfiles viaja en false y a nadie le importa.
+            'is_available' => (bool) $this->is_available,
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
