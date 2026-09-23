@@ -13,7 +13,7 @@ class Restaurant {
     required this.isOpen,
     required this.isBusy,
     required this.estimatedDeliveryMinutes,
-    required this.deliveryFee,
+    this.deliveryFee,
     this.description,
     this.phone,
     this.logoUrl,
@@ -40,7 +40,11 @@ class Restaurant {
 
   /// Tarifa final del envio, ya resuelta: la promocion del restaurante si
   /// tiene una, o la de la zona si no. Como String, por lo del dinero.
-  final String deliveryFee;
+  ///
+  /// Puede ser null: el detalle de un restaurante se puede pedir SIN
+  /// ubicacion, y fuera de toda zona no hay tarifa que resolver. El Home, en
+  /// cambio, siempre la manda resuelta.
+  final String? deliveryFee;
 
   /// Distancia desde donde esta el cliente, en kilometros.
   final double? distanceKm;
@@ -58,7 +62,11 @@ class Restaurant {
       isOpen: json['is_open'] as bool,
       isBusy: json['is_busy'] as bool,
       estimatedDeliveryMinutes: json['estimated_delivery_minutes'] as int,
-      deliveryFee: '${json['delivery_fee']}',
+      // OJO: '${null}' da la cadena "null", y eso se veria tal cual en la
+      // pantalla ("envio $null"). Por eso se revisa antes de convertir.
+      deliveryFee: json['delivery_fee'] == null
+          ? null
+          : '${json['delivery_fee']}',
       distanceKm: (json['distance_km'] as num?)?.toDouble(),
     );
   }

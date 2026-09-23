@@ -21,23 +21,15 @@ class RestaurantCard extends StatelessWidget {
   final Restaurant restaurant;
   final VoidCallback? onTap;
 
-  /// Colores de portada, repartidos por id.
-  ///
-  /// Son los 4 tonos de la paleta de marca, asi que la lista se ve viva
-  /// SIN salirse de "paleta limitada y consistente" (AGENDS).
-  static const List<List<Color>> _covers = <List<Color>>[
-    <Color>[AppTheme.teal, Colors.white],
-    <Color>[AppTheme.coral, Colors.white],
-    <Color>[AppTheme.mint, AppTheme.navy],
-    <Color>[AppTheme.tealDeep, Colors.white],
-  ];
+  // Los colores de portada NO viven aqui: se piden a AppTheme.coverFor, para
+  // que esta tarjeta y el encabezado de la carta pinten lo mismo.
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
     final BorderRadius radius = BorderRadius.circular(AppRadius.card);
-    final List<Color> cover = _covers[restaurant.id % _covers.length];
+    final List<Color> cover = AppTheme.coverFor(restaurant.id);
 
     return Material(
       color: colors.surface,
@@ -194,22 +186,27 @@ class _MetaRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            Text(
-              'envio',
-              style: text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-            ),
-            Text(
-              '\$${restaurant.deliveryFee}',
-              style: text.titleMedium?.copyWith(
-                color: AppTheme.coral,
-                fontWeight: FontWeight.w800,
+        // Sin tarifa no se muestra el bloque. En el Home nunca pasa (siempre
+        // viene resuelta), pero la tarjeta tambien se usa donde el envio
+        // todavia no esta resuelto.
+        if (restaurant.deliveryFee != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                'envio',
+                style:
+                    text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
               ),
-            ),
-          ],
-        ),
+              Text(
+                '\$${restaurant.deliveryFee}',
+                style: text.titleMedium?.copyWith(
+                  color: AppTheme.coral,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

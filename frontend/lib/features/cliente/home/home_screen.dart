@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import '../../../core/theme.dart';
 import '../../../models/delivery_zone.dart';
+import '../../../models/restaurant.dart';
+import '../restaurante/restaurant_detail_screen.dart';
 import 'home_repository.dart';
 import 'widgets/restaurant_card.dart';
 
@@ -59,6 +61,23 @@ class _HomeScreenState extends State<HomeScreen> {
       // El error ya lo muestra el FutureBuilder. Aqui solo evitamos que
       // la excepcion quede sin manejar.
     }
+  }
+
+  /// Abre la carta del restaurante.
+  ///
+  /// Se le pasa la MISMA ubicacion con la que se cargo el Home: con eso el
+  /// backend resuelve la distancia y la tarifa de envio del detalle, y los
+  /// numeros que se ven en la carta coinciden con los de la tarjeta.
+  void _openRestaurant(Restaurant restaurant) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => RestaurantDetailScreen(
+          restaurant: restaurant,
+          latitude: _latitude,
+          longitude: _longitude,
+        ),
+      ),
+    );
   }
 
   /// Pide confirmacion antes de cerrar sesion.
@@ -170,7 +189,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   return _SectionTitle(count: total);
                 }
 
-                return RestaurantCard(restaurant: data.restaurants[index - 2]);
+                final Restaurant restaurant = data.restaurants[index - 2];
+
+                return RestaurantCard(
+                  restaurant: restaurant,
+                  onTap: () => _openRestaurant(restaurant),
+                );
               },
             ),
           );
