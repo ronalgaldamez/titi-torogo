@@ -7,6 +7,7 @@ import 'core/theme.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/login_screen.dart';
 import 'features/cliente/home/home_screen.dart';
+import 'features/motorizado/courier_screen.dart';
 import 'features/restaurante/restaurante_shell.dart';
 import 'models/user.dart';
 
@@ -32,16 +33,16 @@ class ToroGoApp extends StatelessWidget {
 }
 
 /// Con que pantalla arranca la app.
-enum _Start { loading, login, home, restaurantMenu }
+enum _Start { loading, login, home, restaurantMenu, courier }
 
 /// Decide la pantalla inicial y controla la sesion.
 ///
 ///   Con token guardado -> la pantalla de SU perfil
 ///   Sin token          -> Login (y desde ahi se puede explorar sin cuenta)
 ///
-/// El PERFIL manda: un cliente entra al catalogo y un restaurante a su menu.
-/// Motorizado y admin todavia no tienen pantalla propia, asi que por ahora
-/// caen en el Home, que es publico y no rompe nada.
+/// El PERFIL manda: un cliente entra al catalogo, un restaurante a su panel de
+/// pedidos, y un motorizado a su dia. El admin todavia no tiene pantalla
+/// propia, asi que cae en el Home — que es publico y no rompe nada.
 class _Startup extends StatefulWidget {
   const _Startup();
 
@@ -61,9 +62,19 @@ class _StartupState extends State<_Startup> {
   /// (UserRole::Restaurant en el backend). Si alla cambia, cambia aqui.
   static const String _restaurantRole = 'restaurant';
 
+  /// Idem con 'courier'.
+  static const String _courierRole = 'courier';
+
   /// A que pantalla entra una sesion ya iniciada.
+  ///
+  /// Los tres perfiles con pantalla propia van cada uno a la suya. El admin
+  /// todavia no tiene, asi que cae en el Home — que es publico y no rompe nada.
   static _Start _startFor(String? role) {
-    return role == _restaurantRole ? _Start.restaurantMenu : _Start.home;
+    return switch (role) {
+      _restaurantRole => _Start.restaurantMenu,
+      _courierRole => _Start.courier,
+      _ => _Start.home,
+    };
   }
 
   @override
@@ -120,6 +131,13 @@ class _StartupState extends State<_Startup> {
         // La app del restaurante ahora tiene pestanas (Pedidos / Mi menu):
         // antes caia directo en el menu y no habia de donde salir.
         return RestauranteShell(
+          onLogout: _authenticated ? _logout : null,
+        );
+
+      case _Start.courier:
+        // La app del motorizado: disponibilidad, pedidos cerca, y los botones
+        // de recoger y entregar.
+        return CourierScreen(
           onLogout: _authenticated ? _logout : null,
         );
 
