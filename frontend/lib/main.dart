@@ -7,7 +7,7 @@ import 'core/theme.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/login_screen.dart';
 import 'features/cliente/home/home_screen.dart';
-import 'features/restaurante/menu/restaurant_menu_screen.dart';
+import 'features/restaurante/restaurante_shell.dart';
 import 'models/user.dart';
 
 void main() {
@@ -117,7 +117,9 @@ class _StartupState extends State<_Startup> {
         );
 
       case _Start.restaurantMenu:
-        return RestaurantMenuScreen(
+        // La app del restaurante ahora tiene pestanas (Pedidos / Mi menu):
+        // antes caia directo en el menu y no habia de donde salir.
+        return RestauranteShell(
           onLogout: _authenticated ? _logout : null,
         );
 
