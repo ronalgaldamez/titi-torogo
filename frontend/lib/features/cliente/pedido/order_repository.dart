@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../../../core/api_client.dart';
+import '../../../models/order.dart';
 import '../carrito/cart.dart';
 
 /// La capa de datos de los pedidos del cliente.
@@ -52,6 +53,42 @@ class OrderRepository {
     );
 
     return (json['order'] as Map<String, dynamic>)['id'] as int;
+  }
+
+  /// GET /api/orders
+  ///
+  /// Los pedidos EN CURSO del cliente: los que todavia no terminaron. Es lo
+  /// que el cliente quiere ver mientras espera la comida.
+  Future<List<Order>> loadActive() async {
+    return _list(await _api.get('/orders'));
+  }
+
+  /// GET /api/orders?scope=history
+  ///
+  /// Los TERMINADOS: entregados, rechazados y cancelados. La pantalla
+  /// "Mis pedidos".
+  Future<List<Order>> loadHistory() async {
+    return _list(await _api.get(
+      '/orders',
+      query: <String, dynamic>{'scope': 'history'},
+    ));
+  }
+
+  /// GET /api/orders/{id}
+  ///
+  /// El detalle de UNO, para el seguimiento. Se pide de nuevo en vez de usar el
+  /// que ya teniamos: mientras el cliente mira la pantalla, el restaurante
+  /// puede haberlo aceptado.
+  Future<Order> show(int orderId) async {
+    final Map<String, dynamic> json = await _api.get('/orders/$orderId');
+
+    return Order.fromJson(json['order'] as Map<String, dynamic>);
+  }
+
+  List<Order> _list(Map<String, dynamic> json) {
+    final List<dynamic> raw = (json['orders'] as List<dynamic>?) ?? <dynamic>[];
+
+    return raw.cast<Map<String, dynamic>>().map(Order.fromJson).toList();
   }
 
   /// Una clave nueva, para un checkout nuevo.
