@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../../../core/theme.dart';
 import '../../../models/delivery_zone.dart';
 import '../../../models/restaurant.dart';
+import '../pedido/my_orders_screen.dart';
 import '../restaurante/restaurant_detail_screen.dart';
 import 'home_repository.dart';
 import 'widgets/restaurant_card.dart';
@@ -80,6 +81,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Abre "Mis pedidos": el seguimiento de lo que esta en curso y el historial.
+  void _openMyOrders() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const MyOrdersScreen(),
+      ),
+    );
+  }
+
   /// Pide confirmacion antes de cerrar sesion.
   ///
   /// Cerrar sesion es una accion que se toca sin querer, y deshacerla
@@ -129,7 +139,15 @@ class _HomeScreenState extends State<HomeScreen> {
         titleSpacing: AppSpacing.md,
         title: const _Wordmark(),
         actions: <Widget>[
-          // El boton de salir SOLO aparece con sesion iniciada.
+          // "Mis pedidos" y "salir" SOLO aparecen con sesion iniciada: los
+          // pedidos son de cada uno, y sin cuenta no hay nada que cerrar.
+          if (widget.onLogout != null)
+            IconButton(
+              onPressed: _openMyOrders,
+              icon: const Icon(Icons.receipt_long_rounded),
+              color: AppTheme.navy,
+              tooltip: 'Mis pedidos',
+            ),
           if (widget.onLogout != null)
             IconButton(
               onPressed: _confirmLogout,

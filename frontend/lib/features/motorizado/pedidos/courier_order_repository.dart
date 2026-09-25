@@ -19,7 +19,7 @@ class CourierOrderRepository {
   /// OJO CON LA FORMA DE LA RESPUESTA: `/me` devuelve el usuario DIRECTO, sin
   /// envolverlo en "user". El login y el PATCH de disponibilidad SI lo
   /// envuelven. Leerlo mal da "type 'Null' is not a subtype of type
-  /// 'Map<String, dynamic>'", porque `json['user']` no existe.
+  /// Map", porque `json['user']` no existe.
   Future<bool> loadAvailability() async {
     final Map<String, dynamic> json = await _api.get('/me');
 
