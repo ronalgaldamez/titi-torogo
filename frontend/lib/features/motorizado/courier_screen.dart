@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/auth_storage.dart';
+import '../../core/location.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../models/order.dart';
@@ -30,13 +31,11 @@ class _Step {
 }
 
 class _CourierScreenState extends State<CourierScreen> {
-  /// Ubicacion de prueba: Mall del Sol, Tejutla.
+  /// Donde esta el motorizado.
   ///
-  /// TODO: reemplazar por el GPS real del telefono, igual que en el Home del
-  /// cliente. Con esta coordenada el radio de 5 km funciona y la lista se ve
-  /// con datos reales en vez de vacia.
-  static const double _latitude = 14.101203787387021;
-  static const double _longitude = -89.15061654556241;
+  /// Arranca en la ubicacion de respaldo (Mall del Sol) y se reemplaza por la
+  /// del telefono en cuanto llega. El backend la usa para el radio de 5 km.
+  Place _place = LocationService.fallback;
 
   final Session _session = Session(AuthStorage());
 
@@ -51,7 +50,22 @@ class _CourierScreenState extends State<CourierScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _start();
+  }
+
+  /// Pide la ubicacion UNA vez y despues carga.
+  ///
+  /// A diferencia del Home del cliente, aca NO se vuelve a preguntar en cada
+  /// actualizacion: el motorizado se mueve todo el dia, pero preguntarle al GPS
+  /// en cada refresco lo haria lento sin ganar nada.
+  Future<void> _start() async {
+    final Place place = await LocationService().current();
+
+    if (mounted) {
+      setState(() => _place = place);
+    }
+
+    await _load();
   }
 
   Future<void> _load() async {
@@ -70,8 +84,8 @@ class _CourierScreenState extends State<CourierScreen> {
       // nada que mostrar y seria una peticion de mas.
       final List<Order> nearby = available
           ? await repository.loadAvailable(
-              latitude: _latitude,
-              longitude: _longitude,
+              latitude: _place.latitude,
+              longitude: _place.longitude,
             )
           : <Order>[];
 
