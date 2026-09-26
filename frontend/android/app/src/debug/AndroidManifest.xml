@@ -4,4 +4,16 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- SOLO EN DESARROLLO: permite HTTP sin cifrar.
+         Desde Android 9, el sistema BLOQUEA el trafico http:// por defecto y
+         solo deja pasar https://. Nuestro backend de desarrollo es
+         http://localhost:8080, asi que sin esto la app no puede hablar con el
+         servidor: las peticiones fallan con "CLEARTEXT communication not
+         permitted".
+
+         Va en el manifiesto de DEBUG y no en el de produccion a proposito: en
+         la version final el backend va por HTTPS y este permiso no tiene por
+         que existir. Un permiso de mas que nadie usa es un agujero de mas. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

@@ -1,4 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permiso de ubicacion.
+         El Home del cliente y la app del motorizado la necesitan para saber
+         donde estan. Sin esto Android le niega la ubicacion a la app, y la app
+         cae en la ubicacion de respaldo (Tejutla) avisando con la franja
+         amarilla: funciona, pero no es la ubicacion real.
+
+         Van las dos: COARSE (aproximada, por antenas y wifi) y FINE (exacta,
+         por GPS). Android deja pedir la exacta, y el cliente decide. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
     <application
         android:label="torogo"
         android:name="${applicationName}"
