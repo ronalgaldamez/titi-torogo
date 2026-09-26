@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/location.dart';
 import '../../../core/theme.dart';
 import '../../../models/delivery_zone.dart';
 import '../../../models/restaurant.dart';
@@ -25,13 +26,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// Ubicacion de prueba: Mall del Sol, Tejutla.
+  /// Donde creemos que esta el cliente.
   ///
-  /// TODO: reemplazar por el GPS real del telefono. Mientras tanto se usa
-  /// esta coordenada, que esta DENTRO de la zona de reparto, para poder ver
-  /// el Home con datos reales sin pelear todavia con permisos de Android.
-  static const double _latitude = 14.101203787387021;
-  static const double _longitude = -89.15061654556241;
+  /// Arranca en la ubicacion de respaldo y se reemplaza por la del telefono en
+  /// cuanto llega. La marca `isReal` es la que decide si mostramos el aviso de
+  /// "ubicacion aproximada".
+  Place _place = LocationService.fallback;
 
   late final HomeRepository _repository;
   late Future<HomeData> _future;
@@ -40,15 +40,34 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _repository = HomeRepository(ApiClient());
-    _future = _load();
+    _future = _start();
+  }
+
+  /// Pide la ubicacion y DESPUES carga los restaurantes.
+  ///
+  /// El orden importa: el Home no pregunta "que restaurantes hay", pregunta
+  /// "que puedo entregar DONDE ESTAS". Sin la ubicacion no hay que preguntar.
+  Future<HomeData> _start() async {
+    final Place place = await LocationService().current();
+
+    if (mounted) {
+      setState(() => _place = place);
+    }
+
+    return _load();
   }
 
   Future<HomeData> _load() {
-    return _repository.load(latitude: _latitude, longitude: _longitude);
+    return _repository.load(
+      latitude: _place.latitude,
+      longitude: _place.longitude,
+    );
   }
 
   Future<void> _reload() async {
-    final Future<HomeData> next = _load();
+    // Al deslizar se vuelve a preguntar la ubicacion: el cliente pudo haberse
+    // movido, y para eso esta el gesto.
+    final Future<HomeData> next = _start();
 
     setState(() {
       _future = next;
@@ -74,8 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute<void>(
         builder: (BuildContext context) => RestaurantDetailScreen(
           restaurant: restaurant,
-          latitude: _latitude,
-          longitude: _longitude,
+          latitude: _place.latitude,
+          longitude: _place.longitude,
         ),
       ),
     );
@@ -204,7 +223,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 if (index == 1) {
-                  return _SectionTitle(count: total);
+                  return Column(
+                    children: <Widget>[
+                      // Si el GPS no dio una ubicacion de verdad, se dice. Es
+                      // la diferencia entre "esto es lo que hay cerca tuyo" y
+                      // "esto es lo que hay cerca de Tejutla".
+                      if (!_place.isReal) const _LocationNotice(),
+                      _SectionTitle(count: total),
+                    ],
+                  );
                 }
 
                 final Restaurant restaurant = data.restaurants[index - 2];
@@ -217,6 +244,53 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// El aviso de que la ubicacion NO es la del telefono.
+///
+/// Es una franja chiquita y no un cartel rojo: la app funciona igual, solo que
+/// con la ubicacion de Tejutla. Asustar al cliente por eso seria peor que el
+/// problema que avisa.
+class _LocationNotice extends StatelessWidget {
+  const _LocationNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.yellow,
+        borderRadius: BorderRadius.circular(AppRadius.image),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(
+            Icons.location_searching_rounded,
+            size: 16,
+            color: AppTheme.navy,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Estamos usando la ubicación de Tejutla. Activá el GPS para ver '
+              'lo que hay cerca tuyo.',
+              style: text.bodySmall?.copyWith(
+                color: AppTheme.navy,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
