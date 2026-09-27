@@ -188,7 +188,10 @@ class _RestaurantDetailScreenState
         ),
       ),
       // La barrita del carrito. Se muestra sola cuando hay algo adentro.
-      bottomNavigationBar: const CartBar(),
+      //
+      // Se le pasa el restaurante de esta carta para que, si el pedido que
+      // lleva el cliente es de OTRO, la barrita lo diga (ver CartBar).
+      bottomNavigationBar: CartBar(restaurantId: widget.restaurant.id),
       body: FutureBuilder<RestaurantDetail>(
         future: _future,
         builder: (

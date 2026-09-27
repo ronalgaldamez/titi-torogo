@@ -11,7 +11,16 @@ import 'cart_provider.dart';
 /// Aparece SOLA cuando hay algo adentro, y desaparece cuando no: no ocupa
 /// lugar en la pantalla si no hay nada que mostrar.
 class CartBar extends ConsumerWidget {
-  const CartBar({super.key});
+  const CartBar({this.restaurantId, super.key});
+
+  /// El restaurante cuya carta se esta mirando. null = no se sabe (o no
+  /// importa, porque la barrita no esta dentro de una carta).
+  ///
+  /// Sirve para un caso concreto y molesto: el carrito es de UN restaurante, y
+  /// si el cliente se mete a la carta de otro, la barrita le sigue mostrando el
+  /// pedido viejo. Sin decir de quien es, toca "Ver pedido" creyendo que va a
+  /// pedir lo que acaba de ver, y termina en el checkout del otro.
+  final int? restaurantId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,6 +31,10 @@ class CartBar extends ConsumerWidget {
     }
 
     final TextTheme text = Theme.of(context).textTheme;
+
+    final bool fromAnother = restaurantId != null &&
+        cart.restaurantId != null &&
+        cart.restaurantId != restaurantId;
 
     return SafeArea(
       child: Padding(
@@ -75,12 +88,32 @@ class CartBar extends ConsumerWidget {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text(
-                      'Ver pedido',
-                      style: text.titleSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    // Dos lineas SOLO cuando el pedido es de otro restaurante:
+                    // en el caso normal la barrita se queda como estaba, que es
+                    // como el cliente ya la conoce.
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (fromAnother)
+                          Text(
+                            'Pedido de '
+                            '${cart.restaurantName ?? 'otro restaurante'}',
+                            style: text.labelSmall?.copyWith(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        Text(
+                          'Ver pedido',
+                          style: text.titleSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Text(
