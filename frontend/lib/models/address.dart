@@ -21,7 +21,7 @@ class Address {
   final String address;
 
   /// "Frente a la farmacia". Opcional, pero es lo que hace que el motorizado
-  /// llegue en Tejutla.
+  /// llegue.
   final String? reference;
 
   final double latitude;

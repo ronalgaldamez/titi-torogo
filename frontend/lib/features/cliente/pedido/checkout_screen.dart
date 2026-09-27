@@ -9,7 +9,9 @@ import '../../../core/theme.dart';
 import '../../../models/address.dart';
 import '../carrito/cart.dart';
 import '../carrito/cart_provider.dart';
+import '../direcciones/address_form_screen.dart';
 import '../direcciones/address_repository.dart';
+import '../direcciones/addresses_screen.dart';
 import '../restaurante/restaurant_detail_repository.dart';
 import 'order_repository.dart';
 import 'order_sent_screen.dart';
@@ -163,8 +165,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _deliveryFee ?? '0.00',
       ]);
 
+  /// Abre el selector de direcciones.
+  ///
+  /// El selector puede devolver TRES cosas: que eligio una, que quiere crear una
+  /// nueva, o que quiere administrar las que tiene. Por eso devuelve un
+  /// [_PickerResult] y no un `Address?`: "no eligio nada" y "quiere crear una"
+  /// no son lo mismo.
   Future<void> _openAddressPicker() async {
-    final Address? chosen = await showModalBottomSheet<Address>(
+    final _PickerResult? result = await showModalBottomSheet<_PickerResult>(
       context: context,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
@@ -173,13 +181,93 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       builder: (BuildContext context) => _AddressPicker(addresses: _addresses),
     );
 
-    if (chosen == null || !mounted) {
+    if (!mounted || result == null) {
       return;
     }
 
-    setState(() => _address = chosen);
+    if (result.action == _PickerAction.pick) {
+      final Address address = result.address!;
 
-    await _resolveFee(chosen);
+      setState(() => _address = address);
+
+      await _resolveFee(address);
+      return;
+    }
+
+    if (result.action == _PickerAction.create) {
+      final Address? created = await Navigator.of(context).push<Address>(
+        MaterialPageRoute<Address>(
+          builder: (BuildContext context) => const AddressFormScreen(),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _reloadAddresses();
+
+      if (!mounted || created == null) {
+        return;
+      }
+
+      // Si acaba de crear una, se elige sola: es la que quiere usar.
+      setState(() => _address = created);
+
+      await _resolveFee(created);
+      return;
+    }
+
+    // Administrar: la pantalla completa, donde puede editar y borrar.
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const AddressesScreen(),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _reloadAddresses();
+  }
+
+  /// Recarga SOLO la lista de direcciones, sin pisar cual esta elegida.
+  ///
+  /// No se usa _load() porque ese elige la predeterminada, y aca el cliente ya
+  /// eligio: pisarle la eleccion seria peor que no recargar.
+  Future<void> _reloadAddresses() async {
+    final Address? previous = _address;
+
+    try {
+      final ApiClient api = await _session.client();
+      final List<Address> addresses = await AddressRepository(api).load();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _addresses = addresses;
+
+        // Si la que tenia elegida ya no existe (la borro desde "Administrar"),
+        // se suelta y queda la primera.
+        if (previous != null &&
+            !addresses.any((Address item) => item.id == previous.id)) {
+          _address = addresses.isEmpty ? null : addresses.first;
+        }
+      });
+
+      // Y si cambio la elegida, el envio hay que recalcularlo para la nueva.
+      final Address? current = _address;
+
+      if (current != null && current.id != previous?.id) {
+        await _resolveFee(current);
+      }
+    } on ApiException catch (_) {
+      // Si falla, se deja la lista que ya teniamos: no vale la pena molestar al
+      // cliente con eso justo despues de que acaba de elegir.
+    }
   }
 
   Future<void> _confirm() async {
@@ -550,6 +638,18 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+/// Que puede responder el selector de direcciones.
+enum _PickerAction { pick, create, manage }
+
+/// La respuesta del selector: que quiso hacer el cliente, y cual eligio si
+/// eligio alguna.
+class _PickerResult {
+  const _PickerResult(this.action, [this.address]);
+
+  final _PickerAction action;
+  final Address? address;
+}
+
 /// La lista de direcciones para elegir.
 class _AddressPicker extends StatelessWidget {
   const _AddressPicker({required this.addresses});
@@ -590,7 +690,9 @@ class _AddressPicker extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onTap: () => Navigator.of(context).pop(address),
+                      onTap: () => Navigator.of(context).pop(
+                        _PickerResult(_PickerAction.pick, address),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Row(
@@ -653,6 +755,27 @@ class _AddressPicker extends StatelessWidget {
                     ),
                   ),
                 ),
+            const SizedBox(height: AppSpacing.sm),
+            // Crear y administrar viven ACA, y no en una pantalla de atras,
+            // porque este es el momento en que al cliente le falta la
+            // direccion: mandarlo a buscar otra pantalla es perderlo.
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(
+                const _PickerResult(_PickerAction.create),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Nueva dirección'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(
+                const _PickerResult(_PickerAction.manage),
+              ),
+              child: const Text('Administrar mis direcciones'),
+            ),
           ],
         ),
       ),

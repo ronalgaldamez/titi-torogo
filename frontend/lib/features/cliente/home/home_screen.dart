@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return const _MessageState(
               icon: Icons.location_off_rounded,
               title: 'Todavia no llegamos ahi',
-              message: 'Estamos empezando en Tejutla. '
+              message: 'Estamos empezando en esta zona. '
                   'Pronto vamos a cubrir mas lugares.',
             );
           }
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: <Widget>[
                       // Si el GPS no dio una ubicacion de verdad, se dice. Es
                       // la diferencia entre "esto es lo que hay cerca tuyo" y
-                      // "esto es lo que hay cerca de Tejutla".
+                      // "esto es lo que hay cerca de la zona de reparto".
                       if (!_place.isReal) const _LocationNotice(),
                       _SectionTitle(count: total),
                     ],
@@ -252,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
 /// El aviso de que la ubicacion NO es la del telefono.
 ///
 /// Es una franja chiquita y no un cartel rojo: la app funciona igual, solo que
-/// con la ubicacion de Tejutla. Asustar al cliente por eso seria peor que el
+/// con el punto del Mall del Sol. Asustar al cliente por eso seria peor que el
 /// problema que avisa.
 class _LocationNotice extends StatelessWidget {
   const _LocationNotice();
@@ -282,8 +282,8 @@ class _LocationNotice extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Estamos usando la ubicación de Tejutla. Activá el GPS para ver '
-              'lo que hay cerca tuyo.',
+              'Estamos usando el Mall del Sol como referencia. Activá el GPS '
+              'para ver lo que hay cerca tuyo.',
               style: text.bodySmall?.copyWith(
                 color: AppTheme.navy,
                 fontWeight: FontWeight.w700,

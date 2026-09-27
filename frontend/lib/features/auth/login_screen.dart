@@ -96,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -196,13 +195,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Center(
-                      child: Text(
-                        'ToroGo - Tejutla, Chalatenango',
-                        style: text.labelSmall
-                            ?.copyWith(color: colors.onSurfaceVariant),
-                      ),
-                    ),
                   ],
                 ),
               ),
