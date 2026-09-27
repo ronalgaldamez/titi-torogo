@@ -248,6 +248,19 @@ class _AddressFormScreenState extends State<AddressFormScreen>
       return;
     }
 
+    // Aproximada tampoco. Es la misma trampa que la de arriba, pero mas
+    // dificil de ver: la ubicacion SI es del telefono, asi que el sistema
+    // responde que llegamos, y el motorizado sale a una cuadra que no es.
+    // Con 500 metros de error, "frente a la farmacia" es otra farmacia.
+    if (_place.isApproximate) {
+      setState(() => _error =
+          'Tu ubicación es aproximada (${_place.accuracyText} de error). '
+          'Con esa precisión la dirección puede quedar en otra cuadra. Salí a '
+          'un lugar abierto y tocá "Actualizar ubicación".');
+
+      return;
+    }
+
     // Fuera de la zona tampoco: una direccion ahi no sirve, porque no se puede
     // pedir. Mejor decirlo ahora.
     if (_inZone == false) {
@@ -467,7 +480,12 @@ class _AddressFormScreenState extends State<AddressFormScreen>
             SizedBox(
               height: 52,
               child: FilledButton(
-                onPressed: (_saving || !_place.isReal || _inZone == false)
+                // Sin ubicacion real O con una aproximada, el boton queda
+                // apagado: el cliente ya ve en la tarjeta de arriba por que.
+                onPressed: (_saving ||
+                        !_place.isReal ||
+                        _place.isApproximate ||
+                        _inZone == false)
                     ? null
                     : _save,
                 style: FilledButton.styleFrom(
@@ -539,17 +557,43 @@ class _Field extends StatelessWidget {
   }
 }
 
+/// Los estados en los que puede estar la ubicacion que se va a guardar.
+///
+/// Existe para que la tarjeta no sea una cascada de condiciones: con seis
+/// casos, un encadenado de ternarios se vuelve imposible de leer y de revisar.
+enum _LocationState {
+  /// Todavia se le esta preguntando al telefono.
+  searching,
+
+  /// El permiso quedo negado para siempre: la unica salida son los Ajustes.
+  blocked,
+
+  /// No hubo ubicacion: GPS apagado, sin senal, o permiso negado a secas.
+  missing,
+
+  /// La dio el telefono, pero con error de cuadras.
+  approximate,
+
+  /// La dio el telefono y cae fuera de la zona donde entregamos.
+  outside,
+
+  /// La buena: real, con precision, y dentro de la zona.
+  good,
+}
+
 /// La tarjeta que muestra DE DONDE van a ser las coordenadas.
 ///
-/// Es la parte que hace honesto el formulario. Tiene CUATRO estados, y cada uno
-/// le dice al cliente algo distinto:
+/// Es la parte que hace honesto el formulario. Tiene CINCO estados malos, y
+/// cada uno le dice al cliente algo distinto:
 ///
-///   1. buscando            -> esperá
-///   2. permiso bloqueado   -> hay que abrirlo en los Ajustes del telefono
-///   3. sin ubicacion       -> activá el GPS y reintentá
-///   4. fuera de la zona    -> acá no entregamos
+///   1. buscando             -> esperá
+///   2. permiso bloqueado    -> hay que abrirlo en los Ajustes del telefono
+///   3. sin ubicacion        -> activá el GPS y reintentá
+///   4. ubicacion aproximada -> el GPS no llego a los satelites; el punto puede
+///                              caer a varias cuadras y NO alcanza para guardar
+///   5. fuera de la zona     -> acá no entregamos
 ///
-/// Y el quinto, el bueno: ubicacion de verdad y dentro de la zona.
+/// Y el sexto, el bueno: ubicacion de verdad, con precision, dentro de la zona.
 class _LocationCard extends StatelessWidget {
   const _LocationCard({
     required this.place,
@@ -568,57 +612,100 @@ class _LocationCard extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback onOpenSettings;
 
+  /// En cual de los seis estados esta la tarjeta AHORA.
+  ///
+  /// El orden de las preguntas ES el diseno, no un detalle. Dos casos donde el
+  /// orden decide:
+  ///
+  ///   - bloqueado antes que "no hay ubicacion": las dos son "no hay
+  ///     ubicacion", pero la bloqueada tiene una salida distinta, los Ajustes,
+  ///     y es la que el cliente necesita ver.
+  ///
+  ///   - aproximada antes que "fuera de la zona": si el punto puede caer a
+  ///     cuadras, la respuesta sobre la zona tampoco es confiable, y lo que hay
+  ///     que hacer es lo mismo en los dos casos: volver a tomar la ubicacion.
+  ///     Decirle "estas fuera de la zona" con un punto malo lo manda a caminar
+  ///     sin motivo.
+  _LocationState get _state {
+    if (locating) {
+      return _LocationState.searching;
+    }
+
+    if (!place.isReal) {
+      return place.needsSettings
+          ? _LocationState.blocked
+          : _LocationState.missing;
+    }
+
+    if (place.isApproximate) {
+      return _LocationState.approximate;
+    }
+
+    return inZone == false ? _LocationState.outside : _LocationState.good;
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final ColorScheme colors = Theme.of(context).colorScheme;
 
-    final bool blocked = !place.isReal && place.needsSettings;
-    final bool outside = place.isReal && inZone == false;
-    final bool good = place.isReal && !outside;
+    final _LocationState state = _state;
 
-    final Color background = good
-        ? AppTheme.tealSoft
-        : outside
-            ? AppTheme.coral
-            : AppTheme.yellow;
+    final Color background = switch (state) {
+      _LocationState.good => AppTheme.tealSoft,
+      _LocationState.outside => AppTheme.coral,
+      _ => AppTheme.yellow,
+    };
 
-    final Color foreground = good
-        ? AppTheme.tealDeep
-        : outside
-            ? Colors.white
-            : AppTheme.navy;
+    final Color foreground = switch (state) {
+      _LocationState.good => AppTheme.tealDeep,
+      _LocationState.outside => Colors.white,
+      _ => AppTheme.navy,
+    };
 
-    final IconData icon = good
-        ? Icons.my_location_rounded
-        : blocked
-            ? Icons.lock_outline_rounded
-            : Icons.location_searching_rounded;
+    final IconData icon = switch (state) {
+      _LocationState.good => Icons.my_location_rounded,
+      _LocationState.approximate => Icons.gps_not_fixed_rounded,
+      _LocationState.blocked => Icons.lock_outline_rounded,
+      _ => Icons.location_searching_rounded,
+    };
 
-    final String title = locating
-        ? 'Buscando tu ubicación...'
-        : good
-            ? 'Ubicación tomada de tu GPS'
-            : blocked
-                ? 'El permiso de ubicación está bloqueado'
-                : outside
-                    ? 'Estás fuera de la zona donde entregamos'
-                    : 'No pudimos obtener tu ubicación';
+    final String title = switch (state) {
+      _LocationState.searching => 'Buscando tu ubicación...',
+      _LocationState.blocked => 'El permiso de ubicación está bloqueado',
+      _LocationState.missing => 'No pudimos obtener tu ubicación',
+      _LocationState.approximate => 'Tu ubicación es aproximada',
+      _LocationState.outside => 'Estás fuera de la zona donde entregamos',
+      _LocationState.good => 'Ubicación tomada de tu GPS',
+    };
 
-    final String message = good
-        ? 'La dirección va a quedar en el punto donde estás parado AHORA '
+    final String message = switch (state) {
+      _LocationState.good =>
+        'La dirección va a quedar en el punto donde estás parado AHORA '
             '(${place.latitude.toStringAsFixed(5)}, '
             '${place.longitude.toStringAsFixed(5)}). Si todavía no estás en el '
-            'lugar, esperá a llegar para guardarla.'
-        : blocked
-            ? 'Negaste el permiso, así que Android ya no nos deja volver a '
-                'preguntarte. Abrilo a mano en los Ajustes y volvé.'
-            : outside
-                ? 'Esta zona todavía no la cubrimos, así que no vas a poder '
-                    'pedir a una dirección de acá.'
-                : 'No podemos guardar la dirección sin tu ubicación: quedaría '
-                    'en un punto que no es el tuyo, y el motorizado iría a otro '
-                    'lado. Activá el GPS y probá de nuevo.';
+            'lugar, esperá a llegar para guardarla.',
+      _LocationState.approximate =>
+        'El GPS no consiguió la señal de los satélites, así que el teléfono '
+            'contestó con la ubicación de la antena o del wifi '
+            '(${place.accuracyText} de error). Alcanza para saber en qué zona '
+            'estás, pero NO para guardar la dirección: el motorizado podría '
+            'terminar en otra cuadra. Salí a un lugar abierto y tocá '
+            '"Actualizar ubicación".',
+      _LocationState.blocked =>
+        'Negaste el permiso, así que Android ya no nos deja volver a '
+            'preguntarte. Abrilo a mano en los Ajustes y volvé.',
+      _LocationState.outside =>
+        'Esta zona todavía no la cubrimos, así que no vas a poder pedir a una '
+            'dirección de acá.',
+      // Mientras se busca se muestra el mismo texto que cuando no hubo
+      // ubicacion: es lo que el cliente tiene que hacer igual si el GPS no
+      // contesta.
+      _LocationState.searching || _LocationState.missing =>
+        'No podemos guardar la dirección sin tu ubicación: quedaría en '
+            'un punto que no es el tuyo, y el motorizado iría a otro lado. '
+            'Activá el GPS y probá de nuevo.',
+    };
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -649,7 +736,7 @@ class _LocationCard extends StatelessWidget {
             message,
             style: text.bodySmall?.copyWith(color: foreground),
           ),
-          if (good && inZone == true) ...<Widget>[
+          if (state == _LocationState.good && inZone == true) ...<Widget>[
             const SizedBox(height: AppSpacing.xs),
             Row(
               children: <Widget>[
@@ -670,7 +757,7 @@ class _LocationCard extends StatelessWidget {
             alignment: Alignment.centerRight,
             // Con el permiso bloqueado, "Actualizar" no sirve de nada: Android
             // ya no muestra el cartel. La unica salida son los Ajustes.
-            child: blocked
+            child: state == _LocationState.blocked
                 ? FilledButton(
                     onPressed: onOpenSettings,
                     style: FilledButton.styleFrom(
@@ -684,7 +771,7 @@ class _LocationCard extends StatelessWidget {
                     child: const Text('Actualizar ubicación'),
                   ),
           ),
-          if (!place.isReal && !blocked)
+          if (state == _LocationState.missing)
             Text(
               'Tip: si estás bajo techo, el GPS tarda o no llega. Salí a un '
               'lugar abierto y volvé a intentar.',

@@ -228,7 +228,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Si el GPS no dio una ubicacion de verdad, se dice. Es
                       // la diferencia entre "esto es lo que hay cerca tuyo" y
                       // "esto es lo que hay cerca de la zona de reparto".
-                      if (!_place.isReal) const _LocationNotice(),
+                      //
+                      // Y si la dio pero con error de cuadras, tambien: el
+                      // cliente tiene que poder entender por que la lista se ve
+                      // distinta a lo que esperaba.
+                      if (!_place.isReal || _place.isApproximate)
+                        _LocationNotice(place: _place),
                       _SectionTitle(count: total),
                     ],
                   );
@@ -254,12 +259,29 @@ class _HomeScreenState extends State<HomeScreen> {
 /// Es una franja chiquita y no un cartel rojo: la app funciona igual, solo que
 /// con el punto del Mall del Sol. Asustar al cliente por eso seria peor que el
 /// problema que avisa.
+///
+/// Son DOS avisos distintos, y la diferencia importa:
+///
+///   - no hay ubicacion: la lista es la de la zona, no la de cerca tuyo.
+///   - ubicacion aproximada: la lista si es la de cerca tuyo, solo que el punto
+///     puede estar corrido unas cuadras.
+///
+/// El segundo es mucho mejor que el primero, asi que no se dice igual.
 class _LocationNotice extends StatelessWidget {
-  const _LocationNotice();
+  const _LocationNotice({required this.place});
+
+  final Place place;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
+
+    final String message = place.isApproximate
+        ? 'Tu ubicación es aproximada (${place.accuracyText} de error). Si no '
+            'ves tu restaurante, salí a un lugar abierto y deslizá para '
+            'actualizar.'
+        : 'Estamos usando el Mall del Sol como referencia. Activá el GPS '
+            'para ver lo que hay cerca tuyo.';
 
     return Container(
       width: double.infinity,
@@ -274,16 +296,17 @@ class _LocationNotice extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(
-            Icons.location_searching_rounded,
+          Icon(
+            place.isApproximate
+                ? Icons.gps_not_fixed_rounded
+                : Icons.location_searching_rounded,
             size: 16,
             color: AppTheme.navy,
           ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Estamos usando el Mall del Sol como referencia. Activá el GPS '
-              'para ver lo que hay cerca tuyo.',
+              message,
               style: text.bodySmall?.copyWith(
                 color: AppTheme.navy,
                 fontWeight: FontWeight.w700,
