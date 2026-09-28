@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -62,6 +63,22 @@ Broadcast::channel(
         return $restaurant->user_id === $user->id;
     },
 );
+
+/*
+ * El canal de los motorizados: los pedidos que estan DISPONIBLES para recoger.
+ *
+ * No lleva id porque es el mismo canal para todos: un pedido disponible lo esta
+ * para cualquiera que ande en la calle. Y por eso mismo NUNCA va a llevar datos
+ * del cliente (direccion, telefono, monto): lo unico que se manda es "hay un
+ * pedido disponible, id N". El que lo quiera lo pide por la API, que es donde
+ * se valida de verdad — el radio de 5 km y el compare-and-swap que decide quien
+ * gana cuando dos tocan "tomar" a la vez.
+ *
+ * Entra solo una cuenta de motorizado.
+ */
+Broadcast::channel('couriers', function (User $user): bool {
+    return $user->hasRole(UserRole::Courier);
+});
 
 /*
  * El canal personal de cada cuenta.

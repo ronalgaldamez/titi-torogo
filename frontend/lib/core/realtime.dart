@@ -114,6 +114,19 @@ class Realtime {
     return _watch('private-restaurants.$restaurantId');
   }
 
+  /// Empieza a escuchar los pedidos DISPONIBLES para recoger.
+  ///
+  /// Este canal NO lleva id: es el mismo para todos los motorizados, porque un
+  /// pedido disponible lo esta para cualquiera que ande en la calle.
+  ///
+  /// Por eso mismo lo que viaja por aca es solo "hay un pedido disponible, id
+  /// N". El que lo quiera lo pide por la API, que es donde se filtra por
+  /// distancia (el radio de 5 km) y donde el backend decide quien gana si dos
+  /// motorizados tocan "tomar" en el mismo segundo.
+  Future<RealtimeWatch> watchCouriers() {
+    return _watch('private-couriers');
+  }
+
   /// Abre un canal privado y devuelve la escucha.
   ///
   /// El nombre va COMPLETO, con el prefijo 'private-'.
@@ -139,6 +152,18 @@ class Realtime {
           'Authorization': 'Bearer ${await _token()}',
         },
       ),
+      // SIEMPRE una instancia nueva, aunque ya exista un canal con este nombre.
+      //
+      // Por que: el paquete guarda los canales por nombre y, si se lo pedimos
+      // otra vez, devuelve el MISMO objeto — con el delegado de autorizacion
+      // VIEJO, o sea con el token de la sesion anterior. Eso pasa de verdad: si
+      // el usuario cierra sesion y vuelve a entrar SIN cerrar la app, el canal
+      // queda autorizado con un token muerto, Reverb lo rechaza, y el sintoma
+      // es "la chapita En vivo aparece pero no llega ningun aviso".
+      //
+      // La instancia vieja la reemplaza el propio paquete en su mapa interno,
+      // asi que no queda nada dando vueltas.
+      forceCreateNewInstance: true,
     );
 
     final StreamController<Map<String, dynamic>> messages =
@@ -184,13 +209,18 @@ class Realtime {
   Future<void> _close(RealtimeWatch watch) async {
     _open.remove(watch);
 
-    // Si OTRA pantalla esta mirando el mismo canal, se deja abierto.
+    // Si OTRA pantalla esta mirando el MISMO canal, se deja abierto.
     //
-    // Por que: el paquete devuelve la MISMA instancia de canal para el mismo
-    // nombre, asi que dar de baja el canal desde una pantalla dejaria muda a la
-    // otra sin ningun error. Solo se da de baja cuando ya no queda nadie.
-    final bool stillWatched =
-        _open.any((RealtimeWatch other) => other.channel == watch.channel);
+    // Por que: dar de baja un canal desde una pantalla dejaria muda a la otra
+    // sin ningun error. Solo se da de baja cuando ya no queda nadie.
+    //
+    // Se compara por NOMBRE y no por instancia: desde que cada escucha pide su
+    // propia instancia (ver _watch), dos pantallas mirando lo mismo tienen
+    // objetos distintos, y comparar por objeto daria "no hay nadie mas" aunque
+    // la otra siguiera abierta.
+    final bool stillWatched = _open.any(
+      (RealtimeWatch other) => other.channel.name == watch.channel.name,
+    );
 
     if (!stillWatched) {
       // unsubscribe le avisa al servidor que ya no lo queremos. Cancelar el
