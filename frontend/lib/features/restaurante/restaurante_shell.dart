@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import 'dashboard/dashboard_screen.dart';
 import 'menu/restaurant_menu_screen.dart';
 import 'pedidos/orders_screen.dart';
 
-/// La app del restaurante: pedidos y menu, en dos pestanas.
+/// La app del restaurante: pedidos, menu y el estado del local.
 ///
-/// Antes el login de restaurante caia directo en "Mi menu" y no habia de donde
-/// salir. La biblia le da 10 pantallas al restaurante, y la barra de abajo es
-/// lo que las va a ordenar a medida que se agreguen (dashboard, historial,
-/// perfil).
+/// La biblia le da 10 pantallas al restaurante, y la barra de abajo es lo que
+/// las va a ordenar a medida que se agreguen (historial, perfil).
 class RestauranteShell extends StatefulWidget {
   const RestauranteShell({required this.onLogout, super.key});
 
@@ -35,6 +34,7 @@ class _RestauranteShellState extends State<RestauranteShell> {
         children: <Widget>[
           OrdersScreen(onLogout: widget.onLogout),
           RestaurantMenuScreen(onLogout: widget.onLogout),
+          const DashboardScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -58,6 +58,17 @@ class _RestauranteShellState extends State<RestauranteShell> {
               color: AppTheme.tealDeep,
             ),
             label: 'Mi menú',
+          ),
+          // El estado del local va ULTIMO y no primero: lo que el restaurante
+          // mira todo el dia son los pedidos. Esto se toca dos veces al dia
+          // (al abrir y al cerrar), no cada cinco minutos.
+          NavigationDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(
+              Icons.storefront_rounded,
+              color: AppTheme.tealDeep,
+            ),
+            label: 'Mi local',
           ),
         ],
       ),
