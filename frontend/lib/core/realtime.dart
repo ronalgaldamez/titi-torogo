@@ -83,7 +83,7 @@ class Realtime {
   /// Sin esto, despues de un corte de red (el motorizado pasa por una zona sin
   /// senal, el wifi parpadea) la pantalla se quedaria muda para siempre hasta
   /// que el cliente la cierre y la vuelva a abrir.
-  final Set<OrderWatch> _open = <OrderWatch>{};
+  final Set<RealtimeWatch> _open = <RealtimeWatch>{};
 
   /// ¿Hay conexion con Reverb en este momento?
   ///
@@ -98,18 +98,34 @@ class Realtime {
   /// Empieza a escuchar UN pedido.
   ///
   /// Lo que devuelve hay que cerrarlo cuando la pantalla se va (ver
-  /// [OrderWatch.close]). Si no se cerrara, la app seguiria recibiendo eventos
-  /// de pedidos que ya nadie esta mirando.
-  Future<OrderWatch> watchOrder(int orderId) async {
+  /// [RealtimeWatch.close]). Si no se cerrara, la app seguiria recibiendo
+  /// eventos de pedidos que ya nadie esta mirando.
+  Future<RealtimeWatch> watchOrder(int orderId) {
+    return _watch('private-orders.$orderId');
+  }
+
+  /// Empieza a escuchar TODO lo de un restaurante: los pedidos que entran y los
+  /// que se mueven.
+  ///
+  /// El restaurante no puede usar [watchOrder] aunque quisiera: no sabe los
+  /// numeros de pedido de antemano, y el que acaba de entrar es justamente el
+  /// que todavia no conoce.
+  Future<RealtimeWatch> watchRestaurant(int restaurantId) {
+    return _watch('private-restaurants.$restaurantId');
+  }
+
+  /// Abre un canal privado y devuelve la escucha.
+  ///
+  /// El nombre va COMPLETO, con el prefijo 'private-'.
+  ///
+  /// El paquete NO lo agrega solo: si le pasamos 'orders.7', se suscribe a un
+  /// canal que no existe y no llega nada, sin ningun error. Lo verifique en la
+  /// fuente del paquete (private_channel.dart usa el nombre tal cual).
+  Future<RealtimeWatch> _watch(String channelName) async {
     final PusherChannelsClient client = await _clientOrConnect();
 
-    // El nombre COMPLETO, con el prefijo 'private-'.
-    //
-    // El paquete NO lo agrega solo: si le pasamos 'orders.7', se suscribe a un
-    // canal que no existe y no llega nada. Lo verifique en la fuente del
-    // paquete (private_channel.dart usa el nombre tal cual).
     final PrivateChannel channel = client.privateChannel(
-      'private-orders.$orderId',
+      channelName,
       authorizationDelegate:
           EndpointAuthorizableChannelTokenAuthorizationDelegate
               .forPrivateChannel(
@@ -148,7 +164,7 @@ class Realtime {
       debugPrint('Tiempo real: Reverb no dejo entrar al canal ($event)');
     });
 
-    final OrderWatch watch = OrderWatch._(
+    final RealtimeWatch watch = RealtimeWatch._(
       channel: channel,
       messagesController: messages,
       events: events,
@@ -165,16 +181,16 @@ class Realtime {
   }
 
   /// Cierra una escucha y suelta el canal.
-  Future<void> _close(OrderWatch watch) async {
+  Future<void> _close(RealtimeWatch watch) async {
     _open.remove(watch);
 
-    // Si OTRA pantalla esta mirando el mismo pedido, el canal se deja abierto.
+    // Si OTRA pantalla esta mirando el mismo canal, se deja abierto.
     //
     // Por que: el paquete devuelve la MISMA instancia de canal para el mismo
     // nombre, asi que dar de baja el canal desde una pantalla dejaria muda a la
     // otra sin ningun error. Solo se da de baja cuando ya no queda nadie.
     final bool stillWatched =
-        _open.any((OrderWatch other) => other.channel == watch.channel);
+        _open.any((RealtimeWatch other) => other.channel == watch.channel);
 
     if (!stillWatched) {
       // unsubscribe le avisa al servidor que ya no lo queremos. Cancelar el
@@ -232,7 +248,7 @@ class Realtime {
     // Cada vez que la conexion se establece —la primera vez y en cada
     // reconexion— se vuelven a suscribir los canales abiertos.
     _resubscribe = client.onConnectionEstablished.listen((_) {
-      for (final OrderWatch watch in _open) {
+      for (final RealtimeWatch watch in _open) {
         watch.channel.subscribeIfNotUnsubscribed();
       }
     });
@@ -265,11 +281,11 @@ class Realtime {
   }
 }
 
-/// Una escucha abierta de UN pedido.
+/// Una escucha abierta de un canal de tiempo real.
 ///
 /// Se cierra con [close] cuando la pantalla que la abrio se va.
-class OrderWatch {
-  OrderWatch._({
+class RealtimeWatch {
+  RealtimeWatch._({
     required this.channel,
     required this.messagesController,
     required this.events,

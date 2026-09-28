@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
+import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/live_chip.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
 import 'restaurant_order_repository.dart';
@@ -14,9 +18,14 @@ import 'restaurant_order_repository.dart';
 /// CURSO, del mas nuevo al mas viejo — el ultimo es el que acaba de entrar — y
 /// da los botones para avanzarlos.
 ///
-/// NOTA HONESTA: la biblia pide un sonido fuerte cuando entra un pedido. Eso
-/// necesita notificaciones en tiempo real (Laravel Reverb), que es el paso 6.
-/// Por ahora la lista se actualiza deslizando hacia abajo.
+/// La lista se actualiza SOLA cuando entra o se mueve un pedido: el backend
+/// avisa por el canal de tiempo real del restaurante (ver core/realtime.dart).
+/// Si el tiempo real no esta disponible, se sigue actualizando con el boton de
+/// arriba o deslizando hacia abajo.
+///
+/// FALTA TODAVIA: el sonido fuerte cuando entra un pedido nuevo, que la biblia
+/// pide para este perfil. La lista en vivo ya esta; el ruido es el paso que
+/// sigue.
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({this.onLogout, super.key});
 
@@ -41,6 +50,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
   String? _error;
   bool _loading = true;
 
+  /// El restaurante de la sesion. Null hasta que la primera carga lo traiga
+  /// (viene en la misma respuesta de la lista).
+  int? _restaurantId;
+
+  /// La escucha del tiempo real de la cocina. Null = no se pudo abrir.
+  RealtimeWatch? _watch;
+
+  StreamSubscription<Map<String, dynamic>>? _liveSub;
+  StreamSubscription<bool>? _connectedSub;
+
+  /// Se muestra la chapita En vivo en la barra de arriba.
+  bool _connected = false;
+
   /// Ids de los pedidos con una peticion en vuelo.
   ///
   /// Mientras uno esta aca, sus botones quedan bloqueados. Sin esto, tocar
@@ -54,26 +76,59 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _liveSub?.cancel();
+    _connectedSub?.cancel();
+
+    // Cerrar la escucha NO es opcional: si no, el telefono quedaria suscrito al
+    // canal del restaurante y el backend seguiria mandando eventos a una
+    // pantalla que ya nadie esta mirando.
+    _watch?.close();
+
+    super.dispose();
+  }
+
+  /// Carga la lista de pedidos.
+  ///
+  /// [silent] es para cuando la recarga la PIDIO el tiempo real: ahi no se
+  /// muestran el circulito ni el cartel de error. Si el aviso llega y el
+  /// telefono justo se quedo sin datos, la pantalla se queda con lo que ya
+  /// tenia: algo viejo a la vista es mejor que una pantalla vacia.
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final ApiClient api = await _session.client();
-      final List<Order> orders = await RestaurantOrderRepository(api).load();
+      final RestaurantOrders data =
+          await RestaurantOrderRepository(api).load();
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _orders = orders;
+        _orders = data.orders;
         _loading = false;
+        _error = null;
       });
+
+      // El id del restaurante viene en la misma respuesta, asi que recien
+      // ahora se puede escuchar el canal de la cocina.
+      _restaurantId = data.restaurantId;
+      _startRealtime();
     } on ApiException catch (error) {
       if (!mounted) {
+        return;
+      }
+
+      // Si la que fallo fue una recarga silenciosa, se deja lo que ya estaba.
+      if (silent) {
         return;
       }
 
@@ -82,6 +137,57 @@ class _OrdersScreenState extends State<OrdersScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Prende el tiempo real de la cocina.
+  ///
+  /// Todo esto es 'si se puede': si Reverb no esta disponible, la lista se
+  /// sigue actualizando con el boton de arriba o deslizando hacia abajo.
+  Future<void> _startRealtime() async {
+    final int? restaurantId = _restaurantId;
+
+    // Ya hay una escucha abierta, o todavia no sabemos cual es el restaurante.
+    if (_watch != null || restaurantId == null || restaurantId <= 0) {
+      return;
+    }
+
+    _connectedSub ??= Realtime.instance.connected.listen((bool connected) {
+      if (mounted) {
+        setState(() => _connected = connected);
+      }
+    });
+
+    // El valor de AHORA ademas del stream: un stream de broadcast no repite el
+    // ultimo valor, y esta pantalla puede abrirse con la conexion ya hecha.
+    if (mounted) {
+      setState(() => _connected = Realtime.instance.isConnected);
+    }
+
+    final RealtimeWatch watch;
+    try {
+      watch = await Realtime.instance.watchRestaurant(restaurantId);
+    } catch (error) {
+      // El tiempo real es OPCIONAL: si no se pudo abrir el canal, la lista
+      // sigue andando como antes. Se deja en la consola para poder
+      // diagnosticarlo.
+      debugPrint('Tiempo real: no se pudo escuchar el restaurante ($error)');
+
+      return;
+    }
+
+    if (!mounted) {
+      await watch.close();
+
+      return;
+    }
+
+    _watch = watch;
+    _liveSub = watch.messages.listen((Map<String, dynamic> payload) {
+      // No se usa el pedido que viene adentro: esta lista esta ordenada y
+      // filtrada por 'en curso', asi que un pedido que se entrega tiene que
+      // DESAPARECER de aca. Se vuelve a preguntar, en silencio.
+      _load(silent: true);
+    });
   }
 
   /// El boton que le toca a este pedido, o null si no le toca ninguno.
@@ -212,6 +318,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
         actions: <Widget>[
+          if (_connected) const LiveChip(),
           IconButton(
             onPressed: _load,
             icon: const Icon(Icons.refresh_rounded),

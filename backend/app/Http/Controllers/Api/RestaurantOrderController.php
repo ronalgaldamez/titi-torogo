@@ -59,6 +59,19 @@ class RestaurantOrderController extends Controller
         }
 
         return response()->json([
+            // El restaurante de la sesion, para que la app sepa a que canal de
+            // tiempo real suscribirse (restaurants.{id}).
+            //
+            // Va ACA y no en /me por una razon concreta: este endpoint tiene el
+            // restaurante a mano SIEMPRE, incluso cuando todavia no entro ni un
+            // pedido. Y ese es justo el caso que importa: un restaurante recien
+            // abierto, esperando su primer pedido, es el que mas necesita que
+            // le avisen.
+            'restaurant' => [
+                'id' => $restaurant->id,
+                'name' => $restaurant->name,
+            ],
+
             'orders' => OrderResource::collection($query->get()),
         ]);
     }
