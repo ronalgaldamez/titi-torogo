@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Enums\OrderStatus;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -73,25 +74,46 @@ class OrderUpdated implements ShouldBroadcastNow
     /**
      * Los canales por los que sale este aviso.
      *
-     * Son DOS a proposito, y el segundo no es un lujo:
+     * Son TRES, y cada uno tiene su publico:
      *
-     *   1. El canal del pedido: para el cliente que lo pidio y el motorizado
-     *      que lo lleva.
+     *   1. El canal del pedido: el cliente que lo pidio y el motorizado que lo
+     *      lleva.
      *   2. El canal del restaurante: para que vea entrar y moverse TODO lo de
-     *      su cocina por un solo lugar. Necesita este canal aparte porque NO
-     *      puede suscribirse al canal de un pedido cuyo numero todavia no
-     *      conoce — y el que acaba de entrar es justamente ese.
+     *      su cocina por un solo lugar. Lo necesita aparte porque NO puede
+     *      suscribirse al canal de un pedido cuyo numero todavia no conoce, y
+     *      el que acaba de entrar es justamente ese.
+     *   3. El canal de los motorizados, pero SOLO cuando el pedido entra o sale
+     *      de la lista de disponibles (ver abajo).
      *
-     * Los dos son PRIVADOS: quien entra lo decide routes/channels.php.
+     * Los tres son PRIVADOS: quien entra lo decide routes/channels.php.
      *
      * @return array<int, PrivateChannel>
      */
     public function broadcastOn(): array
     {
-        return [
+        $channels = [
             new PrivateChannel('orders.'.$this->order->id),
             new PrivateChannel('restaurants.'.$this->order->restaurant_id),
         ];
+
+        // A los motorizados se les avisa SOLO cuando el pedido:
+        //
+        //   - ENTRA a la lista de disponibles (quedo "listo para recoger"), o
+        //   - SALE de ella (alguien lo tomo, o lo cancelaron).
+        //
+        // Las dos cosas se reconocen con el estado de ahora y el de antes: el
+        // pedido esta "listo" (entra), o lo estaba y ya no (sale).
+        //
+        // Todo lo demas —pendiente, aceptado, en preparacion, entregado— NO les
+        // importa a los que andan en la calle, y mandarlo les haria sonar el
+        // telefono por nada. Un motorizado con el telefono sonando todo el dia
+        // termina silenciando la app, y ahi pierde el pedido que si le servia.
+        if ($this->order->status === OrderStatus::Ready
+            || $this->previousStatus === OrderStatus::Ready->value) {
+            $channels[] = new PrivateChannel('couriers');
+        }
+
+        return $channels;
     }
 
     /**

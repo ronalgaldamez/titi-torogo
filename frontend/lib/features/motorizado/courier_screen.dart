@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/auth_storage.dart';
 import '../../core/location.dart';
+import '../../core/notifications.dart';
+import '../../core/realtime.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/live_chip.dart';
 import '../../models/order.dart';
 import 'pedidos/courier_order_repository.dart';
 
@@ -47,10 +52,33 @@ class _CourierScreenState extends State<CourierScreen> {
   bool _busy = false;
   String? _error;
 
+  /// La escucha del tiempo real de los pedidos disponibles. Null = no se pudo
+  /// abrir.
+  RealtimeWatch? _watch;
+
+  StreamSubscription<Map<String, dynamic>>? _liveSub;
+  StreamSubscription<bool>? _connectedSub;
+
+  /// Se muestra la chapita En vivo en la barra de arriba.
+  bool _connected = false;
+
   @override
   void initState() {
     super.initState();
     _start();
+  }
+
+  @override
+  void dispose() {
+    _liveSub?.cancel();
+    _connectedSub?.cancel();
+
+    // Cerrar la escucha NO es opcional: si no, este telefono quedaria suscrito
+    // al canal de los disponibles y el backend seguiria mandando eventos a una
+    // pantalla que ya nadie esta mirando.
+    _watch?.close();
+
+    super.dispose();
   }
 
   /// Pide la ubicacion UNA vez y despues carga.
@@ -66,13 +94,24 @@ class _CourierScreenState extends State<CourierScreen> {
     }
 
     await _load();
+
+    _startRealtime();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// Carga todo: disponibilidad, cercanos y los mios.
+  ///
+  /// [silent] es para cuando la recarga la PIDIO el tiempo real: ahi no se
+  /// muestra el circulito ni se borra lo que ya estaba en pantalla. Si el aviso
+  /// llega y el telefono justo se quedo sin datos, el motorizado se queda con
+  /// lo que ya tenia: algo viejo a la vista es mejor que una pantalla vacia
+  /// cuando esta arriba de la moto.
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final ApiClient api = await _session.client();
@@ -100,9 +139,15 @@ class _CourierScreenState extends State<CourierScreen> {
         _nearby = nearby;
         _mine = mine;
         _loading = false;
+        _error = null;
       });
     } on ApiException catch (error) {
       if (!mounted) {
+        return;
+      }
+
+      // Si la que fallo fue una recarga silenciosa, se deja lo que ya estaba.
+      if (silent) {
         return;
       }
 
@@ -110,6 +155,138 @@ class _CourierScreenState extends State<CourierScreen> {
         _error = error.message;
         _loading = false;
       });
+    }
+  }
+
+  /// Prende el tiempo real de los pedidos disponibles.
+  ///
+  /// Todo esto es 'si se puede': si Reverb no esta disponible, la pantalla
+  /// sigue andando con el boton de arriba o deslizando hacia abajo.
+  Future<void> _startRealtime() async {
+    // Ya hay una escucha abierta.
+    if (_watch != null) {
+      return;
+    }
+
+    // El canal de notificaciones y el permiso de Android 13+. Este telefono es
+    // el del MOTORIZADO, asi que aca se usa su canal (ver notifications.dart).
+    unawaited(Notifications.instance.ensureReady());
+
+    _connectedSub ??= Realtime.instance.connected.listen((bool connected) {
+      if (mounted) {
+        setState(() => _connected = connected);
+      }
+    });
+
+    // El valor de AHORA ademas del stream: un stream de broadcast no repite el
+    // ultimo valor, y esta pantalla puede abrirse con la conexion ya hecha.
+    if (mounted) {
+      setState(() => _connected = Realtime.instance.isConnected);
+    }
+
+    final RealtimeWatch watch;
+    try {
+      watch = await Realtime.instance.watchCouriers();
+    } catch (error) {
+      // El tiempo real es OPCIONAL: si no se pudo abrir el canal, la lista
+      // sigue andando como antes. Se deja en la consola para poder
+      // diagnosticarlo.
+      debugPrint('Tiempo real: no se pudo escuchar los disponibles ($error)');
+
+      return;
+    }
+
+    if (!mounted) {
+      await watch.close();
+
+      return;
+    }
+
+    _watch = watch;
+    _liveSub = watch.messages.listen(_onLiveMessage);
+  }
+
+  /// Llego un aviso sobre los pedidos disponibles.
+  ///
+  /// Dos cosas, en este orden: primero se fija si hay que SONAR, y despues
+  /// recarga. El orden importa: para saber si el pedido le sirve a este
+  /// motorizado hay que preguntarle a la API, que filtra por el radio.
+  void _onLiveMessage(Map<String, dynamic> payload) {
+    _ringIfNewAvailable(payload);
+
+    _load(silent: true);
+  }
+
+  /// Suena SOLO cuando un pedido ENTRA a la lista de disponibles.
+  ///
+  /// Las condiciones, y por que cada una:
+  ///
+  ///   - estado 'ready' y sin motorizado: es un pedido que se puede tomar.
+  ///   - 'previous_status' distinto de 'ready': ACABA de entrar a la lista. Si
+  ///     ya estaba listo y lo unico que paso fue que alguien lo tomo, no hay
+  ///     nada nuevo que avisar.
+  ///   - y que el pedido aparezca en la lista que devuelve la API: puede estar
+  ///     a 20 km, fuera del radio. El canal avisa a TODOS los motorizados, asi
+  ///     que el filtro de distancia se hace preguntando, no adivinando.
+  void _ringIfNewAvailable(Map<String, dynamic> payload) {
+    final dynamic raw = payload['order'];
+
+    if (raw is! Map<String, dynamic> || payload['previous_status'] == 'ready') {
+      return;
+    }
+
+    final Order order;
+    try {
+      order = Order.fromJson(raw);
+    } catch (_) {
+      return;
+    }
+
+    if (order.status != 'ready' || order.courier != null) {
+      return;
+    }
+
+    // Ya estaba en la lista: no suena dos veces por el mismo pedido.
+    if (_nearby.any((Order other) => other.id == order.id)) {
+      return;
+    }
+
+    unawaited(_ringWhenConfirmed(order.id));
+  }
+
+  /// Pregunta si el pedido esta entre los disponibles DE ESTE motorizado.
+  ///
+  /// Es el mismo filtro que usa la pantalla para pintar la lista (el radio de
+  /// 5 km lo aplica el backend), asi que no puede pasar que suene un pedido que
+  /// despues no aparece en ningun lado.
+  Future<void> _ringWhenConfirmed(int orderId) async {
+    try {
+      final ApiClient api = await _session.client();
+      final CourierOrderRepository repository = CourierOrderRepository(api);
+      final List<Order> nearby = await repository.loadAvailable(
+        latitude: _place.latitude,
+        longitude: _place.longitude,
+      );
+
+      final int index = nearby.indexWhere((Order order) => order.id == orderId);
+
+      if (index < 0) {
+        return;
+      }
+
+      final Order order = nearby[index];
+      final String distance = order.distanceKm == null
+          ? 'Sin distancia'
+          : 'a ${order.distanceKm!.toStringAsFixed(1)} km';
+
+      await Notifications.instance.availableOrder(
+        orderId: orderId,
+        detail: '$distance · ${order.restaurant.name} · \$${order.total}',
+      );
+    } on ApiException catch (error) {
+      // No suena si no se pudo confirmar. Es a proposito: un aviso por un
+      // pedido que no se puede tomar es peor que no avisar.
+      debugPrint('Notificaciones: no se pudo confirmar el pedido ($error)');
     }
   }
 
@@ -310,6 +487,7 @@ class _CourierScreenState extends State<CourierScreen> {
           ),
         ),
         actions: <Widget>[
+          if (_connected) const LiveChip(),
           IconButton(
             onPressed: _busy ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
