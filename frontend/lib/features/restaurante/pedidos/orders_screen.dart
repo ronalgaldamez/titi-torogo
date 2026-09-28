@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
+import '../../../core/notifications.dart';
 import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
@@ -151,6 +152,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return;
     }
 
+    // El canal de notificaciones y el permiso de Android 13+.
+    //
+    // Va ACA y no en main() porque las notificaciones hoy son del RESTAURANTE
+    // (el cliente no las necesita), y esto hace que el cartel de "Permitir
+    // notificaciones" salga la primera vez que el restaurante abre sus pedidos.
+    unawaited(Notifications.instance.ensureReady());
+
     _connectedSub ??= Realtime.instance.connected.listen((bool connected) {
       if (mounted) {
         setState(() => _connected = connected);
@@ -182,12 +190,68 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     _watch = watch;
-    _liveSub = watch.messages.listen((Map<String, dynamic> payload) {
-      // No se usa el pedido que viene adentro: esta lista esta ordenada y
-      // filtrada por 'en curso', asi que un pedido que se entrega tiene que
-      // DESAPARECER de aca. Se vuelve a preguntar, en silencio.
-      _load(silent: true);
-    });
+    _liveSub = watch.messages.listen(_onLiveMessage);
+  }
+
+  /// Llego un aviso del tiempo real.
+  ///
+  /// Dos cosas, en este orden: primero se fija si es un PEDIDO NUEVO (para
+  /// sonar) y despues recarga la lista.
+  void _onLiveMessage(Map<String, dynamic> payload) {
+    _ringIfNewOrder(payload);
+
+    // No se usa el pedido que viene adentro para pintar la lista: esta lista
+    // esta ordenada y filtrada por 'en curso', asi que un pedido que se entrega
+    // tiene que DESAPARECER de aca. Se vuelve a preguntar, en silencio.
+    _load(silent: true);
+  }
+
+  /// Suena SOLO cuando entra un pedido nuevo de verdad.
+  ///
+  /// Las condiciones, y por que cada una:
+  ///
+  ///   - 'previous_status' null: el backend lo manda asi cuando el pedido acaba
+  ///     de nacer. En un cambio de estado viene el estado anterior.
+  ///   - estado 'pending': es el estado con el que nace un pedido.
+  ///   - que NO este ya en la lista: si llegara dos veces el mismo aviso, no
+  ///     suena dos veces.
+  ///
+  /// Los cambios de estado de pedidos que el restaurante YA conoce (aceptado,
+  /// en preparacion, en camino) actualizan la lista SIN ruido: si no, el
+  /// telefono sonaria todo el dia por cosas que ya vio.
+  void _ringIfNewOrder(Map<String, dynamic> payload) {
+    final dynamic raw = payload['order'];
+
+    if (raw is! Map<String, dynamic> || payload['previous_status'] != null) {
+      return;
+    }
+
+    final Order order;
+    try {
+      order = Order.fromJson(raw);
+    } catch (_) {
+      // Si el aviso viniera con otra forma no se inventa nada: la lista se
+      // recarga igual (ver _onLiveMessage) y el pedido aparece ahi.
+      return;
+    }
+
+    if (order.status != 'pending' ||
+        _orders.any((Order other) => other.id == order.id)) {
+      return;
+    }
+
+    final int units = order.items.fold<int>(
+      0,
+      (int sum, OrderItem item) => sum + item.quantity,
+    );
+
+    unawaited(
+      Notifications.instance.newOrder(
+        orderId: order.id,
+        units: units,
+        total: order.total,
+      ),
+    );
   }
 
   /// El boton que le toca a este pedido, o null si no le toca ninguno.

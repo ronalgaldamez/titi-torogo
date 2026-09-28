@@ -1,0 +1,78 @@
+================================================================================
+ SONIDO DE NOTIFICACION DEL RESTAURANTE - LICENCIA Y ORIGEN
+================================================================================
+
+ARCHIVO
+  frontend/android/app/src/main/res/raw/restaurante.wav
+
+  NO SE VERSIONA (esta en el .gitignore del frontend). El motivo esta abajo,
+  en "POR QUE NO ESTA EN EL REPO".
+
+  Formato: WAV PCM, 44.100 Hz, 16 bits, estereo, ~3 segundos (521 KB).
+
+
+DE DONDE SALIO
+  Sitio: Mixkit (https://mixkit.co/), de Envato / Shutterstock, Inc.
+  Lista de donde se bajo:
+      https://mixkit.co/free-sound-effects/notification/
+  Fecha de descarga: 27/09/2026
+
+  Prueba guardada: design/sonidos/licencia-mixkit.png
+  (captura de https://mixkit.co/license/, seccion Sound Effects Free License)
+
+
+QUE DICE LA LICENCIA (texto de Mixkit, resumido y con las frases textuales)
+  Licencia: "Mixkit Sound Effects Free License"
+  Pagina:   https://mixkit.co/license/   (seccion Sound Effects)
+  Terminos: https://mixkit.co/terms/      (ultima revision: 2 de octubre de 2025)
+
+  Permitido:
+    - "Items under the Mixkit Sound Effects Free License can be used in your
+       commercial and non-commercial projects for free."
+    - "You are licensed to use the Item to create an End Product that
+       incorporates the Item as well as other things, so that it is larger in
+       scope and different in nature than the Item."
+    - Se permite descargar, copiar, modificar, distribuir y ejecutar
+      publicamente el sonido en videos, redes, podcasts, videojuegos, films,
+      presentaciones, CDs/DVDs, TV, radio y video bajo demanda.
+
+  NO permitido:
+    - "You can't redistribute the Item on its own, as stock, in a tool or
+       template, or with source files."
+    - "You're also not allowed to claim them as your own or register them on
+       any rights management service." (nada de Content ID ni similares.)
+
+  Ojo con la clausula 17 de los terminos: Mixkit entrega los Items "tal cual" y
+  SIN garantia de que no haya reclamos de terceros.
+
+
+NUESTRO USO
+  El sonido suena como aviso de "pedido nuevo" DENTRO de la app ToroGo, que es
+  el "End Product" del que habla la licencia: un producto mucho mas grande, con
+  otras cosas adentro, y que no vende el sonido por separado. Eso esta dentro
+  de lo permitido.
+
+
+POR QUE NO ESTA EN EL REPO
+  El repositorio de GitHub es PUBLICO. Commitear el .wav seria "redistribute the
+  Item ... with source files", que es justo uno de los casos que la licencia
+  prohibe: cualquiera podria bajarse el archivo suelto desde el repo.
+
+  En cambio, la app compilada SI puede llevarlo adentro (es el End Product).
+
+  Para tenerlo en tu copia: bajalo de la lista de arriba y guardalo como
+      frontend/android/app/src/main/res/raw/restaurante.wav
+  Si falta, la app compila igual; lo unico que pasa es que la notificacion
+  suena con el sonido por defecto del telefono.
+
+
+PENDIENTE ANTES DE PUBLICAR EN LA TIENDA
+  Reemplazar este sonido por uno NUESTRO (grabado o generado por nosotros) y
+  borrar este archivo. Con un sonido propio no hay licencia de terceros que
+  citar, y se puede versionar sin ningun problema.
+
+  El codigo ya esta preparado para ese cambio: hay que dejar el archivo nuevo
+  con el mismo nombre (restaurante.wav) y, si cambia el audio, crear el canal
+  de notificacion con otro id (Android cachea el sonido por canal).
+
+================================================================================
