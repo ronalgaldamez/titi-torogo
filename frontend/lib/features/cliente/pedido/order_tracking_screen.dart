@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
+import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/order.dart';
@@ -36,10 +39,122 @@ class _Milestone {
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   late Future<Order> _future;
 
+  /// El pedido tal como lo conto el tiempo real (WebSocket).
+  ///
+  /// Manda sobre lo que trajo el HTTP: si ya nos avisaron que el restaurante lo
+  /// acepto, mostrar la version vieja mientras la peticion viaja seria mostrar
+  /// algo que ya sabemos que es falso.
+  Order? _liveOrder;
+
+  /// La escucha del WebSocket de este pedido. Null = no se pudo abrir.
+  OrderWatch? _watch;
+
+  StreamSubscription<Map<String, dynamic>>? _liveSub;
+  StreamSubscription<bool>? _connectedSub;
+
+  /// ¿El WebSocket esta conectado AHORA?
+  ///
+  /// Se muestra en la barra de arriba. Importa porque, cuando el tiempo real no
+  /// anda, no hay ningun sintoma: la pantalla simplemente no se actualiza sola.
+  bool _connected = false;
+
   @override
   void initState() {
     super.initState();
     _future = _load();
+    _startRealtime();
+  }
+
+  @override
+  void dispose() {
+    _liveSub?.cancel();
+    _connectedSub?.cancel();
+
+    // Cerrar la escucha NO es opcional: si no, este telefono quedaria suscrito
+    // al canal del pedido y el backend seguiria mandando eventos a una pantalla
+    // que ya nadie esta mirando.
+    _watch?.close();
+
+    super.dispose();
+  }
+
+  /// Prende el tiempo real para este pedido.
+  ///
+  /// Todo esto es "si se puede": si Reverb no esta disponible, no se rompe
+  /// nada y la pantalla queda como estaba, con el boton de actualizar y el
+  /// deslizar para refrescar.
+  Future<void> _startRealtime() async {
+    _connectedSub = Realtime.instance.connected.listen((bool connected) {
+      if (mounted) {
+        setState(() => _connected = connected);
+      }
+    });
+
+    // El valor de AHORA, ademas del stream: un stream de broadcast no repite el
+    // ultimo valor, y si la conexion ya estaba establecida antes de abrir esta
+    // pantalla, el listener de arriba no recibiria nada.
+    if (mounted) {
+      setState(() => _connected = Realtime.instance.isConnected);
+    }
+
+    final OrderWatch watch;
+    try {
+      watch = await Realtime.instance.watchOrder(widget.orderId);
+    } catch (error) {
+      // El tiempo real es OPCIONAL: si no se pudo ni abrir el canal, la
+      // pantalla sigue como estaba, con el boton de actualizar.
+      //
+      // Se deja escrito en la consola para poder diagnosticarlo, y NO se le
+      // muestra nada al cliente: un pedido que se puede actualizar a mano no es
+      // un problema que el tenga que resolver.
+      //
+      // OJO al diagnosticar: si el token venciera, el error va a aparecer como
+      // "Unhandled Exception ... Failed to get authorization data", porque el
+      // paquete hace la autorizacion por dentro y no la devuelve. Ese mensaje
+      // significa que /api/broadcasting/auth rechazo el token.
+      debugPrint('Tiempo real: no se pudo escuchar el pedido ($error)');
+
+      return;
+    }
+
+    if (!mounted) {
+      // La pantalla se cerro mientras se conectaba. Se suelta el canal para no
+      // dejarlo abierto.
+      await watch.close();
+
+      return;
+    }
+
+    _watch = watch;
+    _liveSub = watch.messages.listen(_onLiveUpdate);
+  }
+
+  /// Llego un aviso de que este pedido cambio.
+  ///
+  /// El aviso trae el pedido COMPLETO con la misma forma que devuelve la API
+  /// (es el mismo OrderResource en el backend), asi que se pinta directo y no
+  /// hace falta pedirlo otra vez.
+  ///
+  /// Si el aviso viniera con otra forma, se pide por HTTP: quedarse mostrando
+  /// datos viejos sin decir nada seria peor que una peticion de mas.
+  void _onLiveUpdate(Map<String, dynamic> payload) {
+    final dynamic raw = payload['order'];
+
+    if (raw is! Map<String, dynamic>) {
+      _reload();
+
+      return;
+    }
+
+    try {
+      final Order order = Order.fromJson(raw);
+
+      if (mounted) {
+        setState(() => _liveOrder = order);
+      }
+    } catch (_) {
+      _reload();
+    }
   }
 
   Future<Order> _load() async {
@@ -51,7 +166,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   void _reload() {
-    setState(() => _future = _load());
+    // La pantalla pudo haberse cerrado mientras el aviso venia en camino:
+    // setState sobre una pantalla que ya no existe es un error de verdad, no un
+    // aviso.
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      // Lo que llega por HTTP manda: se tira lo que habia pintado el tiempo
+      // real, para no mezclar dos versiones del mismo pedido.
+      _liveOrder = null;
+      _future = _load();
+    });
   }
 
   String _format(DateTime date) {
@@ -91,6 +218,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           ),
         ),
         actions: <Widget>[
+          if (_connected) const _LiveChip(),
           IconButton(
             onPressed: _reload,
             icon: const Icon(Icons.refresh_rounded),
@@ -102,11 +230,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       body: FutureBuilder<Order>(
         future: _future,
         builder: (BuildContext context, AsyncSnapshot<Order> snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // El pedido del tiempo real tiene prioridad sobre el de la peticion:
+          // si ya nos avisaron como esta, no tiene sentido tapar la pantalla
+          // con el circulito de carga.
+          final Order? order = _liveOrder ?? snapshot.data;
+
+          if (order == null &&
+              snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError || snapshot.data == null) {
+          if (order == null) {
             final Object? error = snapshot.error;
 
             return _ErrorBox(
@@ -116,8 +250,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               onRetry: _reload,
             );
           }
-
-          final Order order = snapshot.data!;
 
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -219,6 +351,47 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// La chapita de "en vivo".
+///
+/// Esta porque, cuando el tiempo real NO anda, no hay ningun sintoma visible:
+/// la pantalla se queda quieta y uno cree que el pedido no se movio.
+/// Con la chapita se ve de un vistazo si el WebSocket esta conectado.
+///
+/// Si no aparece, la pantalla sigue siendo usable: se actualiza con el boton de
+/// arriba o deslizando hacia abajo.
+class _LiveChip extends StatelessWidget {
+  const _LiveChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.xs),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppTheme.mint,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'En vivo',
+            style: text.labelSmall?.copyWith(
+              color: AppTheme.tealDeep,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

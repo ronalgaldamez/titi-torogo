@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
@@ -122,6 +123,17 @@ class OrderController extends Controller
 
             return $this->ok($order);
         }
+
+        // Avisa por WebSocket. OJO: va DESPUES de la transaccion, no adentro.
+        //
+        // Si se avisara desde adentro, el telefono del restaurante podria ver
+        // el pedido ANTES de que la base lo confirme, y si algo fallara
+        // despues, le habriamos avisado de un pedido que no existe.
+        //
+        // El camino de la llave repetida (el catch de arriba) NO avisa a
+        // proposito: ese pedido ya estaba creado y avisar de nuevo seria
+        // hacerle creer al restaurante que entro un pedido nuevo.
+        OrderUpdated::announce($order);
 
         return response()->json([
             'order' => new OrderResource($order->load(['items', 'restaurant', 'courier'])),

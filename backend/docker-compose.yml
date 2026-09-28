@@ -1,9 +1,10 @@
 # ============================================================================
 #  ToroGo - Infraestructura local de desarrollo
-#  Levanta:  PHP 8.4 (FPM) + Nginx + PostgreSQL 18 + Redis + MinIO + Mailpit + Node
+#  Levanta:  PHP 8.4 (FPM) + Nginx + PostgreSQL 18 + Redis + MinIO + Mailpit
+#            + Reverb (WebSockets) + Node
 #
 #  USO BASICO (desde la raiz del proyecto):
-#    docker compose up -d app nginx postgres redis minio mailpit
+#    docker compose up -d app nginx postgres redis minio mailpit reverb
 #    docker compose ps
 #    docker compose logs -f app
 #
@@ -40,6 +41,41 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
+  # REVERB : WebSockets (tiempo real). Misma imagen y mismo codigo que "app".
+  #
+  #  Por que un contenedor APARTE: Reverb tiene que quedarse vivo escuchando,
+  #  y el contenedor "app" es PHP-FPM, que atiende un pedido y suelta. No
+  #  pueden ser el mismo proceso.
+  #
+  #  Los puertos, que es lo que confunde:
+  #    - adentro:  8080 (REVERB_SERVER_PORT). Ahi le publica el backend.
+  #    - afuera:   8081 en tu PC. El 8080 de tu PC YA es de Nginx (la API).
+  #    - telefono: ws://localhost:8081, con `adb reverse tcp:8081 tcp:8081`
+  #                (el mismo truco que ya usamos para la API).
+  #
+  #  Logs: docker compose logs -f reverb
+  # --------------------------------------------------------------------------
+  reverb:
+    image: torogo/php:8.4
+    container_name: torogo_reverb
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "reverb:start"]
+    ports:
+      - "${REVERB_FORWARD_PORT:-8081}:8080"
+    volumes:
+      # El MISMO codigo y el MISMO vendor que "app": si aca faltara el volumen
+      # de vendor, el contenedor arrancaria sin Laravel y moriria al instante.
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    depends_on:
+      - app
     networks:
       - torogo
 
