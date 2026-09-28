@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\RestaurantOrderController;
+use App\Http\Controllers\Api\RestaurantStatusController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -155,6 +156,23 @@ Route::middleware(['auth:sanctum', 'restaurant'])
         // Borrado suave del plato.
         Route::delete('/menu/products/{product}', [MenuController::class, 'destroyProduct'])
             ->name('api.restaurant.menu.products.destroy');
+
+        // ------------------------- Estado del local -------------------------
+
+        /*
+        | El dashboard: abierto/cerrado y "muy ocupado".
+        |
+        | Es lo que hace que un restaurante pueda CERRAR de verdad: cerrado,
+        | deja de aparecer en el Home del cliente y se le rechazan los pedidos
+        | nuevos. Sin esto, un local sin ingredientes sigue recibiendo pedidos
+        | que no puede preparar.
+        */
+        Route::get('/status', [RestaurantStatusController::class, 'show'])
+            ->name('api.restaurant.status.show');
+
+        // PATCH y no PUT: cambia DOS campos del restaurante, no lo reemplaza.
+        Route::patch('/status', [RestaurantStatusController::class, 'update'])
+            ->name('api.restaurant.status.update');
 
         // ---------------------------- Pedidos ----------------------------
 
