@@ -13,6 +13,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
+        // DESUGARING: lo exige flutter_local_notifications (las notificaciones
+        // del restaurante). Traduce APIs modernas de Java a Android viejos, y
+        // SIN esto el plugin directamente no compila.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -41,4 +46,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // El paquete que hace posible el desugaring de arriba. La version la pide
+    // flutter_local_notifications (ver su seccion "Gradle setup").
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# El sonido de la notificacion del restaurante NO se versiona a proposito.
+#
+# Viene de Mixkit y su licencia permite usarlo DENTRO de la app (el "End
+# Product"), pero NO redistribuirlo suelto "with source files" — y este repo es
+# publico. El detalle completo esta en design/sonidos/LICENCIA.txt.
+#
+# Para tenerlo en tu copia: bajalo de
+# https://mixkit.co/free-sound-effects/notification/
+# y guardalo como android/app/src/main/res/raw/restaurante.wav
+/android/app/src/main/res/raw/*.wav

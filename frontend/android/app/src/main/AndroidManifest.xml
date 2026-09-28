@@ -10,6 +10,20 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
+    <!-- Permisos de las notificaciones (el restaurante avisando de un pedido
+         nuevo).
+
+         El plugin de notificaciones YA NO los pone por su cuenta (desde su
+         version 16 los declara la app), asi que sin estas dos lineas Android
+         ignora las notificaciones y no hay ningun error que lo explique.
+
+         POST_NOTIFICATIONS es de Android 13 en adelante, y ademas de declararlo
+         hay que PEDIRLO en pantalla la primera vez (ver
+         core/notifications.dart). En Android 12 y anteriores se concede solo al
+         instalar. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
     <application
         android:label="torogo"
         android:name="${applicationName}"
