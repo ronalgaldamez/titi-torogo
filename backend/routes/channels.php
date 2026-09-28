@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Order;
+use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -43,6 +44,24 @@ Broadcast::channel('orders.{order}', function (User $user, Order $order): bool {
 
     return $order->restaurant !== null && $order->restaurant->user_id === $user->id;
 });
+
+/*
+ * El canal de UN restaurante: todo lo que pasa en su cocina.
+ *
+ * Existe ADEMAS del canal de cada pedido, y no es un lujo: el restaurante NO
+ * SABE los numeros de pedido de antemano. El pedido que acaba de entrar es
+ * justamente el que todavia no conoce, asi que no puede suscribirse a su canal.
+ * Con este canal escucha TODOS sus pedidos por un solo lugar, y el que entra le
+ * llega igual.
+ *
+ * Entra solo el dueno de ese restaurante.
+ */
+Broadcast::channel(
+    'restaurants.{restaurant}',
+    function (User $user, Restaurant $restaurant): bool {
+        return $restaurant->user_id === $user->id;
+    },
+);
 
 /*
  * El canal personal de cada cuenta.

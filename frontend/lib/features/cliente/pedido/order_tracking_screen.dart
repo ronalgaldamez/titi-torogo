@@ -7,6 +7,7 @@ import '../../../core/auth_storage.dart';
 import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/live_chip.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
 import 'order_repository.dart';
@@ -47,7 +48,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Order? _liveOrder;
 
   /// La escucha del WebSocket de este pedido. Null = no se pudo abrir.
-  OrderWatch? _watch;
+  RealtimeWatch? _watch;
 
   StreamSubscription<Map<String, dynamic>>? _liveSub;
   StreamSubscription<bool>? _connectedSub;
@@ -97,7 +98,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       setState(() => _connected = Realtime.instance.isConnected);
     }
 
-    final OrderWatch watch;
+    final RealtimeWatch watch;
     try {
       watch = await Realtime.instance.watchOrder(widget.orderId);
     } catch (error) {
@@ -218,7 +219,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           ),
         ),
         actions: <Widget>[
-          if (_connected) const _LiveChip(),
+          if (_connected) const LiveChip(),
           IconButton(
             onPressed: _reload,
             icon: const Icon(Icons.refresh_rounded),
@@ -351,47 +352,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// La chapita de "en vivo".
-///
-/// Esta porque, cuando el tiempo real NO anda, no hay ningun sintoma visible:
-/// la pantalla se queda quieta y uno cree que el pedido no se movio.
-/// Con la chapita se ve de un vistazo si el WebSocket esta conectado.
-///
-/// Si no aparece, la pantalla sigue siendo usable: se actualiza con el boton de
-/// arriba o deslizando hacia abajo.
-class _LiveChip extends StatelessWidget {
-  const _LiveChip();
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.xs),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppTheme.mint,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'En vivo',
-            style: text.labelSmall?.copyWith(
-              color: AppTheme.tealDeep,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -71,13 +71,27 @@ class OrderUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * El canal del pedido. Es PRIVADO: sin permiso no se escucha.
+     * Los canales por los que sale este aviso.
+     *
+     * Son DOS a proposito, y el segundo no es un lujo:
+     *
+     *   1. El canal del pedido: para el cliente que lo pidio y el motorizado
+     *      que lo lleva.
+     *   2. El canal del restaurante: para que vea entrar y moverse TODO lo de
+     *      su cocina por un solo lugar. Necesita este canal aparte porque NO
+     *      puede suscribirse al canal de un pedido cuyo numero todavia no
+     *      conoce — y el que acaba de entrar es justamente ese.
+     *
+     * Los dos son PRIVADOS: quien entra lo decide routes/channels.php.
      *
      * @return array<int, PrivateChannel>
      */
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('orders.'.$this->order->id)];
+        return [
+            new PrivateChannel('orders.'.$this->order->id),
+            new PrivateChannel('restaurants.'.$this->order->restaurant_id),
+        ];
     }
 
     /**
