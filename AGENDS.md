@@ -43,8 +43,29 @@
 
 - Framework: Flutter
 - Diseno: Material 3 Expressive
-- Mapas: Google Maps
+- Mapas: OpenStreetMap (paquete flutter_map) — ver la NOTA SOBRE LOS MAPAS
 - Estado: Riverpod o Bloc (a definir)
+
+> **NOTA SOBRE LOS MAPAS** (septiembre 2026)
+>
+> Esta biblia pedia Google Maps, y se cambio a **OpenStreetMap** a proposito.
+> Google exige una cuenta de facturacion **con tarjeta** (y una autorizacion
+> temporal en la tarjeta) para entregar la llave del mapa. ToroGo tiene que
+> poder levantarse **sin que nadie ponga una tarjeta**, asi que se usa
+> OpenStreetMap con el paquete `flutter_map`: gratis, sin cuenta, sin llave y
+> sin cuota.
+>
+> Lo unico que pide su licencia es el credito **"© OpenStreetMap contributors"**
+> visible en el mapa, y ya esta puesto (ver `frontend/lib/core/widgets/torogo_map.dart`).
+> Sus servidores de mosaicos son para **uso liviano**: para Tejutla y los
+> primeros clientes alcanza de sobra, y el dia que haya muchisima gente se pasa
+> a un proveedor con capa gratuita o a un servidor propio (es cambiar una linea
+> de codigo, el `urlTemplate`).
+>
+> **Para la navegacion del motorizado no hace falta ninguna llave**: se abre la
+> app de Google Maps con un enlace (`google.com/maps/dir/?api=1&destination=lat,lng`)
+> y eso es gratis. La llave solo se necesita para DIBUJAR el mapa adentro de la
+> app, y de eso se encarga OpenStreetMap.
 
 ### Admin (Panel Web)
 
@@ -320,7 +341,7 @@ Perfil
 
 - Pago: Solo efectivo (sin pasarela)
 - Direcciones: Multiples direcciones guardadas
-- Tracking: Tiempo real con Laravel Reverb + Google Maps
+- Tracking: Tiempo real con Laravel Reverb + mapa (OpenStreetMap)
 - Carrito: Persistente (si cierra app, sigue ahi)
 
 ---
@@ -391,7 +412,7 @@ Gestion de Pedidos
 
 - Pedidos disponibles cercanos (radio configurable, ej: 5 km)
 - Detalle de pedido (productos, direcciones, monto)
-- Tracking activo con navegacion Google Maps
+- Tracking activo con mapa en la app, y navegacion en Google Maps por enlace (sin llave)
 - Botones de estados: Llegue al restaurante / Recogi / Llegue al cliente / Entregado
 
 Historial y Ganancias
@@ -407,7 +428,7 @@ Perfil
 ### Detalles tecnicos
 
 - Tiempo para aceptar: 30 segundos
-- Navegacion: Google Maps integrado
+- Navegacion: Google Maps integrado por enlace (no necesita llave)
 - Geolocalizacion: En background (tracking en tiempo real)
 - Radio de busqueda: Solo pedidos cercanos (5 km por defecto)
 - Notificacion: Sonido fuerte + vibracion cuando llega pedido disponible
@@ -536,7 +557,7 @@ TOTAL: 42 pantallas
 3. Home del cliente: Lista de restaurantes
 4. Gestion de menu: Restaurante puede agregar productos
 5. Flujo de pedido: Cliente a Restaurante a Motorizado a Cliente
-6. Tracking en tiempo real: WebSockets + Google Maps
+6. Tracking en tiempo real: WebSockets + mapa
 7. Panel admin: Controlar todo el ecosistema
 
 ---

@@ -10,6 +10,7 @@ import '../../core/realtime.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/live_chip.dart';
+import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
 import 'pedidos/courier_order_repository.dart';
 
@@ -821,6 +822,29 @@ class _MyOrderCard extends StatelessWidget {
               value: order.delivery.reference!,
             ),
           ],
+          const SizedBox(height: AppSpacing.sm),
+          // El mapa del pedido: donde recoger y donde entregar.
+          //
+          // Mas bajo que en el seguimiento del cliente (160 y no 220): aca es
+          // una ayuda para ubicarse, no la pantalla principal, y el motorizado
+          // puede tener dos o tres pedidos seguidos en la lista.
+          TorogoMap(
+            points: <MapPoint>[
+              MapPoint(
+                latitude: order.restaurant.latitude,
+                longitude: order.restaurant.longitude,
+                icon: Icons.storefront_rounded,
+                color: AppTheme.teal,
+              ),
+              MapPoint(
+                latitude: order.delivery.latitude,
+                longitude: order.delivery.longitude,
+                icon: Icons.place_rounded,
+                color: AppTheme.coral,
+              ),
+            ],
+            height: 160,
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Cobrás \$${order.total} en efectivo',
