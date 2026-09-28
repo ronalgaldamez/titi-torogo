@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
@@ -91,6 +92,11 @@ class RestaurantOrderController extends Controller
         //
         //    moveTo devuelve false y NO toca nada cuando la transicion es
         //    ilegal, asi que el mensaje de abajo puede leer el estado viejo.
+        //
+        //    El estado viejo se guarda ANTES, porque moveTo lo pisa: sin esto,
+        //    el aviso de tiempo real no podria decir de donde a donde se movio.
+        $previous = $model->status->value;
+
         if (! $model->moveTo($status)) {
             throw ValidationException::withMessages([
                 'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
@@ -98,6 +104,11 @@ class RestaurantOrderController extends Controller
         }
 
         $model->save();
+
+        // Avisa al cliente (y al motorizado, si ya lo tenia) por WebSocket.
+        // Va DESPUES del save: al reves, el telefono podria pintar un cambio
+        // que la base todavia no tiene.
+        OrderUpdated::announce($model, $previous);
 
         return response()->json([
             'order' => new OrderResource($model->load(['items', 'restaurant'])),

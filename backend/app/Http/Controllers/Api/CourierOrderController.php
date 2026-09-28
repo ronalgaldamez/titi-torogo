@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAvailabilityRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
@@ -165,6 +166,16 @@ class CourierOrderController extends Controller
             ->with(['items', 'restaurant'])
             ->findOrFail($order);
 
+        // Avisa al cliente QUIEN le va a llevar el pedido.
+        //
+        // OJO: aca el ESTADO no cambio (sigue en "listo para recoger"), lo que
+        // cambio es el motorizado. Se avisa igual a proposito: para el cliente
+        // "ya se quien lo trae" es justo el dato que estaba esperando.
+        //
+        // El estado de antes es el mismo de ahora, y se manda tal cual: no es
+        // un cambio de estado, y la app lo distingue comparando los dos.
+        OrderUpdated::announce($model, $model->status->value);
+
         return response()->json([
             'order' => new OrderResource($model),
         ]);
@@ -190,6 +201,10 @@ class CourierOrderController extends Controller
             ]);
         }
 
+        // El estado viejo, antes de que moveTo lo pise: es lo que el aviso de
+        // tiempo real necesita para decir de donde a donde se movio.
+        $previous = $model->status->value;
+
         if (! $model->moveTo($status)) {
             throw ValidationException::withMessages([
                 'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
@@ -197,6 +212,10 @@ class CourierOrderController extends Controller
         }
 
         $model->save();
+
+        // Avisa por WebSocket al cliente y al restaurante. Despues del save,
+        // no antes.
+        OrderUpdated::announce($model, $previous);
 
         return response()->json([
             'order' => new OrderResource($model->load(['items', 'restaurant'])),

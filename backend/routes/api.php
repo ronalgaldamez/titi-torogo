@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\RestaurantOrderController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -200,3 +202,24 @@ Route::middleware(['auth:sanctum', 'courier'])
         Route::patch('/orders/{order}', [CourierOrderController::class, 'updateStatus'])
             ->name('api.courier.orders.status');
     });
+
+// ------------------------------ Tiempo real ----------------------------
+
+/*
+| El permiso para escuchar un canal privado (Reverb).
+|
+| POR QUE ESTA RUTA EXISTE, SI LARAVEL YA TIENE UNA:
+|
+| El instalador de broadcasting registra /broadcasting/auth con el grupo de
+| middleware 'web', que pide sesion Y token CSRF. Nuestra app movil no tiene
+| sesion: manda "Authorization: Bearer". Con la ruta de Laravel, el cliente y
+| el motorizado recibirian 403 SIEMPRE y la pantalla se quedaria congelada sin
+| decir por que.
+|
+| Es el MISMO Broadcast::auth, pero detras de auth:sanctum, que es como se
+| autentica toda la app. Va bajo /api para que el telefono use la misma base
+| que ya usa (http://localhost:8080/api).
+*/
+Route::middleware('auth:sanctum')
+    ->post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request))
+    ->name('api.broadcasting.auth');
