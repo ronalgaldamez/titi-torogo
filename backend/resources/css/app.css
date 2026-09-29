@@ -8,4 +8,20 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /*
+     * La paleta de ToroGo.
+     *
+     * Son los MISMOS colores que la app movil (ver
+     * frontend/lib/core/theme.dart): el panel y el telefono tienen que parecer
+     * la misma empresa. Si se cambia uno, se cambia en los dos lados.
+     */
+    --color-teal: #1290A5;
+    --color-teal-deep: #0A6C7D;
+    --color-teal-soft: #E0F2F5;
+    --color-yellow: #F5D21F;
+    --color-coral: #E64A2E;
+    --color-mint: #4EC3AE;
+    --color-navy: #14395C;
+    --color-background: #FCF6F4;
 }

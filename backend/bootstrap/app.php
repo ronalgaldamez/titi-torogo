@@ -27,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'restaurant' => \App\Http\Middleware\EnsureRestaurantAccount::class,
             'courier' => \App\Http\Middleware\EnsureCourierAccount::class,
+            // El panel de administracion (PASO 7). Es lo que hace que un dueno
+            // de restaurante con sesion abierta no pueda entrar a ver todo.
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
