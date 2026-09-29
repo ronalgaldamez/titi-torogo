@@ -8,6 +8,7 @@ import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/live_chip.dart';
+import '../../../core/widgets/torogo_map.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
 import 'order_repository.dart';
@@ -285,6 +286,45 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     color: AppTheme.mint,
                   ),
                 const SizedBox(height: AppSpacing.lg),
+                const _SectionTitle('DÓNDE VA TU PEDIDO'),
+                TorogoMap(
+                  points: <MapPoint>[
+                    // El restaurante: donde se prepara.
+                    MapPoint(
+                      latitude: order.restaurant.latitude,
+                      longitude: order.restaurant.longitude,
+                      icon: Icons.storefront_rounded,
+                      color: AppTheme.teal,
+                    ),
+                    // Tu casa: donde tiene que llegar.
+                    MapPoint(
+                      latitude: order.delivery.latitude,
+                      longitude: order.delivery.longitude,
+                      icon: Icons.home_rounded,
+                      color: AppTheme.coral,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _MapLegend(
+                        color: AppTheme.teal,
+                        icon: Icons.storefront_rounded,
+                        label: order.restaurant.name,
+                      ),
+                    ),
+                    Expanded(
+                      child: _MapLegend(
+                        color: AppTheme.coral,
+                        icon: Icons.home_rounded,
+                        label: 'Tu dirección',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 const _SectionTitle('EL RECORRIDO'),
                 for (int i = 0; i < _milestones(order).length; i++)
                   _TimelineRow(
@@ -353,6 +393,47 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Una entrada de la leyenda del mapa: el color y que significa.
+///
+/// Va abajo del mapa porque un globito de color, sin la leyenda, no dice nada:
+/// el cliente ve dos circulos y tiene que adivinar cual es su casa.
+class _MapLegend extends StatelessWidget {
+  const _MapLegend({
+    required this.color,
+    required this.icon,
+    required this.label,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: Icon(icon, size: 12, color: Colors.white),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.bodySmall?.copyWith(color: AppTheme.navy),
+          ),
+        ),
+      ],
     );
   }
 }
