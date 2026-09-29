@@ -1,7 +1,50 @@
 <?php
 
+use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+/*
+|--------------------------------------------------------------------------
+| Panel de administracion (web)
+|--------------------------------------------------------------------------
+|
+| Es la ultima pieza del MVP (PASO 7 de la biblia).
+|
+| A diferencia de la API —que se autentica con tokens de Sanctum, porque la
+| consume una app movil— el panel usa la SESION de Laravel: es una pagina web
+| que se abre en el navegador de la compu, no en el telefono.
+|
+*/
+
+// La raiz lleva al panel. El sitio publico todavia no existe, y la pantalla de
+// bienvenida de Laravel no le sirve a nadie.
+Route::redirect('/', '/admin');
+
+Route::prefix('admin')->group(function (): void {
+    // ---------------------- Sin sesion: el login ----------------------
+
+    Route::middleware('guest')->group(function (): void {
+        // OJO CON EL NOMBRE: es 'login' a secas y no 'admin.login' a proposito.
+        // El middleware 'auth' de Laravel redirige a la ruta llamada 'login'
+        // cuando alguien sin sesion entra a una ruta protegida, y busca
+        // exactamente ese nombre.
+        Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+
+        // 10 intentos por minuto por correo + IP. Sin esto, alguien podria
+        // probar miles de contrasenas contra la cuenta del administrador.
+        Route::post('/login', [AuthController::class, 'login'])
+            ->middleware('throttle:10,1')
+            ->name('login.attempt');
+    });
+
+    // ---------------------- Con sesion: el panel ----------------------
+
+    Route::middleware(['auth', 'admin'])->group(function (): void {
+        Route::get('/', [DashboardController::class, 'index'])
+            ->name('admin.dashboard');
+
+        Route::post('/logout', [AuthController::class, 'logout'])
+            ->name('admin.logout');
+    });
 });

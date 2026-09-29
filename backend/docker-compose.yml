@@ -215,7 +215,12 @@ services:
     container_name: torogo_node
     restart: unless-stopped
     working_dir: /var/www/html
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    # OJO: el "--host 0.0.0.0" que estaba aca SE QUITO, y no es un detalle:
+    # Vite escribia esa direccion en public/hot, Laravel la ponia en el HTML y
+    # el navegador no puede ir a 0.0.0.0 (ERR_ADDRESS_INVALID, el CSS no
+    # cargaba). Ahora quien escucha en todas las interfaces es el
+    # vite.config.js (host: true), que ademas le dice al navegador localhost.
+    command: sh -c "npm install && npm run dev"
     ports:
       - "${VITE_PORT:-5173}:5173"
     volumes:
