@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CourierController;
+use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\RestaurantController;
+use App\Http\Controllers\Admin\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -97,5 +99,19 @@ Route::prefix('admin')->group(function (): void {
             ->name('admin.orders.assign');
         Route::post('/pedidos/{order}/liberar', [OrderController::class, 'releaseCourier'])
             ->name('admin.orders.release');
+
+        // ---------------------------- Clientes ----------------------------
+
+        Route::get('/clientes', [CustomerController::class, 'index'])
+            ->name('admin.customers.index');
+        Route::get('/clientes/{customer}', [CustomerController::class, 'show'])
+            ->name('admin.customers.show');
+
+        // -------------------------- Configuracion --------------------------
+
+        Route::get('/configuracion', [SettingsController::class, 'index'])
+            ->name('admin.settings.index');
+        Route::post('/configuracion/{zone}', [SettingsController::class, 'update'])
+            ->name('admin.settings.update');
     });
 });
