@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\RestaurantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -46,5 +47,23 @@ Route::prefix('admin')->group(function (): void {
 
         Route::post('/logout', [AuthController::class, 'logout'])
             ->name('admin.logout');
+
+        // ------------------------- Restaurantes -------------------------
+
+        Route::get('/restaurantes', [RestaurantController::class, 'index'])
+            ->name('admin.restaurants.index');
+        Route::get('/restaurantes/crear', [RestaurantController::class, 'create'])
+            ->name('admin.restaurants.create');
+        Route::post('/restaurantes', [RestaurantController::class, 'store'])
+            ->name('admin.restaurants.store');
+        Route::get('/restaurantes/{restaurant}/editar', [RestaurantController::class, 'edit'])
+            ->name('admin.restaurants.edit');
+        Route::put('/restaurantes/{restaurant}', [RestaurantController::class, 'update'])
+            ->name('admin.restaurants.update');
+
+        // Activar/desactivar: un POST y no un PATCH porque es un boton de un
+        // formulario del navegador, sin JavaScript de por medio.
+        Route::post('/restaurantes/{restaurant}/activar', [RestaurantController::class, 'toggle'])
+            ->name('admin.restaurants.toggle');
     });
 });

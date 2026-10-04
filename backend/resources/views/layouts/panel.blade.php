@@ -36,9 +36,46 @@
                 </button>
             </form>
         </div>
+
+        {{--
+            Las secciones del panel. Solo estan las que EXISTEN: un menu con
+            "Pedidos" que lleva a una pagina en blanco confunde mas de lo que
+            ayuda. Las que faltan se van sumando aca.
+        --}}
+        <nav class="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
+            @php
+                $secciones = [
+                    ['route' => 'admin.dashboard', 'label' => 'Tablero'],
+                    ['route' => 'admin.restaurants.index', 'label' => 'Restaurantes'],
+                ];
+            @endphp
+
+            @foreach ($secciones as $seccion)
+                @php $activa = request()->routeIs($seccion['route']); @endphp
+
+                <a href="{{ route($seccion['route']) }}"
+                   class="{{ $activa
+                       ? 'bg-white text-navy'
+                       : 'text-teal-soft hover:bg-white/10 hover:text-white' }} rounded-full px-4 py-2 text-sm font-semibold transition">
+                    {{ $seccion['label'] }}
+                </a>
+            @endforeach
+        </nav>
     </header>
 
     <main class="mx-auto max-w-6xl px-6 py-8">
+
+        {{--
+            El aviso de lo que acaba de pasar ("quedó creado", "quedó
+            desactivado"). Se muestra una sola vez, porque el mensaje viaja en
+            la sesión y se borra al mostrarlo.
+        --}}
+        @if (session('status'))
+            <div class="mb-6 rounded-2xl bg-mint/20 px-5 py-4 text-sm font-semibold text-teal-deep">
+                {{ session('status') }}
+            </div>
+        @endif
+
         @yield('content')
     </main>
 
