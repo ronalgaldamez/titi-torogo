@@ -47,6 +47,7 @@
                 $secciones = [
                     ['route' => 'admin.dashboard', 'label' => 'Tablero'],
                     ['route' => 'admin.restaurants.index', 'label' => 'Restaurantes'],
+                    ['route' => 'admin.couriers.index', 'label' => 'Motorizados'],
                 ];
             @endphp
 

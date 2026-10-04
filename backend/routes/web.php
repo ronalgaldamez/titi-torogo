@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CourierController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\RestaurantController;
 use Illuminate\Support\Facades\Route;
@@ -65,5 +66,20 @@ Route::prefix('admin')->group(function (): void {
         // formulario del navegador, sin JavaScript de por medio.
         Route::post('/restaurantes/{restaurant}/activar', [RestaurantController::class, 'toggle'])
             ->name('admin.restaurants.toggle');
+
+        // -------------------------- Motorizados --------------------------
+
+        Route::get('/motorizados', [CourierController::class, 'index'])
+            ->name('admin.couriers.index');
+        Route::get('/motorizados/crear', [CourierController::class, 'create'])
+            ->name('admin.couriers.create');
+        Route::post('/motorizados', [CourierController::class, 'store'])
+            ->name('admin.couriers.store');
+        Route::get('/motorizados/{courier}/editar', [CourierController::class, 'edit'])
+            ->name('admin.couriers.edit');
+        Route::put('/motorizados/{courier}', [CourierController::class, 'update'])
+            ->name('admin.couriers.update');
+        Route::post('/motorizados/{courier}/activar', [CourierController::class, 'toggle'])
+            ->name('admin.couriers.toggle');
     });
 });

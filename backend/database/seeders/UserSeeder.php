@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
+use App\Enums\Vehicle;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -39,6 +40,10 @@ class UserSeeder extends Seeder
                 'name' => 'Motorizado Demo',
                 'email' => 'motorizado@torogo.local',
                 'role' => UserRole::Courier,
+                // El motorizado es el unico perfil con datos propios: telefono
+                // y vehiculo (la app los muestra, y el panel los administra).
+                'phone' => '7777-1234',
+                'vehicle' => Vehicle::Motorcycle->value,
             ],
             [
                 'name' => 'Cliente Demo',
@@ -57,6 +62,17 @@ class UserSeeder extends Seeder
             $user->password = self::DEV_PASSWORD; // el cast 'hashed' lo encripta
             $user->role = $account['role'];
             $user->email_verified_at = now();
+
+            // Solo el motorizado trae estos dos datos. 'is_active' se deja como
+            // esta (arranca en true): si alguien lo dio de baja desde el panel,
+            // volver a sembrar no tiene que reactivarlo por la espalda.
+            if (isset($account['phone'])) {
+                $user->phone = $account['phone'];
+            }
+
+            if (isset($account['vehicle'])) {
+                $user->vehicle = $account['vehicle'];
+            }
 
             $user->save();
         }
