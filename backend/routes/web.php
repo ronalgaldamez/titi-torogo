@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CourierController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\RestaurantController;
 use Illuminate\Support\Facades\Route;
 
@@ -81,5 +82,20 @@ Route::prefix('admin')->group(function (): void {
             ->name('admin.couriers.update');
         Route::post('/motorizados/{courier}/activar', [CourierController::class, 'toggle'])
             ->name('admin.couriers.toggle');
+
+        // ---------------------------- Pedidos ----------------------------
+
+        Route::get('/pedidos', [OrderController::class, 'index'])
+            ->name('admin.orders.index');
+        Route::get('/pedidos/{order}', [OrderController::class, 'show'])
+            ->name('admin.orders.show');
+
+        // Las dos intervenciones que pide la biblia: cancelar y reasignar.
+        Route::post('/pedidos/{order}/cancelar', [OrderController::class, 'cancel'])
+            ->name('admin.orders.cancel');
+        Route::post('/pedidos/{order}/motorizado', [OrderController::class, 'assignCourier'])
+            ->name('admin.orders.assign');
+        Route::post('/pedidos/{order}/liberar', [OrderController::class, 'releaseCourier'])
+            ->name('admin.orders.release');
     });
 });

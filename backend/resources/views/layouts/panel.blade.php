@@ -48,6 +48,7 @@
                     ['route' => 'admin.dashboard', 'label' => 'Tablero'],
                     ['route' => 'admin.restaurants.index', 'label' => 'Restaurantes'],
                     ['route' => 'admin.couriers.index', 'label' => 'Motorizados'],
+                    ['route' => 'admin.orders.index', 'label' => 'Pedidos'],
                 ];
             @endphp
 
@@ -74,6 +75,18 @@
         @if (session('status'))
             <div class="mb-6 rounded-2xl bg-mint/20 px-5 py-4 text-sm font-semibold text-teal-deep">
                 {{ session('status') }}
+            </div>
+        @endif
+
+        {{--
+            El aviso de que algo NO se pudo hacer ("ya está cerrado", "no se le
+            puede quitar el motorizado"). Va en rojo y es tan importante como el
+            verde: intervenir un pedido tiene reglas, y cuando se choca con una
+            hay que decir por qué en vez de dejar el botón sin efecto.
+        --}}
+        @if (session('error'))
+            <div class="mb-6 rounded-2xl bg-coral/15 px-5 py-4 text-sm font-semibold text-coral">
+                {{ session('error') }}
             </div>
         @endif
 
