@@ -68,15 +68,18 @@
     <div class="mt-8 rounded-2xl bg-yellow/20 p-5">
         <div class="text-sm font-bold text-navy">Lo que falta en el panel</div>
         <ul class="mt-2 space-y-1 text-sm text-navy/70">
-            <li>· Gestión de motorizados: crear, editar y activar/desactivar.</li>
             <li>· Pedidos: ver todos y poder cancelar o reasignar.</li>
             <li>· Clientes, y la configuración de tarifas y comisiones.</li>
             <li>· Gráficas del día (los números ya están, falta el dibujo).</li>
         </ul>
         <p class="mt-3 text-xs text-navy/50">
-            Los restaurantes ya se manejan desde
+            Los restaurantes y los motorizados ya se manejan desde
             <a href="{{ route('admin.restaurants.index') }}" class="font-semibold text-teal-deep underline">
-                su sección
+                Restaurantes
+            </a>
+            y
+            <a href="{{ route('admin.couriers.index') }}" class="font-semibold text-teal-deep underline">
+                Motorizados
             </a>, sin tocar la base a mano.
         </p>
     </div>
