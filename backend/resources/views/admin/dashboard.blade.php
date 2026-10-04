@@ -61,6 +61,38 @@
         </div>
     </div>
 
+    {{-- ------------------------ La grafica de la semana ------------------------ --}}
+
+    <h2 class="mt-8 text-xs font-bold uppercase tracking-wide text-navy/50">Últimos 7 días</h2>
+
+    <div class="mt-3 rounded-2xl bg-white p-6 shadow-sm">
+        {{--
+            Barras hechas con CSS, sin libreria de graficos: la barra mas alta
+            ocupa el 100% y las demas se calculan contra esa (ver
+            DashboardController::lastSevenDays).
+        --}}
+        <div class="flex h-40 items-end gap-2">
+            @foreach ($days as $day)
+                <div class="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                    <div class="text-xs font-semibold text-navy/70">${{ $day['sales'] }}</div>
+
+                    <div class="flex w-full flex-1 items-end">
+                        <div class="w-full rounded-t-lg bg-teal transition-all"
+                             style="height: {{ $day['percent'] }}%"
+                             title="{{ $day['orders'] }} pedidos"></div>
+                    </div>
+
+                    <div class="text-xs text-navy/50">{{ $day['label'] }}</div>
+                </div>
+            @endforeach
+        </div>
+
+        <p class="mt-4 text-xs text-navy/50">
+            Es la venta de cada día, <strong>sin contar los pedidos cancelados</strong>.
+            Pasá el mouse por una barra para ver cuántos pedidos fueron.
+        </p>
+    </div>
+
     {{--
         Lo que TODAVIA no está, dicho de frente en vez de dejar el menú vacío:
         así el panel no miente sobre lo que puede hacer.
@@ -68,21 +100,13 @@
     <div class="mt-8 rounded-2xl bg-yellow/20 p-5">
         <div class="text-sm font-bold text-navy">Lo que falta en el panel</div>
         <ul class="mt-2 space-y-1 text-sm text-navy/70">
-            <li>· Clientes, y la configuración de tarifas y comisiones.</li>
-            <li>· Gráficas del día (los números ya están, falta el dibujo).</li>
+            <li>· Notificaciones con la app cerrada (FCM), para el motorizado.</li>
+            <li>· El historial y las ganancias del motorizado.</li>
+            <li>· La foto de licencia y DUI de cada motorizado (la biblia la pide).</li>
         </ul>
         <p class="mt-3 text-xs text-navy/50">
-            Los restaurantes, los motorizados y los pedidos ya se manejan desde
-            <a href="{{ route('admin.restaurants.index') }}" class="font-semibold text-teal-deep underline">
-                Restaurantes
-            </a>,
-            <a href="{{ route('admin.couriers.index') }}" class="font-semibold text-teal-deep underline">
-                Motorizados
-            </a>
-            y
-            <a href="{{ route('admin.orders.index') }}" class="font-semibold text-teal-deep underline">
-                Pedidos
-            </a>, sin tocar la base a mano.
+            El panel ya está completo: restaurantes, motorizados, pedidos, clientes
+            y las tarifas se manejan desde acá, sin tocar la base a mano.
         </p>
     </div>
 

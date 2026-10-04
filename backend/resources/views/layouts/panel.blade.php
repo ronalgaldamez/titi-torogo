@@ -49,6 +49,8 @@
                     ['route' => 'admin.restaurants.index', 'label' => 'Restaurantes'],
                     ['route' => 'admin.couriers.index', 'label' => 'Motorizados'],
                     ['route' => 'admin.orders.index', 'label' => 'Pedidos'],
+                    ['route' => 'admin.customers.index', 'label' => 'Clientes'],
+                    ['route' => 'admin.settings.index', 'label' => 'Configuración'],
                 ];
             @endphp
 
