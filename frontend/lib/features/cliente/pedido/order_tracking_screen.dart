@@ -298,8 +298,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     ),
                     // Tu casa: donde tiene que llegar.
                     MapPoint(
-                      latitude: order.delivery.latitude,
-                      longitude: order.delivery.longitude,
+                      latitude: order.delivery!.latitude,
+                      longitude: order.delivery!.longitude,
                       icon: Icons.home_rounded,
                       color: AppTheme.coral,
                     ),
@@ -354,14 +354,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 const _SectionTitle('ENTREGA'),
                 Text(
-                  order.delivery.address,
+                  order.delivery!.address,
                   style: text.bodyMedium?.copyWith(color: AppTheme.navy),
                 ),
-                if (order.delivery.reference != null &&
-                    order.delivery.reference!.isNotEmpty) ...<Widget>[
+                if (order.delivery!.reference != null &&
+                    order.delivery!.reference!.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 2),
                   Text(
-                    order.delivery.reference!,
+                    order.delivery!.reference!,
                     style: text.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontStyle: FontStyle.italic,

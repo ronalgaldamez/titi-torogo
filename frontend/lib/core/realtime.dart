@@ -338,9 +338,8 @@ class RealtimeWatch {
 
   /// Los avisos del backend para este pedido.
   ///
-  /// Cada aviso es el payload tal cual lo mando Laravel. La pantalla decide que
-  /// hacer con el: hoy adentro viene `order` (el pedido completo) y
-  /// `previous_status`.
+  /// Los canales del pedido y restaurante reciben `order` y `previous_status`.
+  /// El canal compartido de motorizados recibe solo `order_id`.
   Stream<Map<String, dynamic>> get messages => messagesController.stream;
 
   /// Cierra la escucha. La pantalla lo llama en su dispose().

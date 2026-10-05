@@ -220,39 +220,20 @@ class _CourierScreenState extends State<CourierScreen> {
 
   /// Suena SOLO cuando un pedido ENTRA a la lista de disponibles.
   ///
-  /// Las condiciones, y por que cada una:
-  ///
-  ///   - estado 'ready' y sin motorizado: es un pedido que se puede tomar.
-  ///   - 'previous_status' distinto de 'ready': ACABA de entrar a la lista. Si
-  ///     ya estaba listo y lo unico que paso fue que alguien lo tomo, no hay
-  ///     nada nuevo que avisar.
-  ///   - y que el pedido aparezca en la lista que devuelve la API: puede estar
-  ///     a 20 km, fuera del radio. El canal avisa a TODOS los motorizados, asi
-  ///     que el filtro de distancia se hace preguntando, no adivinando.
+  /// El aviso solo trae el id. La API confirma si sigue libre y esta cerca.
   void _ringIfNewAvailable(Map<String, dynamic> payload) {
-    final dynamic raw = payload['order'];
+    final dynamic orderId = payload['order_id'];
 
-    if (raw is! Map<String, dynamic> || payload['previous_status'] == 'ready') {
-      return;
-    }
-
-    final Order order;
-    try {
-      order = Order.fromJson(raw);
-    } catch (_) {
-      return;
-    }
-
-    if (order.status != 'ready' || order.courier != null) {
+    if (!_available || orderId is! int) {
       return;
     }
 
     // Ya estaba en la lista: no suena dos veces por el mismo pedido.
-    if (_nearby.any((Order other) => other.id == order.id)) {
+    if (_nearby.any((Order other) => other.id == orderId)) {
       return;
     }
 
-    unawaited(_ringWhenConfirmed(order.id));
+    unawaited(_ringWhenConfirmed(orderId));
   }
 
   /// Pregunta si el pedido esta entre los disponibles DE ESTE motorizado.
@@ -352,8 +333,8 @@ class _CourierScreenState extends State<CourierScreen> {
   Future<void> _take(Order order) async {
     final bool confirmed = await _confirm(
       title: '¿Tomar el pedido #${order.id}?',
-      message: 'Te comprometés a recogerlo en ${order.restaurant.name} y '
-          'llevarlo a ${order.delivery.address}.',
+      message: 'Te comprometés a recogerlo en ${order.restaurant.name}. '
+          'La dirección de entrega aparece después de tomar el pedido.',
       actionLabel: 'Tomar',
     );
 
@@ -709,7 +690,7 @@ class _AvailableCard extends StatelessWidget {
           _Place(
             icon: Icons.place_rounded,
             title: 'Entregar en',
-            value: order.delivery.address,
+            value: 'Dirección disponible al tomar el pedido',
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -811,15 +792,15 @@ class _MyOrderCard extends StatelessWidget {
           _Place(
             icon: Icons.place_rounded,
             title: 'Entregar en',
-            value: order.delivery.address,
+            value: order.delivery!.address,
           ),
-          if (order.delivery.reference != null &&
-              order.delivery.reference!.isNotEmpty) ...<Widget>[
+          if (order.delivery!.reference != null &&
+              order.delivery!.reference!.isNotEmpty) ...<Widget>[
             const SizedBox(height: 4),
             _Place(
               icon: Icons.info_outline_rounded,
               title: 'Referencia',
-              value: order.delivery.reference!,
+              value: order.delivery!.reference!,
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
@@ -837,8 +818,8 @@ class _MyOrderCard extends StatelessWidget {
                 color: AppTheme.teal,
               ),
               MapPoint(
-                latitude: order.delivery.latitude,
-                longitude: order.delivery.longitude,
+                latitude: order.delivery!.latitude,
+                longitude: order.delivery!.longitude,
                 icon: Icons.place_rounded,
                 color: AppTheme.coral,
               ),

@@ -596,7 +596,7 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  order.delivery.address,
+                  order.delivery!.address,
                   style: text.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),

@@ -25,11 +25,8 @@ use Illuminate\Queue\SerializesModels;
  * Los tres lo escuchan por el canal privado del pedido, y quien puede entrar a
  * ese canal lo decide routes/channels.php, NO este archivo.
  *
- * POR QUE UN EVENTO Y NO TRES
- *
- * Porque para el telefono los tres significan lo mismo: "aca esta el pedido
- * otra vez, pintalo". Tres eventos distintos obligarian a la app a tener tres
- * manejadores que hacen lo mismo.
+ * El canal compartido de motorizados recibe CouriersUpdated: solo el id.
+ * El pedido completo nunca se publica en ese canal.
  *
  * POR QUE ShouldBroadcastNow Y NO ShouldBroadcast
  *
@@ -69,12 +66,17 @@ class OrderUpdated implements ShouldBroadcastNow
     public static function announce(Order $order, ?string $previousStatus = null): void
     {
         self::dispatch($order->load(['items', 'restaurant', 'courier']), $previousStatus);
+
+        if ($order->status === OrderStatus::Ready
+            || $previousStatus === OrderStatus::Ready->value) {
+            CouriersUpdated::dispatch($order->id);
+        }
     }
 
     /**
      * Los canales por los que sale este aviso.
      *
-     * Son TRES, y cada uno tiene su publico:
+     * Son DOS, y cada uno tiene su publico:
      *
      *   1. El canal del pedido: el cliente que lo pidio y el motorizado que lo
      *      lleva.
@@ -82,38 +84,17 @@ class OrderUpdated implements ShouldBroadcastNow
      *      su cocina por un solo lugar. Lo necesita aparte porque NO puede
      *      suscribirse al canal de un pedido cuyo numero todavia no conoce, y
      *      el que acaba de entrar es justamente ese.
-     *   3. El canal de los motorizados, pero SOLO cuando el pedido entra o sale
-     *      de la lista de disponibles (ver abajo).
-     *
-     * Los tres son PRIVADOS: quien entra lo decide routes/channels.php.
+     * Ambos son PRIVADOS: quien entra lo decide routes/channels.php.
      *
      * @return array<int, PrivateChannel>
      */
     public function broadcastOn(): array
     {
-        $channels = [
+        return [
             new PrivateChannel('orders.'.$this->order->id),
             new PrivateChannel('restaurants.'.$this->order->restaurant_id),
         ];
 
-        // A los motorizados se les avisa SOLO cuando el pedido:
-        //
-        //   - ENTRA a la lista de disponibles (quedo "listo para recoger"), o
-        //   - SALE de ella (alguien lo tomo, o lo cancelaron).
-        //
-        // Las dos cosas se reconocen con el estado de ahora y el de antes: el
-        // pedido esta "listo" (entra), o lo estaba y ya no (sale).
-        //
-        // Todo lo demas —pendiente, aceptado, en preparacion, entregado— NO les
-        // importa a los que andan en la calle, y mandarlo les haria sonar el
-        // telefono por nada. Un motorizado con el telefono sonando todo el dia
-        // termina silenciando la app, y ahi pierde el pedido que si le servia.
-        if ($this->order->status === OrderStatus::Ready
-            || $this->previousStatus === OrderStatus::Ready->value) {
-            $channels[] = new PrivateChannel('couriers');
-        }
-
-        return $channels;
     }
 
     /**

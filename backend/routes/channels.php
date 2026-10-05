@@ -77,7 +77,7 @@ Broadcast::channel(
  * Entra solo una cuenta de motorizado.
  */
 Broadcast::channel('couriers', function (User $user): bool {
-    return $user->hasRole(UserRole::Courier);
+    return $user->hasRole(UserRole::Courier) && $user->is_active;
 });
 
 /*
