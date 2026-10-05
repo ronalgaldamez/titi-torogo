@@ -24,8 +24,8 @@ class OrderRepository {
   /// Generar una clave nueva en un reintento es justo lo que crearia el
   /// segundo pedido.
   ///
-  /// Devuelve el id del pedido, sea nuevo o repetido.
-  Future<int> create({
+  /// Devuelve el pedido confirmado por el servidor, sea nuevo o repetido.
+  Future<Order> create({
     required String idempotencyKey,
     required Cart cart,
     required int addressId,
@@ -52,7 +52,7 @@ class OrderRepository {
       },
     );
 
-    return (json['order'] as Map<String, dynamic>)['id'] as int;
+    return Order.fromJson(json['order'] as Map<String, dynamic>);
   }
 
   /// GET /api/orders

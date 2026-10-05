@@ -7,6 +7,7 @@ import '../../../core/money.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/address.dart';
+import '../../../models/order.dart';
 import '../carrito/cart.dart';
 import '../carrito/cart_provider.dart';
 import '../direcciones/address_form_screen.dart';
@@ -286,7 +287,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final ApiClient api = await _session.client();
 
-      final int orderId = await OrderRepository(api).create(
+      final Order order = await OrderRepository(api).create(
         idempotencyKey: _idempotencyKey,
         cart: cart,
         addressId: address.id,
@@ -306,9 +307,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       Navigator.of(context).pushReplacement<void, void>(
         MaterialPageRoute<void>(
           builder: (BuildContext context) => OrderSentScreen(
-            orderId: orderId,
-            restaurantName: cart.restaurantName ?? 'el restaurante',
-            total: _total,
+            orderId: order.id,
+            restaurantName: order.restaurant.name,
+            total: order.total,
           ),
         ),
       );
