@@ -117,7 +117,8 @@ class Order {
   final bool isActive;
 
   final OrderRestaurant restaurant;
-  final OrderDelivery delivery;
+  /// Solo se revela al motorizado despues de tomar el pedido.
+  final OrderDelivery? delivery;
   final OrderCourier? courier;
   final List<OrderItem> items;
 
@@ -190,9 +191,9 @@ class Order {
       restaurant: OrderRestaurant.fromJson(
         json['restaurant'] as Map<String, dynamic>,
       ),
-      delivery: OrderDelivery.fromJson(
-        json['delivery'] as Map<String, dynamic>,
-      ),
+      delivery: json['delivery'] is Map<String, dynamic>
+          ? OrderDelivery.fromJson(json['delivery'] as Map<String, dynamic>)
+          : null,
       courier: rawCourier is Map<String, dynamic>
           ? OrderCourier.fromJson(rawCourier)
           : null,

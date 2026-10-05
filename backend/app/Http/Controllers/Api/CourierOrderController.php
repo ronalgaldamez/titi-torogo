@@ -7,6 +7,7 @@ use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAvailabilityRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
+use App\Http\Resources\AvailableOrderResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\UserResource;
 use App\Models\Order;
@@ -130,7 +131,7 @@ class CourierOrderController extends Controller
             ->values();
 
         return response()->json([
-            'orders' => OrderResource::collection($nearby),
+            'orders' => AvailableOrderResource::collection($nearby),
         ]);
     }
 
