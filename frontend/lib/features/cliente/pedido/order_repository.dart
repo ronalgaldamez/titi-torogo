@@ -1,14 +1,51 @@
 import 'dart:math';
 
 import '../../../core/api_client.dart';
+import '../../../models/address.dart';
 import '../../../models/order.dart';
 import '../carrito/cart.dart';
+import 'pending_order_storage.dart';
 
 /// La capa de datos de los pedidos del cliente.
 class OrderRepository {
   OrderRepository(this._api);
 
   final ApiClient _api;
+  final PendingOrderStorage _storage = PendingOrderStorage();
+  int? _userId;
+
+  Future<int> _owner() async {
+    if (_userId != null) {
+      return _userId!;
+    }
+    final Map<String, dynamic> me = await _api.get('/me');
+    // AppServiceProvider desactiva el envoltorio "data" de los resources.
+    final dynamic id = me['id'];
+    if (id is! int) {
+      throw ApiException('No pudimos identificar tu cuenta. Volvé a entrar.');
+    }
+    _userId = id;
+    return _userId!;
+  }
+
+  Future<PendingOrder?> loadPending() async => _storage.load(await _owner());
+
+  /// Se llama despues de actualizar el carrito, antes de mostrar el exito.
+  Future<void> complete() async => _storage.clear(await _owner());
+
+  Future<Order?> recoverPending() async {
+    final PendingOrder? pending = await loadPending();
+    if (pending == null) {
+      throw ApiException('No hay un pedido pendiente para recuperar.');
+    }
+    final Map<String, dynamic> json = await _api.post('/orders/recover',
+        body: <String, dynamic>{'idempotency_key': pending.key});
+    if (!json.containsKey('order')) {
+      throw ApiException('No pudimos verificar el pedido. Volvé a recuperarlo.');
+    }
+    final dynamic order = json['order'];
+    return order == null ? null : Order.fromJson(order as Map<String, dynamic>);
+  }
 
   /// POST /api/orders
   ///
@@ -16,43 +53,46 @@ class OrderRepository {
   /// total los calcula el backend leyendo su catalogo: si los mandaramos
   /// nosotros, cualquiera podria pedir una pupusa a un centavo.
   ///
-  /// [idempotencyKey] es LA CLAVE CONTRA EL DOBLE COBRO. Se genera UNA vez,
-  /// cuando el cliente entra al checkout, y se repite TAL CUAL si hay que
-  /// reintentar: el backend reconoce la clave y devuelve el mismo pedido en
-  /// vez de crear otro.
+  /// La clave y el contenido se guardan ANTES del envio. Tras un corte o un
+  /// reinicio, se recupera el intento original en lugar de crear otro pedido.
   ///
   /// Generar una clave nueva en un reintento es justo lo que crearia el
   /// segundo pedido.
   ///
   /// Devuelve el pedido confirmado por el servidor, sea nuevo o repetido.
   Future<Order> create({
-    required String idempotencyKey,
     required Cart cart,
-    required int addressId,
+    required Address address,
+    required String deliveryFee,
     String? notes,
   }) async {
-    final Map<String, dynamic> json = await _api.post(
-      '/orders',
-      body: <String, dynamic>{
-        'restaurant_id': cart.restaurantId,
-
-        // A donde se entrega. El backend COPIA esta direccion dentro del
-        // pedido: si el cliente la edita despues, el pedido no cambia.
-        'address_id': addressId,
-
-        'idempotency_key': idempotencyKey,
-        'notes': notes,
-
-        'items': cart.items
-            .map((CartItem item) => <String, dynamic>{
-                  'product_id': item.product.id,
-                  'quantity': item.quantity,
-                })
-            .toList(),
-      },
+    final int owner = await _owner();
+    if (await _storage.load(owner) != null) {
+      throw ApiException('Tenés un pedido pendiente. Recuperalo antes de crear otro.');
+    }
+    final PendingOrder pending = PendingOrder(
+      key: newIdempotencyKey(),
+      cart: cart,
+      address: address,
+      deliveryFee: deliveryFee,
+      notes: notes,
     );
+    await _storage.save(owner, pending);
+    return _submit(pending);
+  }
 
-    return Order.fromJson(json['order'] as Map<String, dynamic>);
+  Future<Order> _submit(PendingOrder pending) async {
+    try {
+      final Map<String, dynamic> json = await _api.post('/orders', body: pending.body);
+      return Order.fromJson(json['order'] as Map<String, dynamic>);
+    } on ApiException catch (error) {
+      // Estas respuestas rechazan el pedido antes de guardarlo. Un fallo de
+      // red, timeout o 500 es incierto: conserva SIEMPRE la clave original.
+      if (error.statusCode == 422 || error.statusCode == 404) {
+        await complete();
+      }
+      rethrow;
+    }
   }
 
   /// GET /api/orders
@@ -91,7 +131,7 @@ class OrderRepository {
     return raw.cast<Map<String, dynamic>>().map(Order.fromJson).toList();
   }
 
-  /// Una clave nueva, para un checkout nuevo.
+  /// Una clave nueva, solo para el primer envio de un pedido.
   ///
   /// Junta la marca del tiempo en microsegundos con un numero al azar: dos
   /// toques en el mismo microsegundo no van a sacar el mismo azar.

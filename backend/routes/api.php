@@ -105,6 +105,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrderController::class, 'store'])
         ->name('api.orders.store');
 
+    Route::post('/orders/recover', [OrderController::class, 'recover'])
+        ->name('api.orders.recover');
+
     /*
     | Ver MIS pedidos. Las consultas salen de la relacion del usuario, asi que
     | cada uno ve solo los suyos: el pedido de otro responde 404.
