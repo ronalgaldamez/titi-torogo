@@ -16,6 +16,7 @@ import '../direcciones/addresses_screen.dart';
 import '../restaurante/restaurant_detail_repository.dart';
 import 'order_repository.dart';
 import 'order_sent_screen.dart';
+import 'pending_order_storage.dart';
 
 /// El checkout: elegir a donde se entrega y confirmar el pedido.
 ///
@@ -30,16 +31,10 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  /// LA CLAVE CONTRA EL DOBLE COBRO.
-  ///
-  /// Se genera UNA sola vez, al abrir el checkout, y no cambia nunca mas: si
-  /// el cliente toca "Confirmar" dos veces, o la peticion falla y reintenta,
-  /// viaja la MISMA clave. El backend la reconoce y devuelve el mismo pedido
-  /// en vez de crear otro.
-  ///
-  /// Si esto se generara dentro de _confirm(), cada reintento seria un pedido
-  /// nuevo — que es exactamente el doble cobro que la biblia pide evitar.
-  final String _idempotencyKey = OrderRepository.newIdempotencyKey();
+  OrderRepository? _repository;
+  PendingOrder? _pending;
+
+  Cart get _cart => _pending?.cart ?? ref.read(cartProvider);
 
   final Session _session = Session(AuthStorage());
 
@@ -64,7 +59,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({int? selectedAddressId}) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -72,6 +67,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     try {
       final ApiClient api = await _session.client();
+      final OrderRepository repository = OrderRepository(api);
+      _repository = repository;
+      final PendingOrder? pending = await repository.loadPending();
+      if (!mounted) {
+        return;
+      }
+      if (pending != null) {
+        setState(() {
+          _pending = pending;
+          _address = pending.address;
+          _deliveryFee = pending.deliveryFee;
+          _feeReady = true;
+          _loading = false;
+        });
+        return;
+      }
       final List<Address> addresses = await AddressRepository(api).load();
 
       if (!mounted) {
@@ -81,7 +92,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       Address? selected;
 
       for (final Address address in addresses) {
-        if (address.isDefault) {
+        if (address.id == selectedAddressId) {
+          selected = address;
+          break;
+        }
+      }
+
+      for (final Address address in addresses) {
+        if (selected == null && address.isDefault) {
           selected = address;
           break;
         }
@@ -90,6 +108,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       selected ??= addresses.isEmpty ? null : addresses.first;
 
       setState(() {
+        _pending = null;
         _addresses = addresses;
         _address = selected;
         _loading = false;
@@ -162,7 +181,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   /// El total a pagar: los platos mas el envio.
   String get _total => Money.add(<String>[
-        ref.read(cartProvider).subtotal,
+        _cart.subtotal,
         _deliveryFee ?? '0.00',
       ]);
 
@@ -173,6 +192,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// [_PickerResult] y no un `Address?`: "no eligio nada" y "quiere crear una"
   /// no son lo mismo.
   Future<void> _openAddressPicker() async {
+    if (_pending != null || _sending) {
+      return;
+    }
     final _PickerResult? result = await showModalBottomSheet<_PickerResult>(
       context: context,
       backgroundColor: AppTheme.background,
@@ -272,10 +294,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _confirm() async {
-    final Cart cart = ref.read(cartProvider);
+    final Cart cart = _cart;
     final Address? address = _address;
+    final OrderRepository? repository = _repository;
 
-    if (address == null || cart.isEmpty) {
+    if (_sending || repository == null ||
+        (_pending == null && (address == null || cart.isEmpty || _deliveryFee == null))) {
       return;
     }
 
@@ -285,18 +309,45 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     });
 
     try {
-      final ApiClient api = await _session.client();
+      final PendingOrder? original = _pending;
+      final Order? recovered = original != null
+          ? await repository.recoverPending()
+          : null;
+      if (original != null && recovered == null) {
+        if (ref.read(cartProvider).isEmpty) {
+          await ref.read(cartProvider.notifier).restore(original.cart);
+        }
+        await repository.complete();
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _pending = null;
+          _sending = false;
+        });
+        await _load(selectedAddressId: original.address.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Carrito recuperado. Podés modificarlo y después confirmar. No se envió ningún pedido.'),
+          ));
+        }
+        return;
+      }
 
-      final Order order = await OrderRepository(api).create(
-        idempotencyKey: _idempotencyKey,
-        cart: cart,
-        addressId: address.id,
-      );
+      final Order order = recovered ?? await repository.create(
+              cart: cart,
+              address: address!,
+              deliveryFee: _deliveryFee!,
+            );
 
       // El carrito se vacia DESPUES de que el backend confirme el pedido.
       // Si se vaciara antes y la peticion fallara, el cliente se quedaria sin
       // pedido Y sin carrito — o sea, cargando todo de nuevo.
-      await ref.read(cartProvider.notifier).clear();
+      final PendingOrder? submitted = await repository.loadPending();
+      if (submitted != null && submitted.matchesCart(ref.read(cartProvider))) {
+        await ref.read(cartProvider.notifier).clear();
+      }
+      await repository.complete();
 
       if (!mounted) {
         return;
@@ -310,30 +361,51 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             orderId: order.id,
             restaurantName: order.restaurant.name,
             total: order.total,
+            alreadySent: original != null,
           ),
         ),
       );
-    } on ApiException catch (error) {
+    } catch (error) {
+      // Incluye respuestas ilegibles: pudieron llegar DESPUES de guardar el pedido.
+      PendingOrder? pending = _pending;
+      String message = error is ApiException
+          ? error.message
+          : 'No pudimos confirmar la respuesta. Reintentá para recuperar el mismo pedido.';
+      try {
+        pending = await repository.loadPending();
+      } catch (_) {
+        message = 'No pudimos leer el intento guardado. Volvé a abrir esta pantalla antes de volver a pedir.';
+      }
       if (!mounted) {
         return;
       }
 
       setState(() {
         _sending = false;
-        _error = error.message;
+        _pending = pending;
+        if (pending != null) {
+          _address = pending.address;
+          _deliveryFee = pending.deliveryFee;
+          _feeReady = true;
+        }
+        _error = message;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Cart cart = ref.watch(cartProvider);
+    final Cart currentCart = ref.watch(cartProvider);
+    final Cart cart = _pending?.cart ?? currentCart;
     final TextTheme text = Theme.of(context).textTheme;
 
     final bool canConfirm =
-        !_sending && _address != null && _deliveryFee != null && cart.isNotEmpty;
+        !_loading && !_sending && _repository != null &&
+        (_pending != null || (_address != null && _deliveryFee != null && cart.isNotEmpty));
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_sending,
+      child: Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
@@ -357,11 +429,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 AppSpacing.xl,
               ),
               children: <Widget>[
+                if (_pending != null) ...<Widget>[
+                  const _ErrorBox(
+                    message: 'Revisá si el pedido llegó al restaurante. Recuperar no envía un pedido nuevo.',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
                 const _SectionTitle('Entregar en'),
                 _AddressCard(address: _address, onTap: _openAddressPicker),
                 const SizedBox(height: AppSpacing.lg),
                 const _SectionTitle('Tu pedido'),
-                for (final CartItem item in cart.items) _ItemLine(item: item),
+                for (final CartItem item in cart.items)
+                  _ItemLine(
+                    item: item,
+                    onRemove: _pending != null || _sending ? null
+                        : () => ref.read(cartProvider.notifier).remove(item.product.id),
+                  ),
                 const SizedBox(height: AppSpacing.lg),
                 const _SectionTitle('Resumen'),
                 _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
@@ -398,6 +481,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 if (_error != null) ...<Widget>[
                   const SizedBox(height: AppSpacing.md),
                   _ErrorBox(message: _error!),
+                  TextButton(
+                    onPressed: _sending ? null : _load,
+                    child: const Text('Actualizar'),
+                  ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(
@@ -420,9 +507,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Confirmar pedido',
-                            style: TextStyle(
+                        : Text(
+                            _pending == null ? 'Confirmar pedido' : 'Recuperar pedido',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
@@ -441,6 +528,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ],
               ],
             ),
+      ),
     );
   }
 }
@@ -541,11 +629,12 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-/// Una linea del pedido, sin botones: aca ya se esta confirmando, no armando.
+/// Permite quitar platos antes de confirmar; bloqueada mientras hay un intento pendiente.
 class _ItemLine extends StatelessWidget {
-  const _ItemLine({required this.item});
+  const _ItemLine({required this.item, this.onRemove});
 
   final CartItem item;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -578,6 +667,12 @@ class _ItemLine extends StatelessWidget {
               color: colors.onSurfaceVariant,
             ),
           ),
+          if (onRemove != null)
+            IconButton(
+              onPressed: onRemove,
+              tooltip: 'Quitar plato',
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
         ],
       ),
     );

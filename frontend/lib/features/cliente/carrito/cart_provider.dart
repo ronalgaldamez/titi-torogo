@@ -113,6 +113,8 @@ class CartNotifier extends Notifier<Cart> {
     await _set(Cart.empty);
   }
 
+  Future<void> restore(Cart cart) => _set(cart);
+
   /// El carrito sin algunas lineas, pero conservando de que restaurante era.
   Cart _keepRestaurant(List<CartItem> items) {
     if (items.isEmpty) {

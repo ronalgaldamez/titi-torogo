@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\RecoverOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Address;
 use App\Models\DeliveryZone;
@@ -35,6 +36,57 @@ class OrderController extends Controller
      * pedido que ya existia.
      */
     public function store(StoreOrderRequest $request): JsonResponse
+    {
+        $response = DB::transaction(function () use ($request): JsonResponse {
+            $this->lockAccount($request);
+
+            abort_if(DB::table('abandoned_order_attempts')
+                ->where('user_id', $request->user()->id)
+                ->where('idempotency_key', $request->validated('idempotency_key'))
+                ->exists(), 409, 'Ese intento se recuperó sin enviar. Confirmá el carrito nuevamente.');
+
+            return $this->storeLocked($request);
+        });
+
+        if ($response->getStatusCode() === 201) {
+            $order = $request->user()->orders()
+                ->where('idempotency_key', $request->validated('idempotency_key'))->firstOrFail();
+            OrderUpdated::announce($order);
+        }
+
+        return $response;
+    }
+
+    /** Recupera lo existente; si no existe, invalida el envio viejo sin crear nada. */
+    public function recover(RecoverOrderRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        return DB::transaction(function () use ($request, $data): JsonResponse {
+            $this->lockAccount($request);
+            $order = $request->user()->orders()
+                ->where('idempotency_key', $data['idempotency_key'])->first();
+            if ($order !== null) {
+                return $this->ok($order);
+            }
+
+            // Una solicitud vieja que llegue despues de recuperar ya no puede crear el pedido.
+            DB::table('abandoned_order_attempts')->updateOrInsert([
+                'user_id' => $request->user()->id,
+                'idempotency_key' => $data['idempotency_key'],
+            ]);
+
+            return response()->json(['order' => null]);
+        });
+    }
+
+    private function lockAccount(Request $request): void
+    {
+        // ponytail: serializa creacion/recuperacion por cuenta; usar locks por clave si el volumen lo exige.
+        DB::table('users')->where('id', $request->user()->id)->lockForUpdate()->first();
+    }
+
+    private function storeLocked(StoreOrderRequest $request): JsonResponse
     {
         $user = $request->user();
         $key = (string) $request->validated('idempotency_key');
@@ -133,7 +185,7 @@ class OrderController extends Controller
         // El camino de la llave repetida (el catch de arriba) NO avisa a
         // proposito: ese pedido ya estaba creado y avisar de nuevo seria
         // hacerle creer al restaurante que entro un pedido nuevo.
-        OrderUpdated::announce($order);
+        // El aviso sale desde store(), despues del commit de la transaccion externa.
 
         return response()->json([
             'order' => new OrderResource($order->load(['items', 'restaurant', 'courier'])),

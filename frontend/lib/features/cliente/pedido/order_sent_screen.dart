@@ -16,6 +16,7 @@ class OrderSentScreen extends StatelessWidget {
     required this.orderId,
     required this.restaurantName,
     required this.total,
+    this.alreadySent = false,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class OrderSentScreen extends StatelessWidget {
 
   /// El total que se paga en efectivo: platos + envio.
   final String total;
+  final bool alreadySent;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +54,7 @@ class OrderSentScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                '¡Pedido enviado!',
+                alreadySent ? 'Pedido recuperado' : '¡Pedido enviado!',
                 textAlign: TextAlign.center,
                 style: text.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -91,7 +93,9 @@ class OrderSentScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'El restaurante lo va a confirmar en unos minutos.',
+                alreadySent
+                    ? 'Este pedido ya se había enviado. No se creó otro pedido.'
+                    : 'El restaurante lo va a confirmar en unos minutos.',
                 textAlign: TextAlign.center,
                 style: text.bodyMedium?.copyWith(color: AppTheme.navy),
               ),

@@ -113,7 +113,7 @@ class ApiClient {
   /// que paso.
   Future<http.Response> _send(Future<http.Response> Function() request) async {
     try {
-      return await request();
+      return await request().timeout(const Duration(seconds: 20));
     } catch (_) {
       throw ApiException(
         'No pudimos conectarnos con ToroGo. Revisa tu conexion a internet.',
@@ -136,6 +136,7 @@ class ApiClient {
     if (response.statusCode >= 400) {
       throw ApiException(
         _messageFrom(decoded) ?? 'Ocurrio un error (${response.statusCode}).',
+        statusCode: response.statusCode,
       );
     }
 
@@ -172,9 +173,10 @@ class ApiClient {
 
 /// Error con el mensaje ya listo para mostrar en pantalla.
 class ApiException implements Exception {
-  ApiException(this.message);
+  ApiException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => message;
