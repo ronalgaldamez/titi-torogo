@@ -15,6 +15,7 @@ use App\Support\Geometry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Los pedidos vistos por el motorizado.
@@ -143,43 +144,36 @@ class CourierOrderController extends Controller
      */
     public function take(Request $request, int $order): JsonResponse
     {
-        // COMPARE-AND-SWAP: el UPDATE solo entra si el pedido TODAVIA esta
-        // listo y TODAVIA no tiene repartidor. Las dos condiciones van en el
-        // WHERE, o sea que las revisa la base en la misma operacion que
-        // escribe.
-        //
-        // Por eso no hace falta un lock explicito ni un 'if' antes: un if se
-        // queda viejo entre que se lee y se escribe, y ahi es donde los dos
-        // motorizados ganan. Aca, el que llega segundo afecta 0 filas.
-        $taken = Order::query()
-            ->where('id', $order)
-            ->where('status', OrderStatus::Ready->value)
-            ->whereNull('courier_id')
-            ->update(['courier_id' => $request->user()->id]);
+        return DB::transaction(function () use ($request, $order) {
+            // El mismo candado que cambios de estado y acciones del administrador.
+            $model = Order::query()->lockForUpdate()->findOrFail($order);
+            if ($model->courier_id === $request->user()->id && $model->status->isActive()) {
+                return response()->json([
+                    'order' => new OrderResource($model->load(['items', 'restaurant', 'courier'])),
+                ]);
+            }
+            if ($model->status !== OrderStatus::Ready || $model->courier_id !== null) {
+                throw ValidationException::withMessages([
+                    'order' => 'Ese pedido ya no está disponible.',
+                ]);
+            }
+            $model->courier_id = $request->user()->id;
+            $model->save();
 
-        if ($taken === 0) {
-            throw ValidationException::withMessages([
-                'order' => 'Ese pedido ya no está disponible.',
+            // Avisa al cliente QUIEN le va a llevar el pedido.
+            //
+            // OJO: aca el ESTADO no cambio (sigue en "listo para recoger"), lo que
+            // cambio es el motorizado. Se avisa igual a proposito: para el cliente
+            // "ya se quien lo trae" es justo el dato que estaba esperando.
+            //
+            // El estado de antes es el mismo de ahora, y se manda tal cual: no es
+            // un cambio de estado, y la app lo distingue comparando los dos.
+            DB::afterCommit(fn () => OrderUpdated::announce($model, $model->status->value));
+
+            return response()->json([
+                'order' => new OrderResource($model->load(['items', 'restaurant', 'courier'])),
             ]);
-        }
-
-        $model = Order::query()
-            ->with(['items', 'restaurant'])
-            ->findOrFail($order);
-
-        // Avisa al cliente QUIEN le va a llevar el pedido.
-        //
-        // OJO: aca el ESTADO no cambio (sigue en "listo para recoger"), lo que
-        // cambio es el motorizado. Se avisa igual a proposito: para el cliente
-        // "ya se quien lo trae" es justo el dato que estaba esperando.
-        //
-        // El estado de antes es el mismo de ahora, y se manda tal cual: no es
-        // un cambio de estado, y la app lo distingue comparando los dos.
-        OrderUpdated::announce($model, $model->status->value);
-
-        return response()->json([
-            'order' => new OrderResource($model),
-        ]);
+        });
     }
 
     /**
@@ -189,37 +183,45 @@ class CourierOrderController extends Controller
      */
     public function updateStatus(UpdateOrderStatusRequest $request, int $order): JsonResponse
     {
-        // Sobre la relacion del motorizado: el pedido de otro responde 404.
-        $model = $request->user()->courierOrders()->findOrFail($order);
+        return DB::transaction(function () use ($request, $order) {
+            // Sobre la relacion del motorizado: el pedido de otro responde 404.
+            $model = $request->user()->courierOrders()->lockForUpdate()->findOrFail($order);
 
-        $status = OrderStatus::from($request->validated('status'));
+            $status = OrderStatus::from($request->validated('status'));
 
-        // "Aceptado" o "listo para recoger" son del restaurante, aunque la
-        // transicion sea legal desde donde esta.
-        if (! $status->isCourierAction()) {
-            throw ValidationException::withMessages([
-                'status' => 'Esa acción no le corresponde al motorizado.',
+            // "Aceptado" o "listo para recoger" son del restaurante, aunque la
+            // transicion sea legal desde donde esta.
+            if (! $status->isCourierAction()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Esa acción no le corresponde al motorizado.',
+                ]);
+            }
+
+            // El estado viejo, antes de que moveTo lo pise: es lo que el aviso de
+            // tiempo real necesita para decir de donde a donde se movio.
+            // Repetir el mismo paso confirma lo guardado sin cambiar horas ni avisar.
+            if ($model->status === $status) {
+                return response()->json([
+                    'order' => new OrderResource($model->load(['items', 'restaurant'])),
+                ]);
+            }
+
+            $previous = $model->status->value;
+
+            if (! $model->moveTo($status)) {
+                throw ValidationException::withMessages([
+                    'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
+                ]);
+            }
+
+            $model->save();
+
+            // Avisa por WebSocket solo despues de confirmar la transaccion.
+            DB::afterCommit(fn () => OrderUpdated::announce($model, $previous));
+
+            return response()->json([
+                'order' => new OrderResource($model->load(['items', 'restaurant'])),
             ]);
-        }
-
-        // El estado viejo, antes de que moveTo lo pise: es lo que el aviso de
-        // tiempo real necesita para decir de donde a donde se movio.
-        $previous = $model->status->value;
-
-        if (! $model->moveTo($status)) {
-            throw ValidationException::withMessages([
-                'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
-            ]);
-        }
-
-        $model->save();
-
-        // Avisa por WebSocket al cliente y al restaurante. Despues del save,
-        // no antes.
-        OrderUpdated::announce($model, $previous);
-
-        return response()->json([
-            'order' => new OrderResource($model->load(['items', 'restaurant'])),
-        ]);
+        });
     }
 }

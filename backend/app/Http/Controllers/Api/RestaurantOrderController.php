@@ -10,6 +10,7 @@ use App\Http\Resources\OrderResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Los pedidos vistos por el restaurante.
@@ -83,48 +84,56 @@ class RestaurantOrderController extends Controller
      */
     public function updateStatus(UpdateOrderStatusRequest $request, int $order): JsonResponse
     {
-        $restaurant = $request->user()->restaurant;
+        return DB::transaction(function () use ($request, $order) {
+            $restaurant = $request->user()->restaurant;
 
-        // Sobre la relacion: el pedido de otro restaurante responde 404.
-        $model = $restaurant->orders()->findOrFail($order);
+            // Sobre la relacion: el pedido de otro restaurante responde 404.
+            $model = $restaurant->orders()->lockForUpdate()->findOrFail($order);
 
-        $status = OrderStatus::from($request->validated('status'));
+            $status = OrderStatus::from($request->validated('status'));
 
-        // 1) ¿Le toca al restaurante?
-        //    Marcar "entregado" es del motorizado, aunque la transicion sea
-        //    legal desde "en camino".
-        if (! $status->isRestaurantAction()) {
-            throw ValidationException::withMessages([
-                'status' => 'Esa acción no le corresponde al restaurante.',
+            // 1) ¿Le toca al restaurante?
+            //    Marcar "entregado" es del motorizado, aunque la transicion sea
+            //    legal desde "en camino".
+            if (! $status->isRestaurantAction()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Esa acción no le corresponde al restaurante.',
+                ]);
+            }
+
+            // 2) ¿Se puede llegar ahi desde donde esta?
+            //    No se salta de "pendiente" a "listo para recoger": el pedido pasa
+            //    por aceptado y preparando, y cada paso queda con su hora.
+            //
+            //    moveTo devuelve false y NO toca nada cuando la transicion es
+            //    ilegal, asi que el mensaje de abajo puede leer el estado viejo.
+            //
+            //    El estado viejo se guarda ANTES, porque moveTo lo pisa: sin esto,
+            //    el aviso de tiempo real no podria decir de donde a donde se movio.
+            // Repetir el mismo paso confirma lo guardado sin cambiar horas ni avisar.
+            if ($model->status === $status) {
+                return response()->json([
+                    'order' => new OrderResource($model->load(['items', 'restaurant'])),
+                ]);
+            }
+
+            $previous = $model->status->value;
+
+            if (! $model->moveTo($status)) {
+                throw ValidationException::withMessages([
+                    'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
+                ]);
+            }
+
+            $model->save();
+
+            // Avisa al cliente (y al motorizado, si ya lo tenia) por WebSocket.
+            // Sale despues del commit: nunca anuncia un cambio sin confirmar.
+            DB::afterCommit(fn () => OrderUpdated::announce($model, $previous));
+
+            return response()->json([
+                'order' => new OrderResource($model->load(['items', 'restaurant'])),
             ]);
-        }
-
-        // 2) ¿Se puede llegar ahi desde donde esta?
-        //    No se salta de "pendiente" a "listo para recoger": el pedido pasa
-        //    por aceptado y preparando, y cada paso queda con su hora.
-        //
-        //    moveTo devuelve false y NO toca nada cuando la transicion es
-        //    ilegal, asi que el mensaje de abajo puede leer el estado viejo.
-        //
-        //    El estado viejo se guarda ANTES, porque moveTo lo pisa: sin esto,
-        //    el aviso de tiempo real no podria decir de donde a donde se movio.
-        $previous = $model->status->value;
-
-        if (! $model->moveTo($status)) {
-            throw ValidationException::withMessages([
-                'status' => "No se puede pasar de «{$model->status->label()}» a «{$status->label()}».",
-            ]);
-        }
-
-        $model->save();
-
-        // Avisa al cliente (y al motorizado, si ya lo tenia) por WebSocket.
-        // Va DESPUES del save: al reves, el telefono podria pintar un cambio
-        // que la base todavia no tiene.
-        OrderUpdated::announce($model, $previous);
-
-        return response()->json([
-            'order' => new OrderResource($model->load(['items', 'restaurant'])),
-        ]);
+        });
     }
 }

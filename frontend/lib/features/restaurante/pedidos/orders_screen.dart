@@ -64,12 +64,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// Se muestra la chapita En vivo en la barra de arriba.
   bool _connected = false;
 
-  /// Ids de los pedidos con una peticion en vuelo.
+  /// Acción que se está guardando para cada pedido.
   ///
   /// Mientras uno esta aca, sus botones quedan bloqueados. Sin esto, tocar
   /// "Aceptar" dos veces manda dos peticiones y la segunda da 422 — un error
   /// que el restaurante no cometio.
-  final Set<int> _saving = <int>{};
+  final Map<int, String> _saving = <int, String>{};
 
   @override
   void initState() {
@@ -277,7 +277,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   /// Mueve un pedido y recarga la lista.
   Future<void> _move(Order order, String status) async {
-    setState(() => _saving.add(order.id));
+    if (_saving.containsKey(order.id)) {
+      return;
+    }
+    setState(() => _saving[order.id] = status);
 
     try {
       final ApiClient api = await _session.client();
@@ -289,7 +292,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
       // Se recarga en vez de parchear la fila: la lista esta filtrada por
       // "en curso", asi que un pedido entregado tiene que DESAPARECER de aca.
-      await _load();
+      await _load(silent: true);
     } on ApiException catch (error) {
       if (!mounted) {
         return;
@@ -298,6 +301,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
+      // La acción pudo guardarse aunque se perdiera su respuesta.
+      await _load(silent: true);
     } finally {
       if (mounted) {
         setState(() => _saving.remove(order.id));
@@ -445,7 +450,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           return _OrderCard(
             order: order,
             action: _actionFor(order),
-            saving: _saving.contains(order.id),
+            savingStatus: _saving[order.id],
             onMove: (String status) => _move(order, status),
             onReject: () => _reject(order),
           );
@@ -460,14 +465,24 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
     required this.action,
-    required this.saving,
+    required this.savingStatus,
     required this.onMove,
     required this.onReject,
   });
 
   final Order order;
   final _Action? action;
-  final bool saving;
+  final String? savingStatus;
+
+  bool get saving => savingStatus != null;
+
+  String get savingLabel => switch (savingStatus) {
+    'accepted' => 'Aceptando…',
+    'preparing' => 'Guardando preparación…',
+    'ready' => 'Marcando listo…',
+    'rejected' => 'Rechazando…',
+    _ => 'Guardando…',
+  };
   final ValueChanged<String> onMove;
   final VoidCallback onReject;
 
@@ -622,7 +637,7 @@ class _OrderCard extends StatelessWidget {
               style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
             ),
           ],
-          if (action != null || order.canBeRejected) ...<Widget>[
+          if (action != null || order.canBeRejected || saving) ...<Widget>[
             const SizedBox(height: AppSpacing.md),
             Row(
               children: <Widget>[
@@ -636,11 +651,11 @@ class _OrderCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                     ),
-                    child: const Text('Rechazar'),
+                    child: Text(savingStatus == 'rejected' ? 'Rechazando…' : 'Rechazar'),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                 ],
-                if (action != null)
+                if (action != null || saving)
                   Expanded(
                     child: SizedBox(
                       height: 44,
@@ -654,19 +669,21 @@ class _OrderCard extends StatelessWidget {
                           ),
                         ),
                         child: saving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Flexible(child: Text(savingLabel)),
+                                ],
                               )
                             : Text(
                                 action!.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                       ),
                     ),
