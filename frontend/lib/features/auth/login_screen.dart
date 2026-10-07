@@ -121,14 +121,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     const _HeroPanel(),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      'Inicia sesion',
+                      'Iniciá sesión',
                       style: text.titleLarge?.copyWith(
                         color: AppTheme.navy,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Ingresá con tu correo y contraseña.',
+                      style: text.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
                     _Field(
                       controller: _email,
                       label: 'Correo',
@@ -140,20 +147,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         final String email = (value ?? '').trim();
 
                         if (email.isEmpty) {
-                          return 'Escribi tu correo.';
+                          return 'Escribí tu correo.';
                         }
 
                         if (!email.contains('@') || !email.contains('.')) {
-                          return 'Ese correo no parece valido.';
+                          return 'Ese correo no parece válido.';
                         }
 
                         return null;
                       },
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.md),
                     _Field(
                       controller: _password,
-                      label: 'Contrasena',
+                      label: 'Contraseña',
                       icon: Icons.lock_outline_rounded,
                       obscure: !_showPassword,
                       textInputAction: TextInputAction.done,
@@ -169,12 +176,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppTheme.navy,
                         ),
                         tooltip: _showPassword
-                            ? 'Ocultar contrasena'
-                            : 'Mostrar contrasena',
+                            ? 'Ocultar contraseña'
+                            : 'Mostrar contraseña',
                       ),
                       validator: (String? value) {
                         if ((value ?? '').isEmpty) {
-                          return 'Escribi tu contrasena.';
+                          return 'Escribí tu contraseña.';
                         }
 
                         return null;
@@ -191,7 +198,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _loading ? null : widget.onSkip,
                       child: Text(
                         'Explorar sin cuenta',
-                        style: text.labelLarge?.copyWith(color: AppTheme.teal),
+                        style: text.labelLarge?.copyWith(
+                          color: AppTheme.tealDeep,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -206,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// La foto grande de arriba, con la marca encima.
+/// La foto de bienvenida, con la marca encima.
 ///
 /// El velo oscuro del final NO es un adorno: la foto tiene zonas claras
 /// (la tabla de madera) y sin el, el texto blanco desaparece encima.
@@ -221,15 +230,12 @@ class _HeroPanel extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.card),
       child: SizedBox(
-        height: 300,
+        height: 220,
         width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.asset(
-              'assets/login.jpg',
-              fit: BoxFit.cover,
-            ),
+            Image.asset('assets/login.jpg', fit: BoxFit.cover),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -271,7 +277,7 @@ class _HeroPanel extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Tu nueva forma de pedir y recibir.',
-                    style: text.bodySmall?.copyWith(color: Colors.white70),
+                    style: text.bodySmall?.copyWith(color: Colors.white),
                   ),
                 ],
               ),
@@ -322,30 +328,34 @@ class _Field extends StatelessWidget {
       style: const TextStyle(color: AppTheme.navy),
       decoration: InputDecoration(
         labelText: label,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         labelStyle: const TextStyle(color: AppTheme.navy),
-        prefixIcon: Icon(icon, color: AppTheme.teal),
+        prefixIcon: Icon(icon, color: AppTheme.tealDeep),
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: const BorderSide(color: AppTheme.teal, width: 2),
+          borderSide: const BorderSide(color: AppTheme.tealDeep, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: const BorderSide(color: AppTheme.coral, width: 2),
+          borderSide: const BorderSide(color: AppTheme.coralDeep, width: 2),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: const BorderSide(color: AppTheme.coral, width: 2),
+          borderSide: const BorderSide(color: AppTheme.coralDeep, width: 2),
         ),
       ),
     );
@@ -370,7 +380,7 @@ class _ErrorBanner extends StatelessWidget {
         children: <Widget>[
           const Icon(
             Icons.error_outline_rounded,
-            color: AppTheme.coral,
+            color: AppTheme.coralDeep,
             size: 20,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -378,9 +388,9 @@ class _ErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.coral,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppTheme.coralDeep,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -401,17 +411,14 @@ class _SubmitButton extends StatelessWidget {
     return FilledButton(
       onPressed: loading ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: AppTheme.coral,
+        backgroundColor: AppTheme.coralDeep,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: AppTheme.coral,
+        disabledBackgroundColor: AppTheme.coralDeep,
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
         ),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
       child: loading
           ? const SizedBox(
@@ -422,7 +429,7 @@ class _SubmitButton extends StatelessWidget {
                 color: Colors.white,
               ),
             )
-          : const Text('Iniciar sesion'),
+          : const Text('Iniciar sesión'),
     );
   }
 }
