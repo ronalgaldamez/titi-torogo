@@ -32,7 +32,8 @@ class CartBar extends ConsumerWidget {
 
     final TextTheme text = Theme.of(context).textTheme;
 
-    final bool fromAnother = restaurantId != null &&
+    final bool fromAnother =
+        restaurantId != null &&
         cart.restaurantId != null &&
         cart.restaurantId != restaurantId;
 
@@ -45,7 +46,7 @@ class CartBar extends ConsumerWidget {
           AppSpacing.md,
         ),
         child: Material(
-          color: AppTheme.teal,
+          color: AppTheme.tealDeep,
           borderRadius: BorderRadius.circular(AppRadius.pill),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -100,7 +101,7 @@ class CartBar extends ConsumerWidget {
                             'Pedido de '
                             '${cart.restaurantName ?? 'otro restaurante'}',
                             style: text.labelSmall?.copyWith(
-                              color: Colors.white70,
+                              color: Colors.white,
                               fontWeight: FontWeight.w700,
                             ),
                             maxLines: 1,
@@ -138,9 +139,6 @@ class CartBar extends ConsumerWidget {
 /// Se abre desde la barrita. Sirve para repasar y ajustar cantidades antes de
 /// seguir, sin salir de la carta.
 ///
-/// Todavia NO tiene el boton de continuar: el checkout (elegir direccion y
-/// confirmar) viene en el paso siguiente, y un boton que no lleva a ningun
-/// lado es peor que no tener boton.
 class CartSheet extends ConsumerWidget {
   const CartSheet({super.key});
 
@@ -248,7 +246,7 @@ class CartSheet extends ConsumerWidget {
                   // La hoja NO navega sola (ver CartSheet.show).
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.coral,
+                    backgroundColor: AppTheme.coralDeep,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -294,67 +292,68 @@ class _ItemRow extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.product.name,
+          Text(
+            item.product.name,
+            style: text.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.navy,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '\$${item.product.price} c/u',
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: <Widget>[
+              // Los botones de cantidad. El de menos, cuando queda en 1 unidad,
+              // saca la linea entera: mantener una linea de cero no tiene sentido.
+              _RoundButton(
+                icon: Icons.remove_rounded,
+                tooltip: 'Quitar una unidad de ${item.product.name}',
+                onPressed: () =>
+                    ref.read(cartProvider.notifier).decrease(item.product.id),
+              ),
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '${item.quantity}',
+                  textAlign: TextAlign.center,
                   style: text.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppTheme.navy,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '\$${item.product.price} c/u',
-                  style: text.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+              ),
+              _RoundButton(
+                icon: Icons.add_rounded,
+                tooltip: 'Agregar una unidad de ${item.product.name}',
+                onPressed: () => ref
+                    .read(cartProvider.notifier)
+                    .add(
+                      item.product,
+                      restaurantId: ref.read(cartProvider).restaurantId!,
+                      restaurantName:
+                          ref.read(cartProvider).restaurantName ?? '',
+                    ),
+              ),
+              Expanded(
+                child: Text(
+                  '\$${item.subtotal}',
+                  textAlign: TextAlign.right,
+                  style: text.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.coral,
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Los botones de cantidad. El de menos, cuando queda en 1 unidad,
-          // saca la linea entera: mantener una linea de cero no tiene sentido.
-          _RoundButton(
-            icon: Icons.remove_rounded,
-            onPressed: () =>
-                ref.read(cartProvider.notifier).decrease(item.product.id),
-          ),
-          SizedBox(
-            width: 32,
-            child: Text(
-              '${item.quantity}',
-              textAlign: TextAlign.center,
-              style: text.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
               ),
-            ),
-          ),
-          _RoundButton(
-            icon: Icons.add_rounded,
-            onPressed: () => ref.read(cartProvider.notifier).add(
-                  item.product,
-                  restaurantId: ref.read(cartProvider).restaurantId!,
-                  restaurantName: ref.read(cartProvider).restaurantName ?? '',
-                ),
-          ),
-          SizedBox(
-            width: 64,
-            child: Text(
-              '\$${item.subtotal}',
-              textAlign: TextAlign.right,
-              style: text.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.coral,
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -362,27 +361,30 @@ class _ItemRow extends ConsumerWidget {
   }
 }
 
-/// Un boton redondo chiquito, para sumar y restar.
+/// Un botón de cantidad con área táctil de al menos 48 × 48.
 class _RoundButton extends StatelessWidget {
-  const _RoundButton({required this.icon, required this.onPressed});
+  const _RoundButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
 
   final IconData icon;
+  final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Material(
-        color: AppTheme.tealSoft,
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: AppTheme.tealSoft,
+        foregroundColor: AppTheme.tealDeep,
+        minimumSize: const Size(48, 48),
         shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Icon(icon, size: 18, color: AppTheme.tealDeep),
-        ),
       ),
+      icon: Icon(icon, size: 24),
     );
   }
 }

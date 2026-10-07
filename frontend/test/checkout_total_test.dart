@@ -24,7 +24,9 @@ void main() {
         final ProviderContainer container = ProviderContainer();
         addTearDown(container.dispose);
         await tester.runAsync(() async {
-          await container.read(cartProvider.notifier).add(
+          await container
+              .read(cartProvider.notifier)
+              .add(
                 const Product(
                   id: 3,
                   name: 'Sub de pollo',
@@ -57,46 +59,59 @@ void main() {
           'is_default': true,
         };
         final Map<String, dynamic> serverOrder = <String, dynamic>{
-                'id': 42,
-                'status': 'pending',
-                'status_label': 'Pendiente',
-                'is_active': true,
-                'restaurant': restaurant,
-                'delivery': address,
-                'items': <dynamic>[],
-                'subtotal': '5.25',
-                'delivery_fee': '2.00',
-                'courier_fee': '1.50',
-                'platform_fee': '0.50',
-                'total': '7.25',
-                'payment_method': 'cash',
-              };
+          'id': 42,
+          'status': 'pending',
+          'status_label': 'Pendiente',
+          'is_active': true,
+          'restaurant': restaurant,
+          'delivery': address,
+          'items': <dynamic>[],
+          'subtotal': '5.25',
+          'delivery_fee': '2.00',
+          'courier_fee': '1.50',
+          'platform_fee': '0.50',
+          'total': '7.25',
+          'payment_method': 'cash',
+        };
         int submissions = 0;
         Map<String, dynamic>? originalBody;
         final MockClient client = MockClient((http.Request request) async {
           if (request.method == 'GET' && request.url.path.endsWith('/me')) {
             return http.Response(jsonEncode(<String, int>{'id': 9}), 200);
           }
-          if (request.method == 'GET' && request.url.path.endsWith('/addresses')) {
-            return http.Response(jsonEncode(<String, dynamic>{
-              'addresses': <Map<String, dynamic>>[address],
-            }), 200);
+          if (request.method == 'GET' &&
+              request.url.path.endsWith('/addresses')) {
+            return http.Response(
+              jsonEncode(<String, dynamic>{
+                'addresses': <Map<String, dynamic>>[address],
+              }),
+              200,
+            );
           }
-          if (request.method == 'GET' && request.url.path.endsWith('/restaurants/7')) {
-            return http.Response(jsonEncode(<String, dynamic>{
-              'restaurant': restaurant,
-              'categories': <dynamic>[],
-            }), 200);
+          if (request.method == 'GET' &&
+              request.url.path.endsWith('/restaurants/7')) {
+            return http.Response(
+              jsonEncode(<String, dynamic>{
+                'restaurant': restaurant,
+                'categories': <dynamic>[],
+              }),
+              200,
+            );
           }
-          if (request.method == 'POST' && request.url.path.endsWith('/orders/recover')) {
+          if (request.method == 'POST' &&
+              request.url.path.endsWith('/orders/recover')) {
             expect(jsonDecode(request.body), <String, dynamic>{
               'idempotency_key': originalBody!['idempotency_key'],
             });
-            return http.Response(jsonEncode(<String, dynamic>{
-              'order': status == -1 ? null : serverOrder,
-            }), 200);
+            return http.Response(
+              jsonEncode(<String, dynamic>{
+                'order': status == -1 ? null : serverOrder,
+              }),
+              200,
+            );
           }
-          if (request.method == 'POST' && request.url.path.endsWith('/orders')) {
+          if (request.method == 'POST' &&
+              request.url.path.endsWith('/orders')) {
             submissions++;
             final Map<String, dynamic> body =
                 jsonDecode(request.body) as Map<String, dynamic>;
@@ -107,39 +122,64 @@ void main() {
             if (submissions == 1) {
               expect(body, originalBody);
             } else {
-              expect(body['idempotency_key'], isNot(originalBody!['idempotency_key']));
+              expect(
+                body['idempotency_key'],
+                isNot(originalBody!['idempotency_key']),
+              );
             }
             expect(body['items'], <Map<String, int>>[
-              <String, int>{'product_id': submissions == 1 ? 3 : 4, 'quantity': 1},
+              <String, int>{
+                'product_id': submissions == 1 ? 3 : 4,
+                'quantity': 1,
+              },
             ]);
             expect(body.containsKey('total'), isFalse);
             if (submissions == 1 && status == -1) {
               return Completer<http.Response>().future;
             }
             if (submissions == 1 && status == 0) {
-              throw http.ClientException('El servidor guardó el pedido, pero se perdió la respuesta');
+              throw http.ClientException(
+                'El servidor guardó el pedido, pero se perdió la respuesta',
+              );
             }
             if (submissions == 1 && status == 500) {
-              return http.Response('{"message":"Falló la notificación después de guardar"}', 500);
+              return http.Response(
+                '{"message":"Falló la notificación después de guardar"}',
+                500,
+              );
             }
-            return http.Response(jsonEncode(<String, dynamic>{
-              'order': serverOrder,
-            }), submissions > 1 ? 200 : status);
+            return http.Response(
+              jsonEncode(<String, dynamic>{'order': serverOrder}),
+              submissions > 1 ? 200 : status,
+            );
           }
           fail('Petición inesperada: ${request.method} ${request.url}');
         });
         addTearDown(client.close);
 
         await http.runWithClient(() async {
-          await tester.pumpWidget(UncontrolledProviderScope(
-            container: container,
-            child: const MaterialApp(home: CheckoutScreen()),
-          ));
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(home: CheckoutScreen()),
+            ),
+          );
           await tester.pumpAndSettle();
           expect(find.text(r'$6.00'), findsOneWidget);
 
-          final Finder confirm = find.widgetWithText(FilledButton, 'Confirmar pedido');
-          await tester.ensureVisible(confirm);
+          final Finder confirm = find.widgetWithText(
+            FilledButton,
+            'Confirmar pedido',
+          );
+          final Rect confirmPosition = tester.getRect(confirm);
+          expect(confirm.hitTestable(), findsOneWidget);
+          expect(
+            find.ancestor(of: confirm, matching: find.byType(ListView)),
+            findsNothing,
+          );
+          await tester.drag(find.byType(ListView), const Offset(0, -300));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(confirm), confirmPosition);
           await tester.tap(confirm);
           await tester.pumpAndSettle();
 
@@ -150,11 +190,11 @@ void main() {
             await tester.runAsync(() async {
               expect((await PendingOrderStorage().load(9))!.body, originalBody);
             });
-            // Los avisos de pendiente y error alargan la lista. Flutter no
-            // construye todos sus hijos hasta desplazarse hacia ellos.
-            await tester.scrollUntilVisible(
-              find.widgetWithText(FilledButton, 'Recuperar pedido'),
-              200,
+            expect(
+              find
+                  .widgetWithText(FilledButton, 'Recuperar pedido')
+                  .hitTestable(),
+              findsOneWidget,
             );
             expect(find.text('Recuperar pedido'), findsOneWidget);
             expect(container.read(cartProvider).isNotEmpty, isTrue);
@@ -163,12 +203,19 @@ void main() {
               // Si se edito el carrito fuera del checkout, el reintento sigue
               // siendo el original y no borra las nuevas modificaciones.
               await tester.runAsync(() async {
-                await container.read(cartProvider.notifier).add(
-                  const Product(id: 3, name: 'Sub de pollo', price: '4.00',
-                    isAvailable: true, sortOrder: 0),
-                  restaurantId: 7,
-                  restaurantName: 'Nombre guardado en el carrito',
-                );
+                await container
+                    .read(cartProvider.notifier)
+                    .add(
+                      const Product(
+                        id: 3,
+                        name: 'Sub de pollo',
+                        price: '4.00',
+                        isAvailable: true,
+                        sortOrder: 0,
+                      ),
+                      restaurantId: 7,
+                      restaurantName: 'Nombre guardado en el carrito',
+                    );
               });
             }
 
@@ -176,14 +223,19 @@ void main() {
             await tester.pumpWidget(const SizedBox.shrink());
             activeContainer = ProviderContainer();
             addTearDown(activeContainer.dispose);
-            await tester.pumpWidget(UncontrolledProviderScope(
-              container: activeContainer,
-              child: const MaterialApp(home: CheckoutScreen()),
-            ));
+            await tester.pumpWidget(
+              UncontrolledProviderScope(
+                container: activeContainer,
+                child: const MaterialApp(home: CheckoutScreen()),
+              ),
+            );
             await tester.pumpAndSettle();
             expect(find.text(r'$6.00'), findsOneWidget);
-            final Finder recover = find.widgetWithText(FilledButton, 'Recuperar pedido');
-            await tester.scrollUntilVisible(recover, 200);
+            final Finder recover = find.widgetWithText(
+              FilledButton,
+              'Recuperar pedido',
+            );
+            expect(recover.hitTestable(), findsOneWidget);
             await tester.tap(recover);
             await tester.pumpAndSettle();
             expect(submissions, 1);
@@ -191,19 +243,33 @@ void main() {
               expect(find.byType(OrderSentScreen), findsNothing);
               await tester.runAsync(() async {
                 expect(await PendingOrderStorage().load(9), isNull);
-                await activeContainer.read(cartProvider.notifier).add(
-                  const Product(id: 4, name: 'Otro plato', price: '5.50',
-                    isAvailable: true, sortOrder: 0),
-                  restaurantId: 7, restaurantName: 'Restaurante',
-                );
+                await activeContainer
+                    .read(cartProvider.notifier)
+                    .add(
+                      const Product(
+                        id: 4,
+                        name: 'Otro plato',
+                        price: '5.50',
+                        isAvailable: true,
+                        sortOrder: 0,
+                      ),
+                      restaurantId: 7,
+                      restaurantName: 'Restaurante',
+                    );
               });
               await tester.pumpAndSettle();
-              await tester.scrollUntilVisible(find.byTooltip('Quitar plato').first, -200);
+              await tester.scrollUntilVisible(
+                find.byTooltip('Quitar plato').first,
+                -200,
+              );
               await tester.tap(find.byTooltip('Quitar plato').first);
               await tester.pumpAndSettle();
               expect(activeContainer.read(cartProvider).quantityOf(3), 0);
-              final Finder confirmAgain = find.widgetWithText(FilledButton, 'Confirmar pedido');
-              await tester.scrollUntilVisible(confirmAgain, 200);
+              final Finder confirmAgain = find.widgetWithText(
+                FilledButton,
+                'Confirmar pedido',
+              );
+              expect(confirmAgain.hitTestable(), findsOneWidget);
               await tester.tap(confirmAgain);
               await tester.pumpAndSettle();
               expect(submissions, 2);
@@ -213,10 +279,17 @@ void main() {
           }
 
           expect(find.byType(OrderSentScreen), findsOneWidget);
-          expect(tester.widget<OrderSentScreen>(find.byType(OrderSentScreen)).alreadySent,
-              status == 500 || status == 0);
+          expect(
+            tester
+                .widget<OrderSentScreen>(find.byType(OrderSentScreen))
+                .alreadySent,
+            status == 500 || status == 0,
+          );
           expect(find.text(r'$7.25'), findsOneWidget);
-          expect(find.text('Pedido #42 · Restaurante confirmado'), findsOneWidget);
+          expect(
+            find.text('Pedido #42 · Restaurante confirmado'),
+            findsOneWidget,
+          );
           if (status == 500) {
             expect(activeContainer.read(cartProvider).quantityOf(3), 2);
           } else {

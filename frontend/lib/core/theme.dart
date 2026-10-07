@@ -33,6 +33,9 @@ class AppTheme {
   /// en tus dos referencias).
   static const Color coral = Color(0xFFE64A2E);
 
+  /// Coral oscuro para botones con texto blanco legible.
+  static const Color coralDeep = Color(0xFFC63B23);
+
   /// Verde menta de las alas.
   static const Color mint = Color(0xFF4EC3AE);
 
@@ -70,22 +73,23 @@ class AppTheme {
   ];
 
   static ThemeData light() {
-    final ColorScheme scheme = ColorScheme.fromSeed(
-      seedColor: teal,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: teal,
-      onPrimary: Colors.white,
-      secondary: yellow,
-      onSecondary: navy,
-      tertiary: mint,
-      onTertiary: navy,
-      error: coral,
-      onError: Colors.white,
-      surface: Colors.white,
-      onSurface: navy,
-      surfaceContainerHighest: const Color(0xFFE3EBEF),
-    );
+    final ColorScheme scheme =
+        ColorScheme.fromSeed(
+          seedColor: teal,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: teal,
+          onPrimary: Colors.white,
+          secondary: yellow,
+          onSecondary: navy,
+          tertiary: mint,
+          onTertiary: navy,
+          error: coral,
+          onError: Colors.white,
+          surface: Colors.white,
+          onSurface: navy,
+          surfaceContainerHighest: const Color(0xFFE3EBEF),
+        );
 
     return ThemeData(
       useMaterial3: true,

@@ -154,10 +154,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final RestaurantDetail detail =
           await RestaurantDetailRepository(ApiClient()).load(
-        restaurantId,
-        latitude: address.latitude,
-        longitude: address.longitude,
-      );
+            restaurantId,
+            latitude: address.latitude,
+            longitude: address.longitude,
+          );
 
       if (!mounted) {
         return;
@@ -180,10 +180,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   /// El total a pagar: los platos mas el envio.
-  String get _total => Money.add(<String>[
-        _cart.subtotal,
-        _deliveryFee ?? '0.00',
-      ]);
+  String get _total =>
+      Money.add(<String>[_cart.subtotal, _deliveryFee ?? '0.00']);
 
   /// Abre el selector de direcciones.
   ///
@@ -199,7 +197,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       context: context,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.card),
+        ),
       ),
       builder: (BuildContext context) => _AddressPicker(addresses: _addresses),
     );
@@ -298,8 +298,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final Address? address = _address;
     final OrderRepository? repository = _repository;
 
-    if (_sending || repository == null ||
-        (_pending == null && (address == null || cart.isEmpty || _deliveryFee == null))) {
+    if (_sending ||
+        repository == null ||
+        (_pending == null &&
+            (address == null || cart.isEmpty || _deliveryFee == null))) {
       return;
     }
 
@@ -327,18 +329,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         });
         await _load(selectedAddressId: original.address.id);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Carrito recuperado. Podés modificarlo y después confirmar. No se envió ningún pedido.'),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Carrito recuperado. Podés modificarlo y después confirmar. No se envió ningún pedido.',
+              ),
+            ),
+          );
         }
         return;
       }
 
-      final Order order = recovered ?? await repository.create(
-              cart: cart,
-              address: address!,
-              deliveryFee: _deliveryFee!,
-            );
+      final Order order =
+          recovered ??
+          await repository.create(
+            cart: cart,
+            address: address!,
+            deliveryFee: _deliveryFee!,
+          );
 
       // El carrito se vacia DESPUES de que el backend confirme el pedido.
       // Si se vaciara antes y la peticion fallara, el cliente se quedaria sin
@@ -374,7 +382,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       try {
         pending = await repository.loadPending();
       } catch (_) {
-        message = 'No pudimos leer el intento guardado. Volvé a abrir esta pantalla antes de volver a pedir.';
+        message =
+            'No pudimos leer el intento guardado. Volvé a abrir esta pantalla antes de volver a pedir.';
       }
       if (!mounted) {
         return;
@@ -400,134 +409,165 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final TextTheme text = Theme.of(context).textTheme;
 
     final bool canConfirm =
-        !_loading && !_sending && _repository != null &&
-        (_pending != null || (_address != null && _deliveryFee != null && cart.isNotEmpty));
+        !_loading &&
+        !_sending &&
+        _repository != null &&
+        (_pending != null ||
+            (_address != null && _deliveryFee != null && cart.isNotEmpty));
 
     return PopScope(
       canPop: !_sending,
       child: Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
         backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Confirmar pedido',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+        appBar: AppBar(
+          backgroundColor: AppTheme.background,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'Confirmar pedido',
+            style: text.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppTheme.navy,
+            ),
           ),
         ),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                0,
-                AppSpacing.md,
-                AppSpacing.xl,
-              ),
-              children: <Widget>[
-                if (_pending != null) ...<Widget>[
-                  const _ErrorBox(
-                    message: 'Revisá si el pedido llegó al restaurante. Recuperar no envía un pedido nuevo.',
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                children: <Widget>[
+                  if (_pending != null) ...<Widget>[
+                    const _ErrorBox(
+                      message:
+                          'Revisá si el pedido llegó al restaurante. Recuperar no envía un pedido nuevo.',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                  const _SectionTitle('Entregar en'),
+                  _AddressCard(address: _address, onTap: _openAddressPicker),
+                  const SizedBox(height: AppSpacing.lg),
+                  const _SectionTitle('Tu pedido'),
+                  for (final CartItem item in cart.items)
+                    _ItemLine(
+                      item: item,
+                      onRemove: _pending != null || _sending
+                          ? null
+                          : () => ref
+                                .read(cartProvider.notifier)
+                                .remove(item.product.id),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const _SectionTitle('Resumen'),
+                  _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
+                  _SummaryRow(
+                    label: 'Envío',
+                    value: _feeReady
+                        ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
+                        : '...',
+                    hint: _feeReady && _deliveryFee == null
+                        ? 'No llegamos a esa dirección'
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                ],
-                const _SectionTitle('Entregar en'),
-                _AddressCard(address: _address, onTap: _openAddressPicker),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('Tu pedido'),
-                for (final CartItem item in cart.items)
-                  _ItemLine(
-                    item: item,
-                    onRemove: _pending != null || _sending ? null
-                        : () => ref.read(cartProvider.notifier).remove(item.product.id),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.payments_outlined,
+                        size: 18,
+                        color: AppTheme.teal,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Pagás en efectivo al recibir',
+                          style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('Resumen'),
-                _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
-                _SummaryRow(
-                  label: 'Envío',
-                  value: _feeReady
-                      ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
-                      : '...',
-                  hint: _feeReady && _deliveryFee == null
-                      ? 'No llegamos a esa dirección'
-                      : null,
-                ),
-                const Divider(height: AppSpacing.lg),
-                _SummaryRow(
-                  label: 'Total',
-                  value: _deliveryFee == null ? '—' : '\$$_total',
-                  strong: true,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: <Widget>[
-                    const Icon(
-                      Icons.payments_outlined,
-                      size: 18,
-                      color: AppTheme.teal,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      'Pagás en efectivo al recibir',
-                      style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                  if (_error != null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.md),
+                    _ErrorBox(message: _error!),
+                    TextButton(
+                      onPressed: _sending ? null : _load,
+                      child: const Text('Actualizar'),
                     ),
                   ],
-                ),
-                if (_error != null) ...<Widget>[
-                  const SizedBox(height: AppSpacing.md),
-                  _ErrorBox(message: _error!),
-                  TextButton(
-                    onPressed: _sending ? null : _load,
-                    child: const Text('Actualizar'),
-                  ),
                 ],
-                const SizedBox(height: AppSpacing.lg),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: canConfirm ? _confirm : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.coral,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
-                    ),
-                    child: _sending
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+              ),
+        bottomNavigationBar: _loading
+            ? null
+            : Material(
+                color: Colors.white,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        _SummaryRow(
+                          label: 'Total',
+                          value: _deliveryFee == null ? '—' : '\$$_total',
+                          strong: true,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: canConfirm ? _confirm : null,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.coralDeep,
+                              minimumSize: const Size.fromHeight(52),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
+                              ),
                             ),
-                          )
-                        : Text(
-                            _pending == null ? 'Confirmar pedido' : 'Recuperar pedido',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            child: _sending
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _pending == null
+                                        ? 'Confirmar pedido'
+                                        : 'Recuperar pedido',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        if (!canConfirm && !_sending) ...<Widget>[
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            _feeReady && _deliveryFee == null
+                                ? 'Todavía no llegamos a esa dirección. Probá con otra.'
+                                : 'Elegí una dirección para continuar.',
+                            textAlign: TextAlign.center,
+                            style: text.bodySmall?.copyWith(
+                              color: AppTheme.coral,
                             ),
                           ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-                if (!canConfirm && !_sending) ...<Widget>[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    _feeReady && _deliveryFee == null
-                        ? 'Todavía no llegamos a esa dirección. Probá con otra.'
-                        : 'Elegí una dirección para continuar.',
-                    textAlign: TextAlign.center,
-                    style: text.bodySmall?.copyWith(color: AppTheme.coral),
-                  ),
-                ],
-              ],
-            ),
+              ),
       ),
     );
   }
@@ -663,9 +703,7 @@ class _ItemLine extends StatelessWidget {
           ),
           Text(
             '\$${item.subtotal}',
-            style: text.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
+            style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
           ),
           if (onRemove != null)
             IconButton(
@@ -724,10 +762,7 @@ class _SummaryRow extends StatelessWidget {
             ],
           ),
           if (hint != null)
-            Text(
-              hint!,
-              style: text.bodySmall?.copyWith(color: AppTheme.coral),
-            ),
+            Text(hint!, style: text.bodySmall?.copyWith(color: AppTheme.coral)),
         ],
       ),
     );
@@ -786,9 +821,9 @@ class _AddressPicker extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onTap: () => Navigator.of(context).pop(
-                        _PickerResult(_PickerAction.pick, address),
-                      ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(_PickerResult(_PickerAction.pick, address)),
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Row(
@@ -815,8 +850,7 @@ class _AddressPicker extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: AppTheme.tealSoft,
-                                            borderRadius:
-                                                BorderRadius.circular(
+                                            borderRadius: BorderRadius.circular(
                                               AppRadius.pill,
                                             ),
                                           ),
@@ -856,9 +890,9 @@ class _AddressPicker extends StatelessWidget {
             // porque este es el momento en que al cliente le falta la
             // direccion: mandarlo a buscar otra pantalla es perderlo.
             OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).pop(
-                const _PickerResult(_PickerAction.create),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(const _PickerResult(_PickerAction.create)),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Nueva dirección'),
               style: OutlinedButton.styleFrom(
@@ -867,9 +901,9 @@ class _AddressPicker extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(
-                const _PickerResult(_PickerAction.manage),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(const _PickerResult(_PickerAction.manage)),
               child: const Text('Administrar mis direcciones'),
             ),
           ],
