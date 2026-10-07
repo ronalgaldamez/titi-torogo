@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -110,28 +111,34 @@ class OrderController extends Controller
      */
     public function cancel(Order $order): RedirectResponse
     {
-        if ($order->status->isFinal()) {
-            return back()->with('error', "El pedido #{$order->id} ya está cerrado ({$order->status->label()}).");
-        }
+        return DB::transaction(function () use ($order) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            if ($order->status === OrderStatus::Cancelled) {
+                return back()->with('status', "El pedido #{$order->id} ya está cancelado.");
+            }
+            if ($order->status->isFinal()) {
+                return back()->with('error', "El pedido #{$order->id} ya está cerrado ({$order->status->label()}).");
+            }
 
-        // El estado viejo se guarda ANTES: moveTo lo pisa, y el evento lo
-        // necesita para que las apps sepan de donde venia el cambio.
-        $previous = $order->status->value;
+            // El estado viejo se guarda ANTES: moveTo lo pisa, y el evento lo
+            // necesita para que las apps sepan de donde venia el cambio.
+            $previous = $order->status->value;
 
-        if (! $order->moveTo(OrderStatus::Cancelled)) {
-            return back()->with('error', 'Ese pedido no se puede cancelar desde su estado actual.');
-        }
+            if (! $order->moveTo(OrderStatus::Cancelled)) {
+                return back()->with('error', 'Ese pedido no se puede cancelar desde su estado actual.');
+            }
 
-        $order->save();
+            $order->save();
 
-        // Se avisa AL INSTANTE: el cliente lo ve en su seguimiento sin
-        // refrescar, con el mismo canal de tiempo real que usan las apps.
-        OrderUpdated::announce($order, $previous);
+            // Se avisa AL INSTANTE: el cliente lo ve en su seguimiento sin
+            // refrescar, con el mismo canal de tiempo real que usan las apps.
+            DB::afterCommit(fn () => OrderUpdated::announce($order, $previous));
 
-        return back()->with(
-            'status',
-            "El pedido #{$order->id} quedó cancelado. El cliente ya lo ve en su app.",
-        );
+            return back()->with(
+                'status',
+                "El pedido #{$order->id} quedó cancelado. El cliente ya lo ve en su app.",
+            );
+        });
     }
 
     /**
@@ -141,43 +148,49 @@ class OrderController extends Controller
      */
     public function assignCourier(Request $request, Order $order): RedirectResponse
     {
-        // Asignar solo tiene sentido cuando el pedido ya esta listo para
-        // recoger o yendo: antes de eso todavia no hay nada que repartir, y
-        // ademas el motorizado no lo veria en su lista de disponibles.
-        if (! in_array($order->status, [OrderStatus::Ready, OrderStatus::PickedUp], true)) {
-            return back()->with(
-                'error',
-                'Solo se le puede asignar un motorizado a un pedido listo para recoger o en camino.',
+        return DB::transaction(function () use ($request, $order) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            // Asignar solo tiene sentido cuando el pedido ya esta listo para
+            // recoger o yendo: antes de eso todavia no hay nada que repartir, y
+            // ademas el motorizado no lo veria en su lista de disponibles.
+            if (! in_array($order->status, [OrderStatus::Ready, OrderStatus::PickedUp], true)) {
+                return back()->with(
+                    'error',
+                    'Solo se le puede asignar un motorizado a un pedido listo para recoger o en camino.',
+                );
+            }
+
+            $data = $request->validate(
+                ['courier_id' => ['required', 'integer', 'exists:users,id']],
+                ['courier_id.required' => 'Elegí un motorizado.'],
             );
-        }
 
-        $data = $request->validate(
-            ['courier_id' => ['required', 'integer', 'exists:users,id']],
-            ['courier_id.required' => 'Elegí un motorizado.'],
-        );
+            // Se busca entre los motorizados ACTIVOS: si se dio de baja, no puede
+            // recibir pedidos aunque alguien lo elija desde una pantalla vieja.
+            $courier = User::query()
+                ->where('role', UserRole::Courier->value)
+                ->where('is_active', true)
+                ->find($data['courier_id']);
 
-        // Se busca entre los motorizados ACTIVOS: si se dio de baja, no puede
-        // recibir pedidos aunque alguien lo elija desde una pantalla vieja.
-        $courier = User::query()
-            ->where('role', UserRole::Courier->value)
-            ->where('is_active', true)
-            ->find($data['courier_id']);
+            if ($courier === null) {
+                return back()->with('error', 'Ese motorizado no está activo.');
+            }
 
-        if ($courier === null) {
-            return back()->with('error', 'Ese motorizado no está activo.');
-        }
+            if ($order->courier_id === $courier->id) {
+                return back()->with('status', 'Ese motorizado ya tiene el pedido asignado.');
+            }
+            $previous = $order->status->value;
 
-        $previous = $order->status->value;
+            $order->courier_id = $courier->id;
+            $order->save();
 
-        $order->courier_id = $courier->id;
-        $order->save();
+            DB::afterCommit(fn () => OrderUpdated::announce($order, $previous));
 
-        OrderUpdated::announce($order, $previous);
-
-        return back()->with(
-            'status',
-            "El pedido #{$order->id} quedó asignado a {$courier->name}.",
-        );
+            return back()->with(
+                'status',
+                "El pedido #{$order->id} quedó asignado a {$courier->name}.",
+            );
+        });
     }
 
     /**
@@ -187,31 +200,28 @@ class OrderController extends Controller
      */
     public function releaseCourier(Order $order): RedirectResponse
     {
-        if ($order->courier_id === null) {
-            return back()->with('error', 'Ese pedido no tiene motorizado asignado.');
-        }
+        return DB::transaction(function () use ($order) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            if ($order->status !== OrderStatus::Ready) {
+                return back()->with('error', 'Solo se puede liberar un pedido listo para recoger.');
+            }
+            if ($order->courier_id === null) {
+                return back()->with('status', 'Ese pedido ya está libre.');
+            }
 
-        // Si ya lo recogio, la comida esta en su mano: quitarselo por el panel
-        // dejaria el pedido en la calle sin nadie. Para eso esta cancelar.
-        if (in_array($order->status, [OrderStatus::PickedUp, OrderStatus::Delivered], true)) {
+            $previous = $order->status->value;
+            $name = $order->courier?->name ?? 'el motorizado';
+
+            $order->courier_id = null;
+            $order->save();
+
+            DB::afterCommit(fn () => OrderUpdated::announce($order, $previous));
+
             return back()->with(
-                'error',
-                'El pedido ya va en camino: no se le puede quitar el motorizado. Si hay un problema, cancelalo.',
+                'status',
+                "El pedido #{$order->id} volvió a la lista de disponibles (se lo quitamos a {$name}).",
             );
-        }
-
-        $previous = $order->status->value;
-        $name = $order->courier?->name ?? 'el motorizado';
-
-        $order->courier_id = null;
-        $order->save();
-
-        OrderUpdated::announce($order, $previous);
-
-        return back()->with(
-            'status',
-            "El pedido #{$order->id} volvió a la lista de disponibles (se lo quitamos a {$name}).",
-        );
+        });
     }
 
     /**

@@ -52,6 +52,7 @@ class _CourierScreenState extends State<CourierScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  int _loadVersion = 0;
 
   /// La escucha del tiempo real de los pedidos disponibles. Null = no se pudo
   /// abrir.
@@ -107,6 +108,7 @@ class _CourierScreenState extends State<CourierScreen> {
   /// lo que ya tenia: algo viejo a la vista es mejor que una pantalla vacia
   /// cuando esta arriba de la moto.
   Future<void> _load({bool silent = false}) async {
+    final int version = ++_loadVersion;
     if (!silent) {
       setState(() {
         _loading = true;
@@ -131,7 +133,7 @@ class _CourierScreenState extends State<CourierScreen> {
 
       final List<Order> mine = await repository.loadMine();
 
-      if (!mounted) {
+      if (!mounted || version != _loadVersion) {
         return;
       }
 
@@ -143,7 +145,7 @@ class _CourierScreenState extends State<CourierScreen> {
         _error = null;
       });
     } on ApiException catch (error) {
-      if (!mounted) {
+      if (!mounted || version != _loadVersion) {
         return;
       }
 
@@ -280,6 +282,9 @@ class _CourierScreenState extends State<CourierScreen> {
     Future<void> Function() action, {
     String? okMessage,
   }) async {
+    if (_busy) {
+      return;
+    }
     setState(() => _busy = true);
 
     try {
@@ -304,6 +309,8 @@ class _CourierScreenState extends State<CourierScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
+      // La acción pudo guardarse aunque se perdiera su respuesta.
+      await _load(silent: true);
     } finally {
       if (mounted) {
         setState(() => _busy = false);

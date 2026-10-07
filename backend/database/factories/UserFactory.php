@@ -42,7 +42,9 @@ class UserFactory extends Factory
      */
     public function configure(): static
     {
-        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Client);
+        return $this->afterMaking(fn (User $user) => $user->role = UserRole::Client)
+            // Carga tambien valores por defecto de la BD, como is_active.
+            ->afterCreating(fn (User $user) => $user->refresh());
     }
 
     public function admin(): static

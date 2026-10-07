@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -25,6 +26,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Al volver a la columna obligatoria, no pueden quedar tarifas null.
+        DB::table('restaurants')->whereNull('delivery_fee')->update(['delivery_fee' => 0]);
+
         Schema::table('restaurants', function (Blueprint $table) {
             $table->decimal('delivery_fee', 8, 2)->nullable(false)->default(0)->change();
         });

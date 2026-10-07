@@ -190,7 +190,7 @@
                         @endif
                     </form>
 
-                    @if ($order->courier_id !== null)
+                    @if ($order->courier_id !== null && $order->status === \App\Enums\OrderStatus::Ready)
                         <form method="POST" action="{{ route('admin.orders.release', $order) }}" class="mt-3">
                             @csrf
                             <button type="submit"

@@ -68,7 +68,8 @@ class OrderUpdated implements ShouldBroadcastNow
         self::dispatch($order->load(['items', 'restaurant', 'courier']), $previousStatus);
 
         if ($order->status === OrderStatus::Ready
-            || $previousStatus === OrderStatus::Ready->value) {
+            || $previousStatus === OrderStatus::Ready->value
+            || $order->wasChanged('courier_id')) {
             CouriersUpdated::dispatch($order->id);
         }
     }
