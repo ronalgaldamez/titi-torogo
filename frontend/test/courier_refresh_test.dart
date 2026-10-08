@@ -35,6 +35,12 @@ void main() {
     int loads = 0;
     bool failSummary = false;
     final client = MockClient((request) async {
+      if (request.url.path.endsWith('/courier/history')) {
+        return http.Response(
+          '{"orders":[],"next_page":null,"summary":{"deliveries":2,"earnings":"3.30"},"from":"2026-10-07","to":"2026-10-07"}',
+          200,
+        );
+      }
       if (request.url.path.endsWith('/courier/summary')) {
         if (failSummary) {
           return http.Response('{"message":"Sin conexión"}', 503);
@@ -74,7 +80,7 @@ void main() {
       await flush();
       expect(loads, 2);
       expect(find.text('2 entregas completadas'), findsOneWidget);
-      expect(find.text(r'Ganancias: $3.30'), findsOneWidget);
+      expect(find.text(r'$3.30'), findsOneWidget);
       expect(find.text('MI PEDIDO'), findsNothing);
 
       oldResponse.complete(
@@ -125,7 +131,25 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('PEDIDOS CERCA'), findsOneWidget);
-      expect(find.text(r'Ganancias: $3.30'), findsNothing);
+      expect(find.text(r'$3.30'), findsNothing);
+      await tester.tap(find.text('Perfil'));
+      await flush();
+      expect(
+        find.text(
+          'La información y edición de tu perfil todavía no están disponibles.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Historial'));
+      await flush();
+      expect(find.text('Historial de entregas'), findsOneWidget);
+      await tester.tap(find.text('Inicio'));
+      await flush();
+      final link = find.text('Ver historial de entregas');
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await flush();
+      expect(find.text('Historial de entregas'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
     }, () => client);

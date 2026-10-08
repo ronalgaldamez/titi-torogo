@@ -51,6 +51,44 @@ class CourierOrderController extends Controller
         ]);
     }
 
+    /** Pedidos cerrados asociados al motorizado, por fecha de cierre. */
+    public function history(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'period' => ['sometimes', 'in:today,week,month'],
+            'status' => ['sometimes', 'in:all,delivered,cancelled'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $today = now(config('app.timezone'))->startOfDay();
+        $start = match ($data['period'] ?? 'today') {
+            'week' => $today->copy()->subDays(6),
+            'month' => $today->copy()->startOfMonth(),
+            default => $today->copy(),
+        };
+        $query = $request->user()->courierOrders()
+            ->whereIn('status', [OrderStatus::Delivered->value, OrderStatus::Cancelled->value])
+            ->whereRaw('COALESCE(delivered_at, cancelled_at) >= ?', [$start])
+            ->whereRaw('COALESCE(delivered_at, cancelled_at) < ?', [$today->copy()->addDay()]);
+        $totals = (clone $query)->where('status', OrderStatus::Delivered->value)
+            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee), 0) AS earnings')->first();
+        if (($data['status'] ?? 'all') !== 'all') {
+            $query->where('status', $data['status']);
+        }
+        $page = $query->with(['items', 'restaurant'])
+            ->orderByRaw('COALESCE(delivered_at, cancelled_at) DESC')
+            ->orderByDesc('id')->paginate(20);
+
+        return response()->json([
+            'orders' => OrderResource::collection($page->items()),
+            'next_page' => $page->hasMorePages() ? $page->currentPage() + 1 : null,
+            'summary' => [
+                'deliveries' => (int) $totals->deliveries,
+                'earnings' => Money::add((string) $totals->earnings),
+            ],
+            'from' => $start->toDateString(), 'to' => $today->toDateString(),
+        ]);
+    }
+
     /** Resumen del día según la zona horaria de la aplicación. */
     public function summary(Request $request): JsonResponse
     {

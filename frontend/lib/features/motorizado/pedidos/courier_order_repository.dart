@@ -13,6 +13,15 @@ class CourierOrderRepository {
 
   Future<Map<String, dynamic>> loadSummary() => _api.get('/courier/summary');
 
+  Future<Map<String, dynamic>> loadHistory({
+    required String period,
+    required String status,
+    required int page,
+  }) => _api.get(
+    '/courier/history',
+    query: <String, dynamic>{'period': period, 'status': status, 'page': page},
+  );
+
   /// GET /me — para saber como quedo el interruptor.
   ///
   /// La disponibilidad es un dato del USUARIO, no de un pedido, y por eso vive

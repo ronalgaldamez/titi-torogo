@@ -206,6 +206,9 @@ Route::middleware(['auth:sanctum', 'courier'])
         Route::patch('/availability', [CourierOrderController::class, 'updateAvailability'])
             ->name('api.courier.availability');
 
+        Route::get('/history', [CourierOrderController::class, 'history'])
+            ->name('api.courier.history');
+
         Route::get('/summary', [CourierOrderController::class, 'summary'])
             ->name('api.courier.summary');
 
