@@ -66,6 +66,9 @@ class _CourierScreenState extends State<CourierScreen> {
   List<Order> _nearby = <Order>[];
   List<Order> _mine = <Order>[];
 
+  Map<String, dynamic>? _summary;
+  String? _summaryError;
+
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -149,6 +152,14 @@ class _CourierScreenState extends State<CourierScreen> {
           : <Order>[];
 
       final List<Order> mine = await repository.loadMine();
+      Map<String, dynamic>? summary;
+      String? summaryError;
+      try {
+        summary = await repository.loadSummary();
+      } on ApiException {
+        summaryError =
+            'No pudimos actualizar el resumen. Tocá Actualizar para reintentar.';
+      }
 
       if (!mounted || version != _loadVersion) {
         return;
@@ -158,6 +169,8 @@ class _CourierScreenState extends State<CourierScreen> {
         _available = available;
         _nearby = nearby;
         _mine = mine;
+        _summary = summary;
+        _summaryError = summaryError;
         _loading = false;
         _error = null;
       });
@@ -561,6 +574,8 @@ class _CourierScreenState extends State<CourierScreen> {
             busy: _busy,
             onChanged: _setAvailability,
           ),
+          const SizedBox(height: AppSpacing.md),
+          _DaySummary(summary: _summary, error: _summaryError),
           const SizedBox(height: AppSpacing.lg),
 
           if (_mine.isNotEmpty) ...<Widget>[
@@ -591,6 +606,69 @@ class _CourierScreenState extends State<CourierScreen> {
                 busy: _busy,
                 onTake: () => _take(order),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Comisiones del día; no representa el efectivo cobrado al cliente.
+class _DaySummary extends StatelessWidget {
+  const _DaySummary({required this.summary, required this.error});
+
+  final Map<String, dynamic>? summary;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final String? date = summary?['date'] as String?;
+    final List<String>? parts = date?.split('-');
+    final String title = parts == null
+        ? 'Resumen de hoy'
+        : 'Hoy · ${parts[2]}/${parts[1]}/${parts[0]}';
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: text.titleSmall?.copyWith(
+              color: AppTheme.navy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (error != null)
+            Text(error!, style: text.bodyMedium?.copyWith(color: AppTheme.navy))
+          else ...<Widget>[
+            Text(
+              summary?['deliveries'] == 1
+                  ? '1 entrega completada'
+                  : '${summary?['deliveries'] ?? 0} entregas completadas',
+              style: text.titleMedium?.copyWith(color: AppTheme.navy),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Ganancias: \$${summary?['earnings'] ?? '0.00'}',
+              style: text.headlineSmall?.copyWith(
+                color: AppTheme.tealDeep,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Comisiones de tus entregas de hoy. No incluye el dinero cobrado al cliente.',
+              style: text.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
     );
