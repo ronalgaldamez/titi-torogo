@@ -39,7 +39,7 @@ class MapPoint {
 /// DOS CONDICIONES QUE HAY QUE RESPETAR, Y ESTAN LAS DOS ACA:
 ///
 ///   1. La licencia pide que el credito ("© OpenStreetMap contributors") este
-///      SIEMPRE a la vista. Por eso se usa SimpleAttributionWidget y no el que
+///      SIEMPRE a la vista. Por eso se usa un crédito visible y adaptable y no el que
 ///      se abre con un boton: la atribucion se muestra, no se esconde.
 ///   2. La politica de uso pide identificarse: va el nombre del paquete en el
 ///      User-Agent, para que ellos sepan quien esta pidiendo los mosaicos.
@@ -107,10 +107,18 @@ class TorogoMap extends StatelessWidget {
                   ),
               ],
             ),
-            const SimpleAttributionWidget(
-              source: Text(
-                '© OpenStreetMap contributors',
-                style: TextStyle(fontSize: 10),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                color: Theme.of(context).colorScheme.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  'flutter_map · © OpenStreetMap contributors',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontSize: 10),
+                ),
               ),
             ),
           ],

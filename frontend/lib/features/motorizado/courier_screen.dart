@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/live_chip.dart';
 import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
+import 'courier_profile.dart';
 import 'pedidos/courier_order_repository.dart';
 import 'pedidos/courier_history_screen.dart';
 
@@ -396,7 +397,7 @@ class _CourierScreenState extends State<CourierScreen> {
     }
 
     if (order.status == 'picked_up') {
-      return const _Step(status: 'delivered', label: 'Entregado');
+      return const _Step(status: 'delivered', label: 'Confirmar entrega');
     }
 
     return null;
@@ -565,42 +566,27 @@ class _CourierScreenState extends State<CourierScreen> {
                       ]
                     : null,
               ),
-        body: IndexedStack(
-          index: _tab,
+        body: Column(
           children: <Widget>[
-            _body(),
-            _tab == 1
-                ? const CourierHistoryScreen(embedded: true)
-                : const SizedBox.shrink(),
-            SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
+            Expanded(
+              child: IndexedStack(
+                index: _tab,
                 children: <Widget>[
-                  Text(
-                    'Tu perfil',
-                    style: text.titleMedium?.copyWith(
-                      color: AppTheme.navy,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text(
-                    'La información y edición de tu perfil todavía no están disponibles.',
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  if (widget.onLogout != null)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.logout_rounded,
-                        color: AppTheme.navy,
-                      ),
-                      title: const Text('Cerrar sesión'),
-                      onTap: _busy ? null : _confirmLogout,
-                    ),
+                  _body(),
+                  _tab == 1
+                      ? const CourierHistoryScreen(embedded: true)
+                      : const SizedBox.shrink(),
+                  _tab == 2
+                      ? CourierProfile(
+                          onLogout: widget.onLogout != null && !_busy
+                              ? _confirmLogout
+                              : null,
+                        )
+                      : const SizedBox.shrink(),
                 ],
               ),
             ),
+            if (_tab == 0 && !_loading && _error == null) _orderActions(),
           ],
         ),
         bottomNavigationBar: NavigationBar(
@@ -676,13 +662,10 @@ class _CourierScreenState extends State<CourierScreen> {
           const SizedBox(height: AppSpacing.lg),
 
           if (_mine.isNotEmpty) ...<Widget>[
-            const _SectionTitle('MI PEDIDO'),
             for (final Order order in _mine)
               _MyOrderCard(
                 order: order,
-                step: _stepFor(order),
                 busy: _busy,
-                onAdvance: (_Step step) => _advance(order, step),
                 onNavigate: () => _navigate(order),
               ),
             const SizedBox(height: AppSpacing.lg),
@@ -703,6 +686,65 @@ class _CourierScreenState extends State<CourierScreen> {
                 onTake: () => _take(order),
               ),
         ],
+      ),
+    );
+  }
+
+  Widget _orderActions() {
+    final orders = _mine.where((order) => _stepFor(order) != null).toList();
+    if (orders.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.3,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (final order in orders)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: order == orders.last ? 0 : AppSpacing.sm,
+                    ),
+                    child: FilledButton(
+                      key: ValueKey('courier-action-${order.id}'),
+                      onPressed: _busy
+                          ? null
+                          : () => _advance(order, _stepFor(order)!),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.tealDeep,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
+                        ),
+                      ),
+                      child: _busy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              '${_stepFor(order)!.label} · #${order.id}',
+                              textAlign: TextAlign.center,
+                            ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -893,12 +935,15 @@ class _AvailableCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               Text(
                 '#${order.id}',
@@ -907,7 +952,6 @@ class _AvailableCard extends StatelessWidget {
                   color: AppTheme.navy,
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
               if (order.distanceKm != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -919,20 +963,25 @@ class _AvailableCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
-                    '${order.distanceKm} km',
+                    '${order.distanceKm!.toStringAsFixed(1)} km al restaurante',
                     style: text.labelSmall?.copyWith(
                       color: AppTheme.tealDeep,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-              const Spacer(),
-              Text(
-                'Ganás \$${order.courierFee}',
-                style: text.titleSmall?.copyWith(
-                  color: AppTheme.coral,
-                  fontWeight: FontWeight.w800,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('Tu ganancia', style: text.labelSmall),
+                  Text(
+                    '\$${order.courierFee}',
+                    style: text.titleLarge?.copyWith(
+                      color: AppTheme.tealDeep,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -943,10 +992,9 @@ class _AvailableCard extends StatelessWidget {
             value: order.restaurant.name,
           ),
           const SizedBox(height: 4),
-          _Place(
-            icon: Icons.place_rounded,
-            title: 'Entregar en',
-            value: 'Dirección disponible al tomar el pedido',
+          Text(
+            'Dirección de entrega disponible al tomar el pedido',
+            style: text.bodySmall,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -956,13 +1004,13 @@ class _AvailableCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           SizedBox(
-            height: 44,
             width: double.infinity,
             child: FilledButton(
               onPressed: busy ? null : onTake,
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.coralDeep,
                 foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
@@ -983,16 +1031,12 @@ class _AvailableCard extends StatelessWidget {
 class _MyOrderCard extends StatelessWidget {
   const _MyOrderCard({
     required this.order,
-    required this.step,
     required this.busy,
-    required this.onAdvance,
     required this.onNavigate,
   });
 
   final Order order;
-  final _Step? step;
   final bool busy;
-  final ValueChanged<_Step> onAdvance;
   final VoidCallback onNavigate;
 
   @override
@@ -1006,12 +1050,12 @@ class _MyOrderCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppTheme.tealDeep, width: 2),
+        borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          const _SectionTitle('MI PEDIDO'),
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
@@ -1075,23 +1119,36 @@ class _MyOrderCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.md),
-          SizedBox(
+          Container(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onNavigate,
-              icon: const Icon(Icons.directions_rounded),
-              label: Text(
-                delivering
-                    ? 'Cómo llegar al cliente'
-                    : 'Cómo llegar al restaurante',
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.tealDeep,
-                minimumSize: const Size.fromHeight(48),
-              ),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppTheme.tealSoft,
+              borderRadius: BorderRadius.circular(AppRadius.image),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text('Cobrar al cliente · efectivo', style: text.bodySmall),
+                Text(
+                  '\$${order.total}',
+                  style: text.titleLarge?.copyWith(
+                    color: AppTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Tu ganancia: \$${order.courierFee}',
+                  style: text.titleSmall?.copyWith(
+                    color: AppTheme.tealDeep,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           // El mapa del pedido: donde recoger y donde entregar.
           //
           // Mas bajo que en el seguimiento del cliente (160 y no 220): aca es
@@ -1126,54 +1183,22 @@ class _MyOrderCard extends StatelessWidget {
             height: 160,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Cobrar al cliente: \$${order.total} en efectivo',
-            style: text.bodyMedium?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Tu ganancia por esta entrega: \$${order.courierFee}',
-            style: text.bodyMedium?.copyWith(
-              color: AppTheme.tealDeep,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (step != null) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: busy ? null : () => onAdvance(step!),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.tealDeep,
-                  minimumSize: const Size.fromHeight(48),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                ),
-                child: busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        step!.label,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onNavigate,
+              icon: const Icon(Icons.directions_rounded),
+              label: Text(
+                delivering
+                    ? 'Cómo llegar al cliente'
+                    : 'Cómo llegar al restaurante',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.tealDeep,
+                minimumSize: const Size.fromHeight(48),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
