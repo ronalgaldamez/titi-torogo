@@ -206,6 +206,9 @@ Route::middleware(['auth:sanctum', 'courier'])
         Route::patch('/availability', [CourierOrderController::class, 'updateAvailability'])
             ->name('api.courier.availability');
 
+        Route::get('/summary', [CourierOrderController::class, 'summary'])
+            ->name('api.courier.summary');
+
         // Los pedidos que YO llevo (tracking activo).
         Route::get('/orders', [CourierOrderController::class, 'index'])
             ->name('api.courier.orders.index');

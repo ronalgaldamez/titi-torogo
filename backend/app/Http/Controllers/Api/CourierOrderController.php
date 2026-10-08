@@ -12,6 +12,7 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\UserResource;
 use App\Models\Order;
 use App\Support\Geometry;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -47,6 +48,24 @@ class CourierOrderController extends Controller
 
         return response()->json([
             'user' => new UserResource($user),
+        ]);
+    }
+
+    /** Resumen del día según la zona horaria de la aplicación. */
+    public function summary(Request $request): JsonResponse
+    {
+        $start = now(config('app.timezone'))->startOfDay();
+        $totals = $request->user()->courierOrders()
+            ->where('status', OrderStatus::Delivered->value)
+            ->where('delivered_at', '>=', $start)
+            ->where('delivered_at', '<', $start->copy()->addDay())
+            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee), 0) AS earnings')
+            ->first();
+
+        return response()->json([
+            'date' => $start->toDateString(),
+            'deliveries' => (int) $totals->deliveries,
+            'earnings' => Money::add((string) $totals->earnings),
         ]);
     }
 

@@ -11,6 +11,8 @@ class CourierOrderRepository {
 
   final ApiClient _api;
 
+  Future<Map<String, dynamic>> loadSummary() => _api.get('/courier/summary');
+
   /// GET /me — para saber como quedo el interruptor.
   ///
   /// La disponibilidad es un dato del USUARIO, no de un pedido, y por eso vive
@@ -50,10 +52,7 @@ class CourierOrderRepository {
   }) async {
     final Map<String, dynamic> json = await _api.get(
       '/courier/orders/available',
-      query: <String, dynamic>{
-        'latitude': latitude,
-        'longitude': longitude,
-      },
+      query: <String, dynamic>{'latitude': latitude, 'longitude': longitude},
     );
 
     final List<dynamic> raw = (json['orders'] as List<dynamic>?) ?? <dynamic>[];
@@ -78,8 +77,9 @@ class CourierOrderRepository {
   /// con "Ese pedido ya no está disponible." y el ApiClient lo convierte en un
   /// mensaje que la pantalla muestra tal cual.
   Future<Order> take(int orderId) async {
-    final Map<String, dynamic> json =
-        await _api.post('/courier/orders/$orderId/take');
+    final Map<String, dynamic> json = await _api.post(
+      '/courier/orders/$orderId/take',
+    );
 
     return Order.fromJson(json['order'] as Map<String, dynamic>);
   }
