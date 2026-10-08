@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/auth_storage.dart';
@@ -13,6 +14,22 @@ import '../../core/widgets/live_chip.dart';
 import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
 import 'pedidos/courier_order_repository.dart';
+
+/// Destino del siguiente tramo de la entrega.
+Uri courierDirectionsUri(Order order) {
+  final bool delivering = order.status == 'picked_up';
+  final double latitude = delivering
+      ? order.delivery!.latitude
+      : order.restaurant.latitude;
+  final double longitude = delivering
+      ? order.delivery!.longitude
+      : order.restaurant.longitude;
+  return Uri.https('www.google.com', '/maps/dir/', <String, String>{
+    'api': '1',
+    'destination': '$latitude,$longitude',
+    'travelmode': 'driving',
+  });
+}
 
 /// La app del motorizado.
 ///
@@ -278,10 +295,7 @@ class _CourierScreenState extends State<CourierScreen> {
   ///
   /// Las tres acciones (disponibilidad, tomar, avanzar) comparten esto para no
   /// repetir el mismo try/catch tres veces.
-  Future<void> _run(
-    Future<void> Function() action, {
-    String? okMessage,
-  }) async {
+  Future<void> _run(Future<void> Function() action, {String? okMessage}) async {
     if (_busy) {
       return;
     }
@@ -295,9 +309,9 @@ class _CourierScreenState extends State<CourierScreen> {
       }
 
       if (okMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(okMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(okMessage)));
       }
 
       await _load();
@@ -306,9 +320,9 @@ class _CourierScreenState extends State<CourierScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
       // La acción pudo guardarse aunque se perdiera su respuesta.
       await _load(silent: true);
     } finally {
@@ -340,7 +354,8 @@ class _CourierScreenState extends State<CourierScreen> {
   Future<void> _take(Order order) async {
     final bool confirmed = await _confirm(
       title: '¿Tomar el pedido #${order.id}?',
-      message: 'Te comprometés a recogerlo en ${order.restaurant.name}. '
+      message:
+          'Te comprometés a recogerlo en ${order.restaurant.name}. '
           'La dirección de entrega aparece después de tomar el pedido.',
       actionLabel: 'Tomar',
     );
@@ -349,13 +364,10 @@ class _CourierScreenState extends State<CourierScreen> {
       return;
     }
 
-    await _run(
-      () async {
-        final ApiClient api = await _session.client();
-        await CourierOrderRepository(api).take(order.id);
-      },
-      okMessage: 'Pedido #${order.id} tomado.',
-    );
+    await _run(() async {
+      final ApiClient api = await _session.client();
+      await CourierOrderRepository(api).take(order.id);
+    }, okMessage: 'Pedido #${order.id} tomado.');
   }
 
   /// El boton que le toca a este pedido, o null si no le toca ninguno.
@@ -379,7 +391,8 @@ class _CourierScreenState extends State<CourierScreen> {
     if (step.status == 'delivered') {
       final bool confirmed = await _confirm(
         title: '¿Marcar el pedido #${order.id} como entregado?',
-        message: 'Se cobra \$${order.total} en efectivo al cliente. '
+        message:
+            'Se cobra \$${order.total} en efectivo al cliente. '
             'Después no se puede deshacer.',
         actionLabel: 'Entregado',
       );
@@ -405,7 +418,8 @@ class _CourierScreenState extends State<CourierScreen> {
     required String message,
     required String actionLabel,
   }) async {
-    final bool confirmed = await showDialog<bool>(
+    final bool confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: Text(title),
@@ -418,7 +432,7 @@ class _CourierScreenState extends State<CourierScreen> {
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.coral,
+                  backgroundColor: AppTheme.coralDeep,
                   foregroundColor: Colors.white,
                 ),
                 child: Text(actionLabel),
@@ -431,8 +445,28 @@ class _CourierScreenState extends State<CourierScreen> {
     return confirmed;
   }
 
+  Future<void> _navigate(Order order) async {
+    try {
+      if (await launchUrl(
+        courierDirectionsUri(order),
+        mode: LaunchMode.externalApplication,
+      )) {
+        return;
+      }
+    } catch (error) {
+      debugPrint('No se pudo abrir la navegación: $error');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No pudimos abrir Google Maps. Intentá de nuevo.'),
+      ),
+    );
+  }
+
   Future<void> _confirmLogout() async {
-    final bool confirmed = await showDialog<bool>(
+    final bool confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: const Text('¿Cerrar sesión?'),
@@ -537,15 +571,14 @@ class _CourierScreenState extends State<CourierScreen> {
                 step: _stepFor(order),
                 busy: _busy,
                 onAdvance: (_Step step) => _advance(order, step),
+                onNavigate: () => _navigate(order),
               ),
             const SizedBox(height: AppSpacing.lg),
           ],
 
           const _SectionTitle('PEDIDOS CERCA'),
           if (!_available)
-            const _Hint(
-              'Ponete disponible para ver los pedidos que hay cerca.',
-            )
+            const _Hint('Ponete disponible para ver los pedidos que hay cerca.')
           else if (_nearby.isEmpty)
             const _Hint(
               'No hay pedidos listos para recoger cerca tuyo. Deslizá hacia '
@@ -597,7 +630,7 @@ class _AvailabilityCard extends StatelessWidget {
                   available ? 'Estás disponible' : 'No estás disponible',
                   style: text.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: available ? Colors.white : AppTheme.navy,
+                    color: AppTheme.navy,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -606,16 +639,13 @@ class _AvailabilityCard extends StatelessWidget {
                       ? 'Te van a aparecer los pedidos a menos de 5 km.'
                       : 'Ponete disponible cuando salgas a repartir.',
                   style: text.bodySmall?.copyWith(
-                    color: available ? Colors.white : colors.onSurfaceVariant,
+                    color: available ? AppTheme.navy : colors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ),
-          Switch(
-            value: available,
-            onChanged: busy ? null : onChanged,
-          ),
+          Switch(value: available, onChanged: busy ? null : onChanged),
         ],
       ),
     );
@@ -679,7 +709,7 @@ class _AvailableCard extends StatelessWidget {
                 ),
               const Spacer(),
               Text(
-                '\$${order.courierFee}',
+                'Ganás \$${order.courierFee}',
                 style: text.titleSmall?.copyWith(
                   color: AppTheme.coral,
                   fontWeight: FontWeight.w800,
@@ -712,7 +742,7 @@ class _AvailableCard extends StatelessWidget {
             child: FilledButton(
               onPressed: busy ? null : onTake,
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.coral,
+                backgroundColor: AppTheme.coralDeep,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -737,17 +767,20 @@ class _MyOrderCard extends StatelessWidget {
     required this.step,
     required this.busy,
     required this.onAdvance,
+    required this.onNavigate,
   });
 
   final Order order;
   final _Step? step;
   final bool busy;
   final ValueChanged<_Step> onAdvance;
+  final VoidCallback onNavigate;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final ColorScheme colors = Theme.of(context).colorScheme;
+    final bool delivering = order.status == 'picked_up';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -755,12 +788,15 @@ class _MyOrderCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppTheme.teal, width: 2),
+        border: Border.all(color: AppTheme.tealDeep, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               Text(
                 '#${order.id}',
@@ -769,14 +805,13 @@ class _MyOrderCard extends StatelessWidget {
                   color: AppTheme.navy,
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.teal,
+                  color: AppTheme.tealDeep,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
@@ -788,6 +823,16 @@ class _MyOrderCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            delivering
+                ? 'Llevá el pedido al cliente'
+                : 'Andá al restaurante a recoger',
+            style: text.titleMedium?.copyWith(
+              color: AppTheme.navy,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           _Place(
@@ -810,6 +855,23 @@ class _MyOrderCard extends StatelessWidget {
               value: order.delivery!.reference!,
             ),
           ],
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onNavigate,
+              icon: const Icon(Icons.directions_rounded),
+              label: Text(
+                delivering
+                    ? 'Cómo llegar al cliente'
+                    : 'Cómo llegar al restaurante',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.tealDeep,
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpacing.sm),
           // El mapa del pedido: donde recoger y donde entregar.
           //
@@ -831,27 +893,44 @@ class _MyOrderCard extends StatelessWidget {
                 color: AppTheme.coral,
               ),
             ],
+            center: MapPoint(
+              latitude: delivering
+                  ? order.delivery!.latitude
+                  : order.restaurant.latitude,
+              longitude: delivering
+                  ? order.delivery!.longitude
+                  : order.restaurant.longitude,
+              icon: delivering ? Icons.place_rounded : Icons.storefront_rounded,
+              color: AppTheme.tealDeep,
+            ),
+            key: ValueKey('${order.id}-${order.status}'),
             height: 160,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Cobrás \$${order.total} en efectivo',
+            'Cobrar al cliente: \$${order.total} en efectivo',
             style: text.bodyMedium?.copyWith(
               color: AppTheme.navy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Tu ganancia por esta entrega: \$${order.courierFee}',
+            style: text.bodyMedium?.copyWith(
+              color: AppTheme.tealDeep,
               fontWeight: FontWeight.w700,
             ),
           ),
           if (step != null) ...<Widget>[
             const SizedBox(height: AppSpacing.md),
             SizedBox(
-              height: 48,
               width: double.infinity,
               child: FilledButton(
                 onPressed: busy ? null : () => onAdvance(step!),
                 style: FilledButton.styleFrom(
-                  backgroundColor: step!.status == 'delivered'
-                      ? AppTheme.mint
-                      : AppTheme.teal,
+                  backgroundColor: AppTheme.tealDeep,
+                  minimumSize: const Size.fromHeight(48),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -884,11 +963,7 @@ class _MyOrderCard extends StatelessWidget {
 
 /// Una linea con icono: "Recoger en Los Tres Cerditos".
 class _Place extends StatelessWidget {
-  const _Place({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
+  const _Place({required this.icon, required this.title, required this.value});
 
   final IconData icon;
   final String title;
@@ -1013,10 +1088,7 @@ class _Message extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),
