@@ -14,6 +14,7 @@ import '../../core/widgets/live_chip.dart';
 import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
 import 'pedidos/courier_order_repository.dart';
+import 'pedidos/courier_history_screen.dart';
 
 /// Destino del siguiente tramo de la entrega.
 Uri courierDirectionsUri(Order order) {
@@ -61,6 +62,8 @@ class _CourierScreenState extends State<CourierScreen> {
   Place _place = LocationService.fallback;
 
   final Session _session = Session(AuthStorage());
+
+  int _tab = 0;
 
   bool _available = false;
   List<Order> _nearby = <Order>[];
@@ -505,41 +508,131 @@ class _CourierScreenState extends State<CourierScreen> {
     }
   }
 
+  void _selectTab(int index) {
+    setState(() {
+      _tab = index;
+    });
+    if (index == 0) {
+      _load(silent: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
+    final String? date = _summary?['date'] as String?;
+    return PopScope(
+      canPop: _tab == 0,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) {
+          _selectTab(0);
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Mi día',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
-        ),
-        actions: <Widget>[
-          if (_connected) const LiveChip(),
-          IconButton(
-            onPressed: _busy ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.navy,
-            tooltip: 'Actualizar',
-          ),
-          if (widget.onLogout != null)
-            IconButton(
-              onPressed: _confirmLogout,
-              icon: const Icon(Icons.logout_rounded),
-              color: AppTheme.navy,
-              tooltip: 'Cerrar sesión',
+        appBar: _tab == 1
+            ? null
+            : AppBar(
+                backgroundColor: AppTheme.background,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      _tab == 0 ? 'Mi día' : 'Perfil',
+                      style: text.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.navy,
+                      ),
+                    ),
+                    if (_tab == 0 && date != null)
+                      Text(
+                        historyDate(DateTime.parse(date)),
+                        style: text.bodySmall,
+                      ),
+                  ],
+                ),
+                actions: _tab == 0
+                    ? <Widget>[
+                        if (_connected) const LiveChip(),
+                        IconButton(
+                          onPressed: _busy ? null : _load,
+                          icon: const Icon(Icons.refresh_rounded),
+                          color: AppTheme.navy,
+                          tooltip: 'Actualizar',
+                        ),
+                      ]
+                    : null,
+              ),
+        body: IndexedStack(
+          index: _tab,
+          children: <Widget>[
+            _body(),
+            _tab == 1
+                ? const CourierHistoryScreen(embedded: true)
+                : const SizedBox.shrink(),
+            SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                children: <Widget>[
+                  Text(
+                    'Tu perfil',
+                    style: text.titleMedium?.copyWith(
+                      color: AppTheme.navy,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    'La información y edición de tu perfil todavía no están disponibles.',
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  if (widget.onLogout != null)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(
+                        Icons.logout_rounded,
+                        color: AppTheme.navy,
+                      ),
+                      title: const Text('Cerrar sesión'),
+                      onTap: _busy ? null : _confirmLogout,
+                    ),
+                ],
+              ),
             ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _tab,
+          onDestinationSelected: _selectTab,
+          backgroundColor: Colors.white,
+          indicatorColor: AppTheme.tealSoft,
+          destinations: const <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded, color: AppTheme.tealDeep),
+              label: 'Inicio',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(
+                Icons.history_rounded,
+                color: AppTheme.tealDeep,
+              ),
+              label: 'Historial',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(
+                Icons.person_rounded,
+                color: AppTheme.tealDeep,
+              ),
+              label: 'Perfil',
+            ),
+          ],
+        ),
       ),
-      body: _body(),
     );
   }
 
@@ -575,7 +668,11 @@ class _CourierScreenState extends State<CourierScreen> {
             onChanged: _setAvailability,
           ),
           const SizedBox(height: AppSpacing.md),
-          _DaySummary(summary: _summary, error: _summaryError),
+          _DaySummary(
+            summary: _summary,
+            error: _summaryError,
+            onHistory: () => _selectTab(1),
+          ),
           const SizedBox(height: AppSpacing.lg),
 
           if (_mine.isNotEmpty) ...<Widget>[
@@ -596,8 +693,7 @@ class _CourierScreenState extends State<CourierScreen> {
             const _Hint('Ponete disponible para ver los pedidos que hay cerca.')
           else if (_nearby.isEmpty)
             const _Hint(
-              'No hay pedidos listos para recoger cerca tuyo. Deslizá hacia '
-              'abajo para actualizar.',
+              'No hay pedidos cerca por ahora. Deslizá para actualizar.',
             )
           else
             for (final Order order in _nearby)
@@ -614,61 +710,106 @@ class _CourierScreenState extends State<CourierScreen> {
 
 /// Comisiones del día; no representa el efectivo cobrado al cliente.
 class _DaySummary extends StatelessWidget {
-  const _DaySummary({required this.summary, required this.error});
-
+  const _DaySummary({
+    required this.summary,
+    required this.error,
+    required this.onHistory,
+  });
   final Map<String, dynamic>? summary;
   final String? error;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final String? date = summary?['date'] as String?;
-    final List<String>? parts = date?.split('-');
-    final String title = parts == null
-        ? 'Resumen de hoy'
-        : 'Hoy · ${parts[2]}/${parts[1]}/${parts[0]}';
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppRadius.image),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text(
-            title,
-            style: text.titleSmall?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w700,
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Tus ganancias de hoy',
+                  style: text.titleSmall?.copyWith(
+                    color: AppTheme.navy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (error != null)
+                  Text(
+                    error!,
+                    style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+                  )
+                else ...<Widget>[
+                  Text(
+                    '\$${summary?['earnings'] ?? '0.00'}',
+                    style: text.headlineLarge?.copyWith(
+                      color: AppTheme.tealDeep,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.check_rounded,
+                        color: AppTheme.tealDeep,
+                        size: 20,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          summary?['deliveries'] == 1
+                              ? '1 entrega completada'
+                              : '${summary?['deliveries'] ?? 0} entregas completadas',
+                          style: text.bodyMedium?.copyWith(
+                            color: AppTheme.navy,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Solo comisiones, no el efectivo cobrado.',
+                    style: text.bodySmall,
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (error != null)
-            Text(error!, style: text.bodyMedium?.copyWith(color: AppTheme.navy))
-          else ...<Widget>[
-            Text(
-              summary?['deliveries'] == 1
-                  ? '1 entrega completada'
-                  : '${summary?['deliveries'] ?? 0} entregas completadas',
-              style: text.titleMedium?.copyWith(color: AppTheme.navy),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Ganancias: \$${summary?['earnings'] ?? '0.00'}',
-              style: text.headlineSmall?.copyWith(
-                color: AppTheme.tealDeep,
-                fontWeight: FontWeight.w800,
+          const Divider(height: 1),
+          InkWell(
+            onTap: onHistory,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Ver historial de entregas',
+                      style: text.labelLarge?.copyWith(
+                        color: AppTheme.tealDeep,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 20,
+                    color: AppTheme.tealDeep,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Comisiones de tus entregas de hoy. No incluye el dinero cobrado al cliente.',
-              style: text.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );
@@ -696,7 +837,7 @@ class _AvailabilityCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: available ? AppTheme.mint : colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Row(
         children: <Widget>[
@@ -714,7 +855,7 @@ class _AvailabilityCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   available
-                      ? 'Te van a aparecer los pedidos a menos de 5 km.'
+                      ? 'Recibiendo pedidos cercanos'
                       : 'Ponete disponible cuando salgas a repartir.',
                   style: text.bodySmall?.copyWith(
                     color: available ? AppTheme.navy : colors.onSurfaceVariant,
@@ -1109,15 +1250,24 @@ class _Hint extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Text(
-        message,
-        style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Icon(
+            Icons.delivery_dining_outlined,
+            color: AppTheme.tealDeep,
+            size: 24,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+            ),
+          ),
+        ],
       ),
     );
   }
