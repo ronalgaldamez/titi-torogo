@@ -51,7 +51,10 @@ void main() {
         );
       }
       if (request.url.path.endsWith('/me')) {
-        return http.Response('{"is_available":false}', 200);
+        return http.Response(
+          '{"id":1,"name":"Motorizado Demo","email":"moto@torogo.local","role":"courier","role_label":"Motorizado","is_available":false}',
+          200,
+        );
       }
       if (request.url.path.endsWith('/courier/orders')) {
         loads++;
@@ -134,12 +137,7 @@ void main() {
       expect(find.text(r'$3.30'), findsNothing);
       await tester.tap(find.text('Perfil'));
       await flush();
-      expect(
-        find.text(
-          'La información y edición de tu perfil todavía no están disponibles.',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Motorizado Demo'), findsOneWidget);
       await tester.tap(find.text('Historial'));
       await flush();
       expect(find.text('Historial de entregas'), findsOneWidget);

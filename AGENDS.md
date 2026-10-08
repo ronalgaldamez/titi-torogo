@@ -562,6 +562,50 @@ TOTAL: 42 pantallas
 
 ---
 
+## VISION Y PRIORIDADES ACTUALIZADAS — 07/10/2026
+
+Esta sección registra la planificación acordada con Ronald. No autoriza implementar servicios futuros, modificar tarifas actuales ni reestructurar el proyecto. En caso de diferencias con la agenda original, estas prioridades más recientes orientan el trabajo.
+
+### Lanzamiento inicial y prioridades actuales
+
+- Terminar, optimizar y pulir el delivery de comida dentro de una zona delimitada de Chalatenango.
+- Completar los perfiles de clientes, restaurantes y motoristas; los historiales de pedidos, cancelaciones y ganancias; y la experiencia visual de cada rol.
+- Completar los métodos de pago, preparar el seguimiento GPS en tiempo real, revisar seguridad, permisos y validaciones, y probar el proceso completo de pedidos.
+- Continuar desde el trabajo actual, sin reiniciar ni detener el proyecto por esta visión futura.
+
+### Servicios futuros — no implementar todavía
+
+- Restaurantes: pedidos de comida y entregas.
+- Farmacias: pedidos preparados por el establecimiento y entregados por motoristas.
+- Supermercados: compras asistidas; el motorista recibe una lista, compra y entrega los productos.
+- Mandados: recoger documentos, entregar paquetes y realizar otros encargos permitidos.
+- Cada servicio tendrá sus propias reglas, tarifas y procesos.
+
+### Criterio de arquitectura
+
+- Cuando sea razonable y sencillo, evitar que componentes compartidos de pedidos, usuarios, motoristas, pagos, direcciones, notificaciones y seguimiento dependan exclusivamente de restaurantes.
+- Mantener Flutter y Laravel, reutilizar lo existente y evitar abstracciones, tablas o módulos especulativos.
+- Si una decisión técnica dificulta una ampliación futura, explicarle a Ronald el riesgo y proponer una solución sencilla compatible con la aplicación actual antes de realizar cambios.
+- Discutir y aprobar cualquier nueva funcionalidad o cambio de arquitectura antes de implementarlo.
+
+### Modelo de negocio previsto
+
+- 0% de comisión sobre las ventas de los restaurantes.
+- Tarifa base estimada de entrega de $1.50 para el motorista, sujeta a distancia y costos reales.
+- Tarifa de servicio estimada de $0.50 para Toro Go.
+- Motoristas independientes con ingresos por entrega.
+- Registrar por separado ganancias, cobros en efectivo y liquidaciones pendientes; el efectivo cobrado al cliente no equivale a la ganancia del motorista.
+- Las tarifas deberán poder configurarse sin editar el código. Las cifras anteriores son estimaciones de planificación, no una instrucción para cambiar los cálculos actuales.
+- Publicidad para negocios, publicaciones patrocinadas y suscripciones opcionales quedan para el futuro.
+
+### Chat y privacidad — funcionalidad futura
+
+- Contemplar comunicación en tiempo real entre cliente y motorista, cliente y restaurante, motorista y restaurante, y usuarios y soporte de Toro Go.
+- Vincular las conversaciones a pedidos, con permisos de acceso, protección de datos personales, mecanismos de reporte y restricciones contra contactos no deseados.
+- No implementar el chat todavía; considerar estos requisitos únicamente cuando afecten decisiones futuras de arquitectura.
+
+---
+
 ## NOTA PERSONAL
 
 Este proyecto lleva el nombre de Titi (Aileen Daniel) en cada rama, como simbolo de crecimiento. Cada titi/feature es un recordatorio de que estas construyendo algo que crece, igual que tu hija.
