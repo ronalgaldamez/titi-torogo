@@ -40,14 +40,14 @@ class CourierSummaryTest extends TestCase
                 'delivery_address' => 'Casa', 'delivery_latitude' => 14.2,
                 'delivery_longitude' => -89.2, 'subtotal' => '20.00',
                 'delivery_fee' => '10.00', 'courier_fee' => $fee,
-                'platform_fee' => '2.00', 'total' => '30.00',
+                'platform_fee' => '2.00', 'tip_amount' => '0.50', 'total' => '30.50',
                 'idempotency_key' => "summary-$index", 'delivered_at' => $deliveredAt,
                 'created_at' => '2026-10-06 15:00:00',
             ]);
         }
         Sanctum::actingAs($courier);
         $this->getJson('/api/courier/summary')->assertOk()->assertExactJson([
-            'date' => '2026-10-07', 'deliveries' => 2, 'earnings' => '3.30',
+            'date' => '2026-10-07', 'deliveries' => 2, 'earnings' => '4.30',
         ]);
         $this->travel(1)->days();
         $this->getJson('/api/courier/summary')->assertOk()->assertJsonPath('deliveries', 1);

@@ -52,6 +52,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _loading = true;
   bool _sending = false;
   String? _error;
+  String _selectedTip = '0.00';
+  bool _customTip = false;
+  final TextEditingController _tipController = TextEditingController();
+
+  @override
+  void dispose() {
+    _tipController.dispose();
+    super.dispose();
+  }
+
+  String? get _tipError {
+    if (!_customTip || _pending != null) {
+      return null;
+    }
+    final String value = _tipController.text.trim().replaceAll(',', '.');
+    if (!RegExp(r'^\d{1,3}(?:\.\d{1,2})?$').hasMatch(value) ||
+        Money.toCents(value) > 10000) {
+      return 'Ingresá entre \$0.00 y \$100.00, con hasta dos decimales.';
+    }
+    return null;
+  }
+
+  String get _tipAmount =>
+      _pending?.tipAmount ??
+      (_customTip && _tipError == null
+          ? Money.fromCents(
+              Money.toCents(_tipController.text.trim().replaceAll(',', '.')),
+            )
+          : _selectedTip);
 
   @override
   void initState() {
@@ -179,9 +208,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  /// El total a pagar: los platos mas el envio.
+  /// El total a pagar: platos, envío y propina seleccionada.
   String get _total =>
-      Money.add(<String>[_cart.subtotal, _deliveryFee ?? '0.00']);
+      Money.add(<String>[_cart.subtotal, _deliveryFee ?? '0.00', _tipAmount]);
 
   /// Abre el selector de direcciones.
   ///
@@ -299,6 +328,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final OrderRepository? repository = _repository;
 
     if (_sending ||
+        _tipError != null ||
         repository == null ||
         (_pending == null &&
             (address == null || cart.isEmpty || _deliveryFee == null))) {
@@ -324,6 +354,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           return;
         }
         setState(() {
+          _selectedTip = original.tipAmount;
+          _customTip = false;
           _pending = null;
           _sending = false;
         });
@@ -346,6 +378,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             cart: cart,
             address: address!,
             deliveryFee: _deliveryFee!,
+            tipAmount: _tipAmount,
           );
 
       // El carrito se vacia DESPUES de que el backend confirme el pedido.
@@ -369,6 +402,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             orderId: order.id,
             restaurantName: order.restaurant.name,
             total: order.total,
+            tipAmount: order.tipAmount,
             alreadySent: original != null,
           ),
         ),
@@ -411,6 +445,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final bool canConfirm =
         !_loading &&
         !_sending &&
+        _tipError == null &&
         _repository != null &&
         (_pending != null ||
             (_address != null && _deliveryFee != null && cart.isNotEmpty));
@@ -462,6 +497,69 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 .remove(item.product.id),
                     ),
                   const SizedBox(height: AppSpacing.lg),
+                  const _SectionTitle('Propina para el motorista'),
+                  Text(
+                    'Opcional. La recibe el motorista junto con el pago en efectivo.',
+                    style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    children: <Widget>[
+                      for (final String amount in <String>[
+                        '0.00',
+                        '0.50',
+                        '1.00',
+                        '2.00',
+                      ])
+                        ChoiceChip(
+                          label: Text(
+                            amount == '0.00' ? 'Sin propina' : '\$$amount',
+                          ),
+                          selected: !_customTip && _tipAmount == amount,
+                          onSelected: _pending != null || _sending
+                              ? null
+                              : (_) => setState(() {
+                                  _selectedTip = amount;
+                                  _customTip = false;
+                                }),
+                        ),
+                      ChoiceChip(
+                        label: const Text('Otro monto'),
+                        selected:
+                            _customTip ||
+                            (_pending != null &&
+                                !<String>[
+                                  '0.00',
+                                  '0.50',
+                                  '1.00',
+                                  '2.00',
+                                ].contains(_tipAmount)),
+                        onSelected: _pending != null || _sending
+                            ? null
+                            : (_) => setState(() => _customTip = true),
+                      ),
+                    ],
+                  ),
+                  if (_customTip && _pending == null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.sm),
+                    TextField(
+                      controller: _tipController,
+                      enabled: !_sending,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Propina personalizada',
+                        prefixText: '\$ ',
+                        helperText: 'Hasta \$100.00',
+                        errorText: _tipError,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
                   const _SectionTitle('Resumen'),
                   _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
                   _SummaryRow(
@@ -473,6 +571,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ? 'No llegamos a esa dirección'
                         : null,
                   ),
+                  _SummaryRow(label: 'Propina', value: '\$$_tipAmount'),
                   const SizedBox(height: AppSpacing.md),
                   Row(
                     children: <Widget>[
@@ -492,7 +591,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'La propina es opcional. Si querés, podés darla en efectivo al motorista cuando te entregue el pedido. No está incluida en el total.',
+                    'La propina seleccionada está incluida en el total. El 100% es para el motorista.',
                     style: text.bodySmall?.copyWith(color: AppTheme.navy),
                   ),
                   if (_error != null) ...<Widget>[
@@ -556,7 +655,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   ),
                           ),
                         ),
-                        if (!canConfirm && !_sending) ...<Widget>[
+                        if (!canConfirm &&
+                            !_sending &&
+                            _tipError == null) ...<Widget>[
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             _feeReady && _deliveryFee == null

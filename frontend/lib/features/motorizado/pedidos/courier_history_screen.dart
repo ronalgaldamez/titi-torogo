@@ -188,7 +188,7 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              'Solo comisiones, no el efectivo cobrado.',
+                              'Entregas y propinas, no el efectivo cobrado.',
                               style: text.bodySmall,
                             ),
                             if (_period != 'today') ...<Widget>[
@@ -329,7 +329,7 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
                           children: <Widget>[
                             Text(
                               order.status == 'delivered'
-                                  ? '\$${order.courierFee}'
+                                  ? '\$${order.courierEarnings}'
                                   : 'Sin comisión',
                               style: text.bodyMedium?.copyWith(
                                 color: AppTheme.tealDeep,
@@ -420,7 +420,7 @@ class _HistoryDetail extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     order.status == 'delivered'
-                        ? '\$${order.courierFee}'
+                        ? '\$${order.courierEarnings}'
                         : 'Sin comisión por este pedido',
                     style:
                         (order.status == 'delivered'
@@ -432,6 +432,11 @@ class _HistoryDetail extends StatelessWidget {
                             ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  if (order.status == 'delivered')
+                    Text(
+                      'Entrega: \$${order.courierFee} · Propina: \$${order.tipAmount}',
+                      style: text.bodySmall,
+                    ),
                   const Divider(height: 1),
                   const SizedBox(height: AppSpacing.sm),
                   Text(

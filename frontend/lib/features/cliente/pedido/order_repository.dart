@@ -38,10 +38,14 @@ class OrderRepository {
     if (pending == null) {
       throw ApiException('No hay un pedido pendiente para recuperar.');
     }
-    final Map<String, dynamic> json = await _api.post('/orders/recover',
-        body: <String, dynamic>{'idempotency_key': pending.key});
+    final Map<String, dynamic> json = await _api.post(
+      '/orders/recover',
+      body: <String, dynamic>{'idempotency_key': pending.key},
+    );
     if (!json.containsKey('order')) {
-      throw ApiException('No pudimos verificar el pedido. Volvé a recuperarlo.');
+      throw ApiException(
+        'No pudimos verificar el pedido. Volvé a recuperarlo.',
+      );
     }
     final dynamic order = json['order'];
     return order == null ? null : Order.fromJson(order as Map<String, dynamic>);
@@ -64,11 +68,14 @@ class OrderRepository {
     required Cart cart,
     required Address address,
     required String deliveryFee,
+    String tipAmount = '0.00',
     String? notes,
   }) async {
     final int owner = await _owner();
     if (await _storage.load(owner) != null) {
-      throw ApiException('Tenés un pedido pendiente. Recuperalo antes de crear otro.');
+      throw ApiException(
+        'Tenés un pedido pendiente. Recuperalo antes de crear otro.',
+      );
     }
     final PendingOrder pending = PendingOrder(
       key: newIdempotencyKey(),
@@ -76,6 +83,7 @@ class OrderRepository {
       address: address,
       deliveryFee: deliveryFee,
       notes: notes,
+      tipAmount: tipAmount,
     );
     await _storage.save(owner, pending);
     return _submit(pending);
@@ -83,7 +91,10 @@ class OrderRepository {
 
   Future<Order> _submit(PendingOrder pending) async {
     try {
-      final Map<String, dynamic> json = await _api.post('/orders', body: pending.body);
+      final Map<String, dynamic> json = await _api.post(
+        '/orders',
+        body: pending.body,
+      );
       return Order.fromJson(json['order'] as Map<String, dynamic>);
     } on ApiException catch (error) {
       // Estas respuestas rechazan el pedido antes de guardarlo. Un fallo de
@@ -108,10 +119,9 @@ class OrderRepository {
   /// Los TERMINADOS: entregados, rechazados y cancelados. La pantalla
   /// "Mis pedidos".
   Future<List<Order>> loadHistory() async {
-    return _list(await _api.get(
-      '/orders',
-      query: <String, dynamic>{'scope': 'history'},
-    ));
+    return _list(
+      await _api.get('/orders', query: <String, dynamic>{'scope': 'history'}),
+    );
   }
 
   /// GET /api/orders/{id}

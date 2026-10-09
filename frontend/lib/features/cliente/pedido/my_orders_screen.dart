@@ -136,7 +136,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       return _Message(
         icon: Icons.receipt_long_rounded,
         title: 'Todavía no pediste nada',
-        message: 'Cuando hagas tu primer pedido, vas a poder seguirle el '
+        message:
+            'Cuando hagas tu primer pedido, vas a poder seguirle el '
             'rastro desde acá.',
         actionLabel: 'Volver',
         onAction: () => Navigator.of(context).pop(),
@@ -298,8 +299,9 @@ class _StatusPill extends StatelessWidget {
         background = AppTheme.coral;
     }
 
-    final Color foreground =
-        background == AppTheme.yellow ? AppTheme.navy : Colors.white;
+    final Color foreground = background == AppTheme.yellow
+        ? AppTheme.navy
+        : Colors.white;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -310,9 +312,9 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         order.statusLabel,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w700,
-            ),
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -385,10 +387,7 @@ class _Message extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),

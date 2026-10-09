@@ -17,15 +17,17 @@ class OrderSentScreen extends StatelessWidget {
     required this.restaurantName,
     required this.total,
     this.alreadySent = false,
+    this.tipAmount = '0.00',
     super.key,
   });
 
   final int orderId;
   final String restaurantName;
 
-  /// El total que se paga en efectivo: platos + envio.
+  /// El total que se paga en efectivo: platos, envío y propina.
   final String total;
   final bool alreadySent;
+  final String tipAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +90,12 @@ class OrderSentScreen extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (tipAmount != '0.00')
+                      Text(
+                        'Incluye \$$tipAmount de propina para el motorista',
+                        textAlign: TextAlign.center,
+                        style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                      ),
                   ],
                 ),
               ),
@@ -104,8 +112,9 @@ class OrderSentScreen extends StatelessWidget {
                 height: 52,
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => Navigator.of(context)
-                      .popUntil((Route<dynamic> route) => route.isFirst),
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).popUntil((Route<dynamic> route) => route.isFirst),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.coral,
                     foregroundColor: Colors.white,

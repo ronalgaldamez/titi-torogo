@@ -70,7 +70,7 @@ class CourierOrderController extends Controller
             ->whereRaw('COALESCE(delivered_at, cancelled_at) >= ?', [$start])
             ->whereRaw('COALESCE(delivered_at, cancelled_at) < ?', [$today->copy()->addDay()]);
         $totals = (clone $query)->where('status', OrderStatus::Delivered->value)
-            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee), 0) AS earnings')->first();
+            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee + tip_amount), 0) AS earnings')->first();
         if (($data['status'] ?? 'all') !== 'all') {
             $query->where('status', $data['status']);
         }
@@ -97,7 +97,7 @@ class CourierOrderController extends Controller
             ->where('status', OrderStatus::Delivered->value)
             ->where('delivered_at', '>=', $start)
             ->where('delivered_at', '<', $start->copy()->addDay())
-            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee), 0) AS earnings')
+            ->selectRaw('COUNT(*) AS deliveries, COALESCE(SUM(courier_fee + tip_amount), 0) AS earnings')
             ->first();
 
         return response()->json([

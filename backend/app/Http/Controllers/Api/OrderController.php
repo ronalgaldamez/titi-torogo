@@ -153,7 +153,8 @@ class OrderController extends Controller
                 $order->delivery_fee = $prices['delivery_fee'];
                 $order->courier_fee = $prices['courier_fee'];
                 $order->platform_fee = $prices['platform_fee'];
-                $order->total = $prices['total'];
+                $order->tip_amount = Money::add((string) $request->validated('tip_amount', '0.00'));
+                $order->total = Money::add($prices['total'], $order->tip_amount);
 
                 $order->save();
 

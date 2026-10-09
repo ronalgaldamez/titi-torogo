@@ -170,6 +170,8 @@ class OrderStateTest extends TestCase
     public function test_reassigning_an_order_on_the_way_notifies_couriers_without_private_data(): void
     {
         $this->order->status = OrderStatus::PickedUp;
+        $this->order->tip_amount = '1.00';
+        $this->order->total = '7.00';
         $this->order->courier_id = $this->courier->id;
         $this->order->save();
         $next = User::factory()->courier()->create();
@@ -185,6 +187,11 @@ class OrderStateTest extends TestCase
             ->assertNotFound();
         Sanctum::actingAs($next);
         $this->getJson('/api/courier/orders')->assertOk()
-            ->assertJsonCount(1, 'orders')->assertJsonPath('orders.0.id', $this->order->id);
+            ->assertJsonCount(1, 'orders')->assertJsonPath('orders.0.id', $this->order->id)
+            ->assertJsonPath('orders.0.tip_amount', '1.00');
+        $this->patchJson("/api/courier/orders/{$this->order->id}", ['status' => 'delivered'])->assertOk();
+        $this->getJson('/api/courier/summary')->assertOk()->assertJsonPath('earnings', '2.50');
+        Sanctum::actingAs($this->courier);
+        $this->getJson('/api/courier/summary')->assertOk()->assertJsonPath('earnings', '0.00');
     }
 }

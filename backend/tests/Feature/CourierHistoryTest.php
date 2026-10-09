@@ -40,7 +40,7 @@ class CourierHistoryTest extends TestCase
                 'delivery_address' => 'Casa', 'delivery_latitude' => 14.2,
                 'delivery_longitude' => -89.2, 'subtotal' => '20.00',
                 'delivery_fee' => '10.00', 'courier_fee' => $fee,
-                'platform_fee' => '2.00', 'total' => '30.00',
+                'platform_fee' => '2.00', 'tip_amount' => '0.50', 'total' => '30.50',
                 'idempotency_key' => "history-$index",
                 'delivered_at' => $status === 'delivered' ? $deliveredAt : null,
                 'cancelled_at' => $status === 'cancelled' ? $deliveredAt : null,
@@ -50,13 +50,13 @@ class CourierHistoryTest extends TestCase
         Sanctum::actingAs($courier);
         $this->getJson('/api/courier/history')->assertOk()
             ->assertJsonCount(3, 'orders')->assertJsonPath('orders.0.courier_fee', '2.20')
-            ->assertJsonPath('summary.deliveries', 2)->assertJsonPath('summary.earnings', '3.30');
+            ->assertJsonPath('summary.deliveries', 2)->assertJsonPath('summary.earnings', '4.30');
         $this->getJson('/api/courier/history?status=cancelled')->assertOk()
             ->assertJsonCount(1, 'orders')->assertJsonPath('orders.0.status', 'cancelled')
-            ->assertJsonPath('summary.earnings', '3.30');
+            ->assertJsonPath('summary.earnings', '4.30');
         foreach (['week', 'month'] as $period) {
             $this->getJson('/api/courier/history?period='.$period)->assertOk()
-                ->assertJsonCount(4, 'orders')->assertJsonPath('summary.earnings', '11.30');
+                ->assertJsonCount(4, 'orders')->assertJsonPath('summary.earnings', '12.80');
         }
         $row = (array) DB::table('orders')->where('idempotency_key', 'history-0')->first();
         unset($row['id']);

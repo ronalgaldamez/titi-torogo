@@ -27,7 +27,7 @@ void main() {
             'from': '2026-10-07',
             'to': '2026-10-07',
             'next_page': null,
-            'summary': <String, dynamic>{'deliveries': 1, 'earnings': '1.50'},
+            'summary': <String, dynamic>{'deliveries': 1, 'earnings': '2.50'},
             'orders': status == 'cancelled'
                 ? <dynamic>[]
                 : <dynamic>[
@@ -53,7 +53,8 @@ void main() {
                       'delivery_fee': '2.00',
                       'courier_fee': '1.50',
                       'platform_fee': '0.50',
-                      'total': '6.00',
+                      'total': '7.00',
+                      'tip_amount': '1.00',
                       'payment_method': 'cash',
                       'created_at': '2026-10-07T11:00:00-06:00',
                       'delivered_at': '2026-10-07T12:00:00-06:00',
@@ -72,12 +73,13 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text(r'$1.50').first, findsOneWidget);
+        expect(find.text(r'$2.50').first, findsOneWidget);
         await tester.tap(find.text('Restaurante'));
         await tester.pumpAndSettle();
         expect(find.text('Tu ganancia'), findsOneWidget);
-        expect(find.text(r'$1.50'), findsOneWidget);
-        expect(find.text(r'Total cobrado al cliente: $6.00'), findsOneWidget);
+        expect(find.text(r'Entrega: $1.50 · Propina: $1.00'), findsOneWidget);
+        expect(find.text(r'$2.50'), findsOneWidget);
+        expect(find.text(r'Total cobrado al cliente: $7.00'), findsOneWidget);
         await tester.ensureVisible(find.text('Recorrido del pedido'));
         await tester.pumpAndSettle();
         expect(find.text('Pedido creado'), findsOneWidget);
@@ -90,7 +92,7 @@ void main() {
           find.text('No tenés pedidos cancelados en este período.'),
           findsOneWidget,
         );
-        expect(find.text(r'$1.50').first, findsOneWidget);
+        expect(find.text(r'$2.50').first, findsOneWidget);
         fail = true;
         await tester.tap(find.text('Todos'));
         await tester.pumpAndSettle();
