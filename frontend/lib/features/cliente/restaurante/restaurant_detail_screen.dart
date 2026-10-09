@@ -46,6 +46,7 @@ class RestaurantDetailScreen extends ConsumerStatefulWidget {
 class _RestaurantDetailScreenState
     extends ConsumerState<RestaurantDetailScreen> {
   late Future<RestaurantDetail> _future;
+  int? _categoryId;
 
   @override
   void initState() {
@@ -194,51 +195,157 @@ class _RestaurantDetailScreenState
       bottomNavigationBar: CartBar(restaurantId: widget.restaurant.id),
       body: FutureBuilder<RestaurantDetail>(
         future: _future,
-        builder: (
-          BuildContext context,
-          AsyncSnapshot<RestaurantDetail> snapshot,
-        ) {
-          // Mientras carga se ve el encabezado con los datos que ya tenemos
-          // del Home, y solo la carta queda esperando.
-          final Restaurant restaurant =
-              snapshot.data?.restaurant ?? widget.restaurant;
+        builder:
+            (BuildContext context, AsyncSnapshot<RestaurantDetail> snapshot) {
+              // Mientras carga se ve el encabezado con los datos que ya tenemos
+              // del Home, y solo la carta queda esperando.
+              final Restaurant restaurant =
+                  snapshot.data?.restaurant ?? widget.restaurant;
+              final categories = snapshot.data?.categories ?? <MenuCategory>[];
+              String? coverUrl;
+              for (final category in categories) {
+                for (final product in category.products) {
+                  if (product.imageUrl?.isNotEmpty ?? false) {
+                    coverUrl = product.imageUrl;
+                    break;
+                  }
+                }
+                if (coverUrl != null) {
+                  break;
+                }
+              }
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              0,
-              AppSpacing.md,
-              AppSpacing.xl,
-            ),
-            children: <Widget>[
-              _Header(restaurant: restaurant),
-              const SizedBox(height: AppSpacing.lg),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.xl),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (snapshot.hasError)
-                _ErrorBox(
-                  message: _errorMessage(snapshot.error),
-                  onRetry: _reload,
-                )
-              else if (!(snapshot.data?.hasMenu ?? false))
-                const _EmptyMenu()
-              else
-                for (final MenuCategory category
-                    in snapshot.data!.categories) ...<Widget>[
-                  _CategoryHeader(category: category),
-                  for (final Product product in category.products)
-                    _ProductRow(
-                      product: product,
-                      onTap: () => _openProduct(product),
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                children: <Widget>[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                    child: SizedBox(
+                      height: 160,
+                      width: double.infinity,
+                      child: coverUrl == null
+                          ? Image.asset(
+                              'assets/login.jpg',
+                              fit: BoxFit.cover,
+                              excludeFromSemantics: true,
+                            )
+                          : Image.network(
+                              coverUrl,
+                              fit: BoxFit.cover,
+                              excludeFromSemantics: true,
+                              errorBuilder: (_, _, _) => Image.asset(
+                                'assets/login.jpg',
+                                fit: BoxFit.cover,
+                                excludeFromSemantics: true,
+                              ),
+                            ),
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _Header(restaurant: restaurant),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      FilledButton.tonal(
+                        onPressed: () => setState(() => _categoryId = null),
+                        child: const Text('Menú'),
+                      ),
+                      TextButton(
+                        onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(restaurant.name),
+                            content: SingleChildScrollView(
+                              child: Text(
+                                [
+                                  restaurant.address,
+                                  if (restaurant.phone?.isNotEmpty ?? false)
+                                    'Teléfono: ${restaurant.phone}',
+                                ].join('\n\n'),
+                              ),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Cerrar'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        child: const Text('Información'),
+                      ),
+                      Text('Reseñas · Próximamente', style: text.labelSmall),
+                    ],
+                  ),
+                  if (categories.length > 1) ...<Widget>[
+                    const SizedBox(height: AppSpacing.sm),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: <Widget>[
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              right: AppSpacing.sm,
+                            ),
+                            child: ChoiceChip(
+                              label: const Text('Todos'),
+                              selected: _categoryId == null,
+                              onSelected: (_) =>
+                                  setState(() => _categoryId = null),
+                            ),
+                          ),
+                          for (final category in categories)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                right: AppSpacing.sm,
+                              ),
+                              child: ChoiceChip(
+                                label: Text(category.name),
+                                selected: _categoryId == category.id,
+                                onSelected: (_) =>
+                                    setState(() => _categoryId = category.id),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.xl),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (snapshot.hasError)
+                    _ErrorBox(
+                      message: _errorMessage(snapshot.error),
+                      onRetry: _reload,
+                    )
+                  else if (!(snapshot.data?.hasMenu ?? false))
+                    const _EmptyMenu()
+                  else
+                    for (final MenuCategory category in categories.where(
+                      (category) =>
+                          _categoryId == null || category.id == _categoryId,
+                    )) ...<Widget>[
+                      _CategoryHeader(category: category),
+                      for (final Product product in category.products)
+                        _ProductRow(
+                          product: product,
+                          onTap: () => _openProduct(product),
+                        ),
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
                 ],
-            ],
-          );
-        },
+              );
+            },
       ),
     );
   }
@@ -257,102 +364,125 @@ class _Header extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final List<Color> cover = AppTheme.coverFor(restaurant.id);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        // La misma portada que la tarjeta del Home, con el MISMO color: por
-        // eso el color se pide al tema y no se elige aca.
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: cover[0],
-            borderRadius: BorderRadius.circular(AppRadius.image),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            restaurant.name.isEmpty
-                ? '?'
-                : restaurant.name.substring(0, 1).toUpperCase(),
-            style: TextStyle(
-              fontSize: 56,
-              fontWeight: FontWeight.w800,
-              color: cover[1],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          restaurant.name,
-          style: text.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
-        ),
-        if (restaurant.description != null &&
-            restaurant.description!.isNotEmpty) ...<Widget>[
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            restaurant.description!,
-            style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
-        ],
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: <Widget>[
-            Icon(
-              Icons.place_outlined,
-              size: 16,
-              color: colors.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                restaurant.address,
-                style: text.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.image),
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: restaurant.logoUrl?.isNotEmpty ?? false
+                      ? Image.network(
+                          restaurant.logoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _logo(cover),
+                        )
+                      : _logo(cover),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: <Widget>[
-            _Stat(
-              icon: Icons.schedule_rounded,
-              label: '${restaurant.estimatedDeliveryMinutes} min',
-            ),
-            if (restaurant.distanceKm != null)
-              _Stat(
-                icon: Icons.near_me_rounded,
-                label: '${restaurant.distanceKm} km',
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  restaurant.name,
+                  style: text.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.navy,
+                  ),
+                ),
               ),
-            if (restaurant.deliveryFee != null)
-              _Stat(
-                icon: Icons.delivery_dining_rounded,
-                label: 'envío \$${restaurant.deliveryFee}',
-              ),
-          ],
-        ),
-        // El aviso de cerrado o muy ocupado. Va abajo de los datos, no
-        // arriba: primero el cliente ve QUE hay, despues cuando.
-        if (!restaurant.isOpen || restaurant.isBusy) ...<Widget>[
-          const SizedBox(height: AppSpacing.md),
-          _Notice(
-            message: restaurant.isOpen
-                ? 'Este restaurante está muy ocupado: puede tardar más.'
-                : 'Está cerrado en este momento.',
-            background: restaurant.isOpen ? AppTheme.yellow : AppTheme.coral,
+            ],
           ),
+          if (restaurant.description != null &&
+              restaurant.description!.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              restaurant.description!,
+              style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.place_outlined,
+                size: 16,
+                color: colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  restaurant.address,
+                  style: text.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: <Widget>[
+              _Stat(
+                icon: Icons.schedule_rounded,
+                label: '${restaurant.estimatedDeliveryMinutes} min',
+              ),
+              if (restaurant.distanceKm != null)
+                _Stat(
+                  icon: Icons.near_me_rounded,
+                  label: '${restaurant.distanceKm} km',
+                ),
+              if (restaurant.deliveryFee != null)
+                _Stat(
+                  icon: Icons.delivery_dining_rounded,
+                  label: 'envío \$${restaurant.deliveryFee}',
+                ),
+            ],
+          ),
+          // El aviso de cerrado o muy ocupado. Va abajo de los datos, no
+          // arriba: primero el cliente ve QUE hay, despues cuando.
+          if (!restaurant.isOpen || restaurant.isBusy) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            _Notice(
+              message: restaurant.isOpen
+                  ? 'Este restaurante está muy ocupado: puede tardar más.'
+                  : 'Está cerrado en este momento.',
+              background: restaurant.isOpen ? AppTheme.yellow : AppTheme.coral,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
+
+  Widget _logo(List<Color> cover) => ColoredBox(
+    color: cover[0],
+    child: Center(
+      child: Text(
+        restaurant.name.isEmpty
+            ? '?'
+            : restaurant.name.characters.first.toUpperCase(),
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          color: cover[1],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Un dato con icono, tipo "30 min" o "envío $2.00".
@@ -369,7 +499,7 @@ class _Stat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F4F6),
+        color: AppTheme.tealSoft,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
@@ -496,21 +626,39 @@ class _ProductRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(AppRadius.image),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.image),
+                  child: SizedBox(
+                    width: 72,
+                    height: 80,
+                    child: product.imageUrl?.isNotEmpty ?? false
+                        ? Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            excludeFromSemantics: true,
+                            errorBuilder: (_, _, _) => _placeholder(),
+                          )
+                        : _placeholder(),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
                         product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: text.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppTheme.navy,
@@ -529,16 +677,30 @@ class _ProductRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        '\$${product.price}',
+                        style: text.titleSmall?.copyWith(
+                          color: AppTheme.coralDeep,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  '\$${product.price}',
-                  style: text.titleSmall?.copyWith(
-                    color: AppTheme.coral,
-                    fontWeight: FontWeight.w800,
+                IconButton.filled(
+                  tooltip: 'Ver ${product.name} y agregar',
+                  onPressed: onTap,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
                   ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppTheme.teal,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.add_rounded),
                 ),
               ],
             ),
@@ -547,6 +709,11 @@ class _ProductRow extends StatelessWidget {
       ),
     );
   }
+
+  Widget _placeholder() => const ColoredBox(
+    color: AppTheme.tealSoft,
+    child: Icon(Icons.restaurant_menu_rounded, color: AppTheme.tealDeep),
+  );
 }
 
 /// La carta esta vacia (todos los platos agotados, o el restaurante no cargo
@@ -619,10 +786,7 @@ class _ErrorBox extends StatelessWidget {
             style: text.bodyMedium?.copyWith(color: AppTheme.navy),
           ),
           const SizedBox(height: AppSpacing.md),
-          FilledButton(
-            onPressed: onRetry,
-            child: const Text('Reintentar'),
-          ),
+          FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
         ],
       ),
     );

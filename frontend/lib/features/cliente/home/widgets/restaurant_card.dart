@@ -3,282 +3,170 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme.dart';
 import '../../../../models/restaurant.dart';
 
-/// La tarjeta de un restaurante.
-///
-/// Sigue el patron de las apps de delivery de verdad (Glovo, Rappi,
-/// Uber Eats y las referencias que mandaste):
-///
-///   1. Una PORTADA grande de color  <- esto es lo que le da "cuerpo"
-///   2. El nombre y la descripcion
-///   3. Bloques de datos con icono: tiempo, distancia y envio
-///
-/// Cuando el restaurante suba su foto, la portada de color se reemplaza
-/// sola por la imagen. Mientras tanto, el bloque de color con la inicial
-/// se ve INTENCIONAL en vez de roto.
+/// Resumen del restaurante con datos reales de cobertura y envío.
 class RestaurantCard extends StatelessWidget {
   const RestaurantCard({required this.restaurant, this.onTap, super.key});
-
   final Restaurant restaurant;
   final VoidCallback? onTap;
 
-  // Los colores de portada NO viven aqui: se piden a AppTheme.coverFor, para
-  // que esta tarjeta y el encabezado de la carta pinten lo mismo.
-
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
     final TextTheme text = Theme.of(context).textTheme;
-    final BorderRadius radius = BorderRadius.circular(AppRadius.card);
-    final List<Color> cover = AppTheme.coverFor(restaurant.id);
-
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return Material(
       color: colors.surface,
-      borderRadius: radius,
+      borderRadius: BorderRadius.circular(AppRadius.image),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _Cover(restaurant: restaurant, cover: cover),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SizedBox(
+                  width: constraints.maxWidth < 320 ? 80 : 104,
+                  height: constraints.maxWidth < 320 ? 96 : 112,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                    child: _Cover(restaurant: restaurant),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xs,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
                           restaurant.name,
                           style: text.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (restaurant.isBusy) ...<Widget>[
-                        const SizedBox(width: AppSpacing.sm),
-                        _Pill(
-                          label: 'Muy ocupado',
-                          background: AppTheme.yellow,
-                          foreground: AppTheme.navy,
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          restaurant.description ?? restaurant.address,
+                          style: text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.xs,
+                          children: <Widget>[
+                            _Stat(
+                              icon: Icons.schedule_rounded,
+                              label:
+                                  '${restaurant.estimatedDeliveryMinutes} min',
+                            ),
+                            if (restaurant.distanceKm != null)
+                              _Stat(
+                                icon: Icons.near_me_rounded,
+                                label:
+                                    '${restaurant.distanceKm!.toStringAsFixed(1)} km',
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.xs,
+                          children: <Widget>[
+                            if (restaurant.deliveryFee != null)
+                              Text(
+                                'Envío \$${restaurant.deliveryFee}',
+                                style: text.labelLarge?.copyWith(
+                                  color: AppTheme.coralDeep,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            if (!restaurant.isOpen || restaurant.isBusy)
+                              Text(
+                                restaurant.isOpen ? 'Muy ocupado' : 'Cerrado',
+                                style: text.labelSmall?.copyWith(
+                                  color: AppTheme.navy,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    restaurant.description ?? restaurant.address,
-                    style: text.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      height: 1.35,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  _MetaRow(restaurant: restaurant, colors: colors, text: text),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// La portada: la foto del restaurante, o un bloque de color con su inicial.
 class _Cover extends StatelessWidget {
-  const _Cover({required this.restaurant, required this.cover});
-
+  const _Cover({required this.restaurant});
   final Restaurant restaurant;
-  final List<Color> cover;
+
+  Widget _fallback(BuildContext context) {
+    final List<Color> cover = AppTheme.coverFor(restaurant.id);
+    return ColoredBox(
+      color: cover[0],
+      child: Center(
+        child: Text(
+          restaurant.name.isEmpty
+              ? '?'
+              : restaurant.name.characters.first.toUpperCase(),
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            color: cover[1],
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final String? url = restaurant.logoUrl;
-
-    if (url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
-        height: 140,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        // Si la foto no carga, cae al bloque de color en vez de romperse.
-        errorBuilder: (_, _, _) => _ColorBlock(restaurant: restaurant, cover: cover),
-      );
-    }
-
-    return _ColorBlock(restaurant: restaurant, cover: cover);
+    return url == null || url.isEmpty
+        ? _fallback(context)
+        : Image.network(
+            url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallback(context),
+          );
   }
 }
 
-class _ColorBlock extends StatelessWidget {
-  const _ColorBlock({required this.restaurant, required this.cover});
-
-  final Restaurant restaurant;
-  final List<Color> cover;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 140,
-      width: double.infinity,
-      color: cover[0],
-      alignment: Alignment.center,
-      child: Text(
-        restaurant.name.isEmpty
-            ? '?'
-            : restaurant.name.substring(0, 1).toUpperCase(),
-        style: TextStyle(
-          fontSize: 54,
-          fontWeight: FontWeight.w800,
-          color: cover[1],
-        ),
-      ),
-    );
-  }
-}
-
-/// Tiempo, distancia y tarifa, como bloques con icono.
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({
-    required this.restaurant,
-    required this.colors,
-    required this.text,
-  });
-
-  final Restaurant restaurant;
-  final ColorScheme colors;
-  final TextTheme text;
+class _Stat extends StatelessWidget {
+  const _Stat({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        // Expanded + Wrap: si las dos pildoras no caben en un telefono
-        // angosto, la segunda baja a la linea de abajo en vez de desbordar.
-        Expanded(
-          child: Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: <Widget>[
-              _Stat(
-                icon: Icons.schedule_rounded,
-                label: '${restaurant.estimatedDeliveryMinutes} min',
-                colors: colors,
-                text: text,
-              ),
-              if (restaurant.distanceKm != null)
-                _Stat(
-                  icon: Icons.near_me_rounded,
-                  label: '${restaurant.distanceKm} km',
-                  colors: colors,
-                  text: text,
-                ),
-            ],
-          ),
+        Icon(icon, size: 16, color: AppTheme.tealDeep),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppTheme.navy),
         ),
-        const SizedBox(width: AppSpacing.sm),
-        // Sin tarifa no se muestra el bloque. En el Home nunca pasa (siempre
-        // viene resuelta), pero la tarjeta tambien se usa donde el envio
-        // todavia no esta resuelto.
-        if (restaurant.deliveryFee != null)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              Text(
-                'envio',
-                style:
-                    text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-              ),
-              Text(
-                '\$${restaurant.deliveryFee}',
-                style: text.titleMedium?.copyWith(
-                  color: AppTheme.coral,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
       ],
-    );
-  }
-}
-
-/// Bloque de dato con icono, tipo "30 min" o "1.2 km".
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.icon,
-    required this.label,
-    required this.colors,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String label;
-  final ColorScheme colors;
-  final TextTheme text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F4F6),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: AppTheme.teal),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: text.labelMedium?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Etiqueta redondeada, tipo "Muy ocupado".
-class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.label,
-    required this.background,
-    required this.foreground,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
     );
   }
 }
