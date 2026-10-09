@@ -490,6 +490,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'La propina es opcional. Si querés, podés darla en efectivo al motorista cuando te entregue el pedido. No está incluida en el total.',
+                    style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                  ),
                   if (_error != null) ...<Widget>[
                     const SizedBox(height: AppSpacing.md),
                     _ErrorBox(message: _error!),
