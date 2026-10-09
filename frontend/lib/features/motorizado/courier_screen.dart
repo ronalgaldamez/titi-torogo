@@ -750,7 +750,7 @@ class _CourierScreenState extends State<CourierScreen> {
   }
 }
 
-/// Comisiones del día; no representa el efectivo cobrado al cliente.
+/// Ganancias del día, incluidas propinas; no representa todo el efectivo cobrado.
 class _DaySummary extends StatelessWidget {
   const _DaySummary({
     required this.summary,
@@ -820,7 +820,7 @@ class _DaySummary extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Solo comisiones, no el efectivo cobrado.',
+                    'Entregas y propinas, no el efectivo cobrado.',
                     style: text.bodySmall,
                   ),
                 ],
@@ -975,7 +975,7 @@ class _AvailableCard extends StatelessWidget {
                 children: <Widget>[
                   Text('Tu ganancia', style: text.labelSmall),
                   Text(
-                    '\$${order.courierFee}',
+                    '\$${order.courierEarnings}',
                     style: text.titleLarge?.copyWith(
                       color: AppTheme.tealDeep,
                       fontWeight: FontWeight.w800,
@@ -1139,11 +1139,15 @@ class _MyOrderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Tu ganancia: \$${order.courierFee}',
+                  'Tu ganancia: \$${order.courierEarnings}',
                   style: text.titleSmall?.copyWith(
                     color: AppTheme.tealDeep,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+                Text(
+                  'Entrega: \$${order.courierFee} · Propina: \$${order.tipAmount}',
+                  style: text.bodySmall,
                 ),
               ],
             ),

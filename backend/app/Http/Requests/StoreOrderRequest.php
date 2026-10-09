@@ -46,6 +46,8 @@ class StoreOrderRequest extends FormRequest
             // 0.00 y ensuciaria la cuenta del pedido.
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
 
+            'tip_amount' => ['sometimes', 'string', 'regex:/^\d{1,3}(?:\.\d{1,2})?$/', 'numeric', 'between:0,100'],
+
             'notes' => ['sometimes', 'nullable', 'string', 'max:255'],
 
             // La clave contra el doble cobro (AGENDS: "Idempotencia"). La app
@@ -72,6 +74,8 @@ class StoreOrderRequest extends FormRequest
 
             'items.*.quantity.required' => 'Falta la cantidad.',
             'items.*.quantity.min' => 'La cantidad tiene que ser al menos 1.',
+
+            'tip_amount.*' => 'La propina debe ser entre $0.00 y $100.00, con hasta dos decimales.',
 
             'notes.max' => 'La nota es demasiado larga.',
 

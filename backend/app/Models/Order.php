@@ -56,6 +56,7 @@ class Order extends Model
             'courier_fee' => 'decimal:2',
             'platform_fee' => 'decimal:2',
             'total' => 'decimal:2',
+            'tip_amount' => 'decimal:2',
 
             // Las coordenadas de la copia, para pintar el punto en el mapa.
             'delivery_latitude' => 'float',

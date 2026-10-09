@@ -75,6 +75,9 @@
                     <div class="flex justify-between text-navy/50 text-xs">
                         <span>De eso, para ToroGo</span><span>${{ $order->platform_fee }}</span>
                     </div>
+                    <div class="flex justify-between text-navy/70">
+                        <span>Propina para el motorizado</span><span>${{ $order->tip_amount }}</span>
+                    </div>
                     <div class="flex justify-between border-t border-navy/10 pt-2 text-base font-extrabold text-navy">
                         <span>Total (en efectivo)</span><span>${{ $order->total }}</span>
                     </div>

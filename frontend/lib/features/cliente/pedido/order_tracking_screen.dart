@@ -334,11 +334,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   ),
                 const SizedBox(height: AppSpacing.lg),
                 const _SectionTitle('TU PEDIDO'),
-                for (final OrderItem item in order.items)
-                  _ItemLine(item: item),
+                for (final OrderItem item in order.items) _ItemLine(item: item),
                 const Divider(height: AppSpacing.lg),
                 _SummaryRow(label: 'Platos', value: '\$${order.subtotal}'),
                 _SummaryRow(label: 'Envío', value: '\$${order.deliveryFee}'),
+                _SummaryRow(label: 'Propina', value: '\$${order.tipAmount}'),
                 _SummaryRow(
                   label: 'Total',
                   value: '\$${order.total}',
@@ -486,8 +486,9 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final Color foreground =
-        color == AppTheme.yellow ? AppTheme.navy : Colors.white;
+    final Color foreground = color == AppTheme.yellow
+        ? AppTheme.navy
+        : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.sm),
@@ -724,10 +725,7 @@ class _ErrorBox extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Reintentar'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
           ],
         ),
       ),

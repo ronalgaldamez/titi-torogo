@@ -70,7 +70,8 @@ void main() {
           'delivery_fee': '2.00',
           'courier_fee': '1.50',
           'platform_fee': '0.50',
-          'total': '7.25',
+          'total': '8.25',
+          'tip_amount': '1.00',
           'payment_method': 'cash',
         };
         int submissions = 0;
@@ -134,6 +135,7 @@ void main() {
               },
             ]);
             expect(body.containsKey('total'), isFalse);
+            expect(body['tip_amount'], '1.00');
             if (submissions == 1 && status == -1) {
               return Completer<http.Response>().future;
             }
@@ -166,6 +168,40 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text(r'$6.00'), findsOneWidget);
+          if (status == 201) {
+            await tester.ensureVisible(
+              find.widgetWithText(ChoiceChip, 'Otro monto'),
+            );
+            await tester.tap(find.widgetWithText(ChoiceChip, 'Otro monto'));
+            await tester.pumpAndSettle();
+            await tester.enterText(find.byType(TextField), '-1');
+            await tester.pumpAndSettle();
+            expect(
+              tester
+                  .widget<FilledButton>(
+                    find.widgetWithText(FilledButton, 'Confirmar pedido'),
+                  )
+                  .onPressed,
+              isNull,
+            );
+            await tester.enterText(find.byType(TextField), '1.234');
+            await tester.pumpAndSettle();
+            expect(
+              tester
+                  .widget<FilledButton>(
+                    find.widgetWithText(FilledButton, 'Confirmar pedido'),
+                  )
+                  .onPressed,
+              isNull,
+            );
+            await tester.enterText(find.byType(TextField), '1,25');
+            await tester.pumpAndSettle();
+            expect(find.text(r'$7.25'), findsOneWidget);
+          }
+          await tester.ensureVisible(find.widgetWithText(ChoiceChip, r'$1.00'));
+          await tester.tap(find.widgetWithText(ChoiceChip, r'$1.00'));
+          await tester.pumpAndSettle();
+          expect(find.text(r'$7.00'), findsOneWidget);
 
           final Finder confirm = find.widgetWithText(
             FilledButton,
@@ -230,7 +266,7 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            expect(find.text(r'$6.00'), findsOneWidget);
+            expect(find.text(r'$7.00'), findsOneWidget);
             final Finder recover = find.widgetWithText(
               FilledButton,
               'Recuperar pedido',
@@ -285,7 +321,7 @@ void main() {
                 .alreadySent,
             status == 500 || status == 0,
           );
-          expect(find.text(r'$7.25'), findsOneWidget);
+          expect(find.text(r'$8.25'), findsOneWidget);
           expect(
             find.text('Pedido #42 · Restaurante confirmado'),
             findsOneWidget,

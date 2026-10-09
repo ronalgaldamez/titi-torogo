@@ -67,6 +67,7 @@ class OrderResource extends JsonResource
             'courier_fee' => $this->courier_fee,
             'platform_fee' => $this->platform_fee,
             'total' => $this->total,
+            'tip_amount' => $this->tip_amount,
 
             'payment_method' => $this->payment_method,
             'notes' => $this->notes,

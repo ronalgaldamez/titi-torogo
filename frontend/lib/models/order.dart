@@ -1,3 +1,4 @@
+import '../core/money.dart';
 import 'order_item.dart';
 
 /// El restaurante de un pedido, resumido.
@@ -67,10 +68,7 @@ class OrderCourier {
   final String name;
 
   factory OrderCourier.fromJson(Map<String, dynamic> json) {
-    return OrderCourier(
-      id: json['id'] as int,
-      name: json['name'] as String,
-    );
+    return OrderCourier(id: json['id'] as int, name: json['name'] as String);
   }
 }
 
@@ -94,6 +92,7 @@ class Order {
     required this.platformFee,
     required this.total,
     required this.paymentMethod,
+    this.tipAmount = '0.00',
     this.courier,
     this.notes,
     this.createdAt,
@@ -117,6 +116,7 @@ class Order {
   final bool isActive;
 
   final OrderRestaurant restaurant;
+
   /// Solo se revela al motorizado despues de tomar el pedido.
   final OrderDelivery? delivery;
   final OrderCourier? courier;
@@ -127,6 +127,9 @@ class Order {
   final String courierFee;
   final String platformFee;
   final String total;
+  final String tipAmount;
+
+  String get courierEarnings => Money.add(<String>[courierFee, tipAmount]);
 
   final String paymentMethod;
   final String? notes;
@@ -206,6 +209,7 @@ class Order {
       courierFee: '${json['courier_fee']}',
       platformFee: '${json['platform_fee']}',
       total: '${json['total']}',
+      tipAmount: '${json['tip_amount'] ?? '0.00'}',
       paymentMethod: json['payment_method'] as String,
       notes: json['notes'] as String?,
       createdAt: _date(json['created_at']),
