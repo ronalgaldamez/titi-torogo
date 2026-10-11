@@ -41,7 +41,11 @@ class RestaurantResource extends JsonResource
             'is_busy' => $this->is_busy,
 
             // Tiempo ya calculado: si esta "muy ocupado", el modelo le suma 50%.
-            'prep_time_minutes' => $this->prep_time_minutes,
+            'prep_time_minutes' => $this->preparationMaximumMinutes(),
+            'prep_time_min_minutes' => $this->preparationMinimumMinutes(),
+            'prep_time_max_minutes' => $this->preparationMaximumMinutes(),
+            'estimated_prep_min_minutes' => $this->estimatedPreparationMinimumMinutes(),
+            'estimated_prep_max_minutes' => $this->estimatedDeliveryMinutes(),
             'estimated_delivery_minutes' => $this->estimatedDeliveryMinutes(),
 
             // Distancia al cliente en km, redondeada a 1 decimal ("a 1.2 km").

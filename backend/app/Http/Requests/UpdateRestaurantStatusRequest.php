@@ -32,6 +32,8 @@ class UpdateRestaurantStatusRequest extends FormRequest
             // claro que un restaurante que se cree cerrado y no recibe nada.
             'is_open' => ['required', 'boolean'],
             'is_busy' => ['required', 'boolean'],
+            'prep_time_min_minutes' => ['required_with:prep_time_max_minutes', 'integer', 'min:10', 'max:45'],
+            'prep_time_max_minutes' => ['required_with:prep_time_min_minutes', 'integer', 'min:10', 'max:45', 'gte:prep_time_min_minutes'],
         ];
     }
 
@@ -45,6 +47,15 @@ class UpdateRestaurantStatusRequest extends FormRequest
             'is_open.boolean' => 'El valor tiene que ser verdadero o falso.',
             'is_busy.required' => 'Falta indicar si estás muy ocupado.',
             'is_busy.boolean' => 'El valor tiene que ser verdadero o falso.',
+            'prep_time_min_minutes.required_with' => 'Indicá el tiempo mínimo de preparación.',
+            'prep_time_max_minutes.required_with' => 'Indicá el tiempo máximo de preparación.',
+            'prep_time_max_minutes.gte' => 'El máximo debe ser igual o mayor al mínimo.',
+            'prep_time_min_minutes.integer' => 'El mínimo debe ser un número entero de minutos.',
+            'prep_time_max_minutes.integer' => 'El máximo debe ser un número entero de minutos.',
+            'prep_time_min_minutes.min' => 'El mínimo debe ser al menos 10 minutos.',
+            'prep_time_max_minutes.min' => 'El máximo debe ser al menos 10 minutos.',
+            'prep_time_min_minutes.max' => 'El mínimo no puede superar 45 minutos.',
+            'prep_time_max_minutes.max' => 'El máximo no puede superar 45 minutos.',
         ];
     }
 }

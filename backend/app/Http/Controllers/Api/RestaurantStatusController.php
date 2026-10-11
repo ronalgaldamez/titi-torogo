@@ -61,6 +61,10 @@ class RestaurantStatusController extends Controller
         // esperamos puede colarse por el cuerpo de la peticion.
         $restaurant->is_open = $request->validated('is_open');
         $restaurant->is_busy = $request->validated('is_busy');
+        if ($request->has('prep_time_min_minutes')) {
+            $restaurant->prep_time_min_minutes = $request->validated('prep_time_min_minutes');
+            $restaurant->prep_time_minutes = $request->validated('prep_time_max_minutes');
+        }
         $restaurant->save();
 
         return response()->json([

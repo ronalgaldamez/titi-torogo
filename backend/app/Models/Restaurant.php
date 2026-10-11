@@ -59,6 +59,7 @@ class Restaurant extends Model
             'delivery_fee' => 'decimal:2',
 
             'prep_time_minutes' => 'integer',
+            'prep_time_min_minutes' => 'integer',
             'is_active' => 'boolean',
             'is_open' => 'boolean',
             'is_busy' => 'boolean',
@@ -74,16 +75,34 @@ class Restaurant extends Model
     }
 
     /**
-     * Tiempo de entrega estimado que ve el cliente.
+     * Estimación histórica: solo preparación, sin recorrido de entrega.
      *
      * El AGENDS dice que el modo "muy ocupado" alarga los tiempos:
      * cuando esta activo se suma un 50% mas.
      */
     public function estimatedDeliveryMinutes(): int
     {
-        $base = $this->prep_time_minutes;
+        $base = $this->preparationMaximumMinutes();
 
-        return $this->is_busy ? (int) round($base * 1.5) : $base;
+        return $this->is_busy ? min(45, (int) round($base * 1.5)) : $base;
+    }
+
+    // El campo histórico se conserva como máximo para no romper el panel ni clientes anteriores.
+    public function preparationMinimumMinutes(): int
+    {
+        return max(10, min($this->preparationMaximumMinutes(), $this->prep_time_min_minutes ?? $this->prep_time_minutes));
+    }
+
+    public function preparationMaximumMinutes(): int
+    {
+        return max(10, min(45, $this->prep_time_minutes));
+    }
+
+    public function estimatedPreparationMinimumMinutes(): int
+    {
+        $base = $this->preparationMinimumMinutes();
+
+        return $this->is_busy ? min(45, (int) round($base * 1.5)) : $base;
     }
 
     /**

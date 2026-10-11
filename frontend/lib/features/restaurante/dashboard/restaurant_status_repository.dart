@@ -31,12 +31,16 @@ class RestaurantStatusRepository {
   Future<Restaurant> save({
     required bool isOpen,
     required bool isBusy,
+    int? preparationMinimum,
+    int? preparationMaximum,
   }) async {
     final Map<String, dynamic> json = await _api.patch(
       '/restaurant/status',
       body: <String, dynamic>{
         'is_open': isOpen,
         'is_busy': isBusy,
+        'prep_time_min_minutes': ?preparationMinimum,
+        'prep_time_max_minutes': ?preparationMaximum,
       },
     );
 

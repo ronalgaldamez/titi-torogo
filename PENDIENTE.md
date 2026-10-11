@@ -35,9 +35,16 @@ Problema observado: existen pedidos de prueba que siguen pendientes durante día
 
 ## Restaurante: siguiente revisión
 
+- [ ] Logo del negocio en Mi local: revisar carga, edición y visualización; por ahora conservar la inicial del restaurante.
+
 - [ ] Revisar primero la pantalla Pedidos y su funcionamiento actual.
 - [ ] Proponer mejoras visuales consistentes con Toro Go y mostrarlas antes de implementar.
 - [ ] Revisar después Mi menú y Mi local, conservando las funcionalidades existentes.
+
+## Estimación de entrega completa
+
+- [ ] El tiempo mostrado actualmente proviene de preparación del local. Incorporar recorrido y disponibilidad del motorista al estimar la entrega completa, sin sumar tiempos dos veces.
+- [ ] El aumento de Muy ocupado se mantiene en 50%, con un techo de 45 minutos de preparación; evaluar más adelante su configuración desde el administrador.
 
 ## Etapa posterior
 

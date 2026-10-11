@@ -442,7 +442,7 @@ class _Header extends StatelessWidget {
             children: <Widget>[
               _Stat(
                 icon: Icons.schedule_rounded,
-                label: '${restaurant.estimatedDeliveryMinutes} min',
+                label: 'Preparación ${restaurant.preparationTimeLabel}',
               ),
               if (restaurant.distanceKm != null)
                 _Stat(
@@ -511,11 +511,13 @@ class _Stat extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 14, color: AppTheme.teal),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: text.labelMedium?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              style: text.labelMedium?.copyWith(
+                color: AppTheme.navy,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
