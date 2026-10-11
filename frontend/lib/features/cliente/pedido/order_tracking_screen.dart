@@ -186,10 +186,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   String _format(DateTime date) {
     final String day = date.day.toString().padLeft(2, '0');
     final String month = date.month.toString().padLeft(2, '0');
-    final String hour = date.hour.toString().padLeft(2, '0');
+    final String hour = (date.hour % 12 == 0 ? 12 : date.hour % 12).toString();
     final String minute = date.minute.toString().padLeft(2, '0');
 
-    return '$day/$month $hour:$minute';
+    return '$day/$month/${date.year} · $hour:$minute ${date.hour < 12 ? 'AM' : 'PM'}';
   }
 
   List<_Milestone> _milestones(Order order) {
@@ -257,14 +257,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             onRefresh: () async => _reload(),
             color: AppTheme.teal,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
                 AppSpacing.md,
                 AppSpacing.sm,
                 AppSpacing.md,
-                AppSpacing.xl,
+                AppSpacing.xl + MediaQuery.paddingOf(context).bottom,
               ),
               children: <Widget>[
-                _Header(order: order),
+                _Header(
+                  order: order,
+                  date:
+                      order.deliveredAt ?? order.cancelledAt ?? order.createdAt,
+                  format: _format,
+                ),
                 if (order.status == 'rejected')
                   const _Notice(
                     message: 'El restaurante no pudo con este pedido.',
@@ -285,109 +291,137 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     message: 'Va en camino hacia tu dirección.',
                     color: AppTheme.mint,
                   ),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('DÓNDE VA TU PEDIDO'),
-                TorogoMap(
-                  points: <MapPoint>[
-                    // El restaurante: donde se prepara.
-                    MapPoint(
-                      latitude: order.restaurant.latitude,
-                      longitude: order.restaurant.longitude,
-                      icon: Icons.storefront_rounded,
-                      color: AppTheme.teal,
-                    ),
-                    // Tu casa: donde tiene que llegar.
-                    MapPoint(
-                      latitude: order.delivery!.latitude,
-                      longitude: order.delivery!.longitude,
-                      icon: Icons.home_rounded,
-                      color: AppTheme.coral,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
+                const SizedBox(height: AppSpacing.md),
+                _DetailCard(
                   children: <Widget>[
-                    Expanded(
-                      child: _MapLegend(
-                        color: AppTheme.teal,
-                        icon: Icons.storefront_rounded,
-                        label: order.restaurant.name,
-                      ),
+                    _SummaryRow(
+                      label: 'Total del pedido',
+                      value: '\$${order.total}',
+                      strong: true,
                     ),
-                    Expanded(
-                      child: _MapLegend(
-                        color: AppTheme.coral,
-                        icon: Icons.home_rounded,
-                        label: 'Tu dirección',
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppTheme.tealSoft,
+                        borderRadius: BorderRadius.circular(AppRadius.image),
+                      ),
+                      child: Text(
+                        order.paymentMethod == 'cash'
+                            ? 'Pagás en efectivo al recibir'
+                            : 'Pago: ${order.paymentMethod}',
+                        style: text.bodySmall?.copyWith(color: AppTheme.navy),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('EL RECORRIDO'),
-                for (int i = 0; i < _milestones(order).length; i++)
-                  _TimelineRow(
-                    milestone: _milestones(order)[i],
-                    isLast: i == _milestones(order).length - 1,
-                    format: _format,
-                  ),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('TU PEDIDO'),
-                for (final OrderItem item in order.items) _ItemLine(item: item),
-                const Divider(height: AppSpacing.lg),
-                _SummaryRow(label: 'Platos', value: '\$${order.subtotal}'),
-                _SummaryRow(label: 'Envío', value: '\$${order.deliveryFee}'),
-                _SummaryRow(label: 'Propina', value: '\$${order.tipAmount}'),
-                _SummaryRow(
-                  label: 'Total',
-                  value: '\$${order.total}',
-                  strong: true,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  order.paymentMethod == 'cash'
-                      ? 'Pagás en efectivo al recibir'
-                      : 'Pago: ${order.paymentMethod}',
-                  style: text.bodySmall?.copyWith(color: AppTheme.navy),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                const _SectionTitle('ENTREGA'),
-                Text(
-                  order.delivery!.address,
-                  style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-                ),
-                if (order.delivery!.reference != null &&
-                    order.delivery!.reference!.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
-                  Text(
-                    order.delivery!.reference!,
-                    style: text.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
-                    ),
+                if (order.isActive) ...<Widget>[
+                  const SizedBox(height: AppSpacing.md),
+                  _DetailCard(
+                    children: <Widget>[
+                      const _SectionTitle('Dónde va tu pedido'),
+                      _OrderMap(order: order),
+                    ],
                   ),
                 ],
-                if (order.courier != null) ...<Widget>[
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.delivery_dining_rounded,
-                        size: 18,
-                        color: AppTheme.teal,
-                      ),
-                      const SizedBox(width: 6),
+                const SizedBox(height: AppSpacing.md),
+                _DetailCard(
+                  children: <Widget>[
+                    const _SectionTitle('Tu pedido'),
+                    for (final OrderItem item in order.items)
+                      _ItemLine(item: item),
+                    const Divider(height: AppSpacing.lg),
+                    _SummaryRow(
+                      label: 'Productos',
+                      value: '\$${order.subtotal}',
+                    ),
+                    _SummaryRow(
+                      label: 'Envío',
+                      value: '\$${order.deliveryFee}',
+                    ),
+                    _SummaryRow(
+                      label: 'Propina',
+                      value: '\$${order.tipAmount}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DetailCard(
+                  children: <Widget>[
+                    const _SectionTitle('Entrega'),
+                    if (order.delivery != null) ...<Widget>[
                       Text(
-                        'Tu motorizado: ${order.courier!.name}',
+                        order.delivery!.address,
                         style: text.bodyMedium?.copyWith(
                           color: AppTheme.navy,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                      if (order.delivery!.reference?.isNotEmpty ??
+                          false) ...<Widget>[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          order.delivery!.reference!,
+                          style: text.bodySmall?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
-                  ),
-                ],
+                    if (order.courier != null) ...<Widget>[
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: <Widget>[
+                          const Icon(
+                            Icons.delivery_dining_rounded,
+                            size: 20,
+                            color: AppTheme.teal,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'Tu motorizado: ${order.courier!.name}',
+                              style: text.bodyMedium?.copyWith(
+                                color: AppTheme.navy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (!order.isActive)
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.only(
+                          bottom: AppSpacing.sm,
+                        ),
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        title: Text(
+                          'Ver ubicación en el mapa',
+                          style: text.bodyMedium?.copyWith(
+                            color: AppTheme.tealDeep,
+                          ),
+                        ),
+                        children: <Widget>[_OrderMap(order: order)],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DetailCard(
+                  children: <Widget>[
+                    const _SectionTitle('Recorrido del pedido'),
+                    for (int i = 0; i < _milestones(order).length; i++)
+                      _TimelineRow(
+                        milestone: _milestones(order)[i],
+                        isLast: i == _milestones(order).length - 1,
+                        format: _format,
+                      ),
+                  ],
+                ),
               ],
             ),
           );
@@ -401,6 +435,75 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 ///
 /// Va abajo del mapa porque un globito de color, sin la leyenda, no dice nada:
 /// el cliente ve dos circulos y tiene que adivinar cual es su casa.
+class _DetailCard extends StatelessWidget {
+  const _DetailCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(AppSpacing.md),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppRadius.card),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    ),
+  );
+}
+
+class _OrderMap extends StatelessWidget {
+  const _OrderMap({required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: <Widget>[
+      TorogoMap(
+        points: <MapPoint>[
+          MapPoint(
+            latitude: order.restaurant.latitude,
+            longitude: order.restaurant.longitude,
+            icon: Icons.storefront_rounded,
+            color: AppTheme.teal,
+          ),
+          if (order.delivery != null)
+            MapPoint(
+              latitude: order.delivery!.latitude,
+              longitude: order.delivery!.longitude,
+              icon: Icons.home_rounded,
+              color: AppTheme.coral,
+            ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Row(
+        children: <Widget>[
+          Expanded(
+            child: _MapLegend(
+              color: AppTheme.teal,
+              icon: Icons.storefront_rounded,
+              label: order.restaurant.name,
+            ),
+          ),
+          if (order.delivery != null)
+            const Expanded(
+              child: _MapLegend(
+                color: AppTheme.coral,
+                icon: Icons.home_rounded,
+                label: 'Tu dirección',
+              ),
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
 class _MapLegend extends StatelessWidget {
   const _MapLegend({
     required this.color,
@@ -440,9 +543,15 @@ class _MapLegend extends StatelessWidget {
 
 /// El encabezado: el estado grande y de que restaurante es.
 class _Header extends StatelessWidget {
-  const _Header({required this.order});
+  const _Header({
+    required this.order,
+    required this.date,
+    required this.format,
+  });
 
   final Order order;
+  final DateTime? date;
+  final String Function(DateTime) format;
 
   @override
   Widget build(BuildContext context) {
@@ -452,23 +561,49 @@ class _Header extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            order.statusLabel,
-            style: text.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppTheme.tealDeep,
+          CircleAvatar(
+            backgroundColor: AppTheme.tealSoft,
+            foregroundColor: AppTheme.tealDeep,
+            child: Icon(
+              order.status == 'delivered'
+                  ? Icons.check_rounded
+                  : order.status == 'cancelled' || order.status == 'rejected'
+                  ? Icons.close_rounded
+                  : Icons.receipt_long_rounded,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            order.restaurant.name,
-            style: text.titleSmall?.copyWith(color: AppTheme.navy),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  order.statusLabel,
+                  style: text.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.tealDeep,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  order.restaurant.name,
+                  style: text.titleSmall?.copyWith(color: AppTheme.navy),
+                ),
+                if (date != null)
+                  Text(
+                    format(date!),
+                    style: text.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -486,7 +621,7 @@ class _Notice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final Color foreground = color == AppTheme.yellow
+    final Color foreground = color == AppTheme.yellow || color == AppTheme.mint
         ? AppTheme.navy
         : Colors.white;
 
@@ -500,7 +635,7 @@ class _Notice extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
+          borderRadius: BorderRadius.circular(AppRadius.image),
         ),
         child: Text(
           message,
@@ -532,59 +667,66 @@ class _TimelineRow extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final bool done = milestone.done;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Column(
-          children: <Widget>[
-            Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: done ? AppTheme.teal : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: done ? AppTheme.teal : const Color(0xFFC9D2D8),
-                  width: 2,
-                ),
-              ),
-            ),
-            // La linea que une un paso con el siguiente. No va en el ultimo,
-            // o quedaria un palito suelto colgando.
-            if (!isLast)
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Column(
+            children: <Widget>[
               Container(
-                width: 2,
-                height: 28,
-                color: done ? AppTheme.teal : const Color(0xFFE1E7EB),
-              ),
-          ],
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 0, bottom: AppSpacing.sm),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  milestone.label,
-                  style: text.titleSmall?.copyWith(
-                    fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                    color: done ? AppTheme.navy : colors.onSurfaceVariant,
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: done ? AppTheme.teal : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: done ? AppTheme.teal : colors.outlineVariant,
                   ),
                 ),
-                if (milestone.at != null)
+                child: done
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    color: done ? AppTheme.tealSoft : colors.outlineVariant,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Text(
-                    format(milestone.at!),
-                    style: text.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                    milestone.label,
+                    style: text.bodyMedium?.copyWith(
+                      fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                      color: done ? AppTheme.navy : colors.onSurfaceVariant,
                     ),
                   ),
-              ],
+                  if (milestone.at != null)
+                    Text(
+                      format(milestone.at!),
+                      style: text.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -601,7 +743,7 @@ class _ItemLine extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: <Widget>[
           Text(
@@ -616,7 +758,7 @@ class _ItemLine extends StatelessWidget {
             child: Text(
               item.name,
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -690,10 +832,9 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Text(
         title,
-        style: text.labelMedium?.copyWith(
-          color: AppTheme.teal,
+        style: text.titleSmall?.copyWith(
+          color: AppTheme.navy,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
         ),
       ),
     );
