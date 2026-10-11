@@ -322,10 +322,8 @@ void main() {
             status == 500 || status == 0,
           );
           expect(find.text(r'$8.25'), findsOneWidget);
-          expect(
-            find.text('Pedido #42 · Restaurante confirmado'),
-            findsOneWidget,
-          );
+          expect(find.text('Pedido #42'), findsOneWidget);
+          expect(find.text('Restaurante confirmado'), findsOneWidget);
           if (status == 500) {
             expect(activeContainer.read(cartProvider).quantityOf(3), 2);
           } else {
