@@ -475,7 +475,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   AppSpacing.md,
                   0,
                   AppSpacing.md,
-                  AppSpacing.xl,
+                  AppSpacing.md,
                 ),
                 children: <Widget>[
                   if (_pending != null) ...<Widget>[
@@ -487,114 +487,202 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ],
                   const _SectionTitle('Entregar en'),
                   _AddressCard(address: _address, onTap: _openAddressPicker),
-                  const SizedBox(height: AppSpacing.lg),
-                  const _SectionTitle('Tu pedido'),
-                  for (final CartItem item in cart.items)
-                    _ItemLine(
-                      item: item,
-                      onRemove: _pending != null || _sending
-                          ? null
-                          : () => ref
-                                .read(cartProvider.notifier)
-                                .remove(item.product.id),
-                    ),
-                  const SizedBox(height: AppSpacing.lg),
-                  const _SectionTitle('Propina para el motorista'),
-                  Text(
-                    'Opcional. La recibe el motorista junto con el pago en efectivo.',
-                    style: text.bodySmall?.copyWith(color: AppTheme.navy),
-                  ),
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.xs,
+                  _CheckoutCard(
                     children: <Widget>[
-                      for (final String amount in <String>[
-                        '0.00',
-                        '0.50',
-                        '1.00',
-                        '2.00',
-                      ])
-                        ChoiceChip(
-                          label: Text(
-                            amount == '0.00' ? 'Sin propina' : '\$$amount',
-                          ),
-                          selected: !_customTip && _tipAmount == amount,
-                          onSelected: _pending != null || _sending
+                      const _SectionTitle('Tu pedido'),
+                      for (final CartItem item in cart.items)
+                        _ItemLine(
+                          item: item,
+                          onRemove: _pending != null || _sending
                               ? null
-                              : (_) => setState(() {
-                                  _selectedTip = amount;
-                                  _customTip = false;
-                                }),
+                              : () => ref
+                                    .read(cartProvider.notifier)
+                                    .remove(item.product.id),
                         ),
-                      ChoiceChip(
-                        label: const Text('Otro monto'),
-                        selected:
-                            _customTip ||
-                            (_pending != null &&
-                                !<String>[
-                                  '0.00',
-                                  '0.50',
-                                  '1.00',
-                                  '2.00',
-                                ].contains(_tipAmount)),
-                        onSelected: _pending != null || _sending
-                            ? null
-                            : (_) => setState(() => _customTip = true),
-                      ),
-                    ],
-                  ),
-                  if (_customTip && _pending == null) ...<Widget>[
-                    const SizedBox(height: AppSpacing.sm),
-                    TextField(
-                      controller: _tipController,
-                      enabled: !_sending,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Propina personalizada',
-                        prefixText: '\$ ',
-                        helperText: 'Hasta \$100.00',
-                        errorText: _tipError,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  const _SectionTitle('Resumen'),
-                  _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
-                  _SummaryRow(
-                    label: 'Envío',
-                    value: _feeReady
-                        ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
-                        : '...',
-                    hint: _feeReady && _deliveryFee == null
-                        ? 'No llegamos a esa dirección'
-                        : null,
-                  ),
-                  _SummaryRow(label: 'Propina', value: '\$$_tipAmount'),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.payments_outlined,
-                        size: 18,
-                        color: AppTheme.teal,
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          'Pagás en efectivo al recibir',
-                          style: text.bodySmall?.copyWith(color: AppTheme.navy),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'La propina seleccionada está incluida en el total. El 100% es para el motorista.',
-                    style: text.bodySmall?.copyWith(color: AppTheme.navy),
+                  _CheckoutCard(
+                    children: <Widget>[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Expanded(
+                            child: _SectionTitle('Propina al motorista'),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            'Opcional',
+                            style: text.labelSmall?.copyWith(
+                              color: AppTheme.tealDeep,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'El 100% es para el motorista. La pagás al recibir.',
+                        style: text.bodySmall?.copyWith(
+                          color: AppTheme.tealDeep,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: <Widget>[
+                          for (final String amount in <String>[
+                            '0.00',
+                            '0.50',
+                            '1.00',
+                            '2.00',
+                          ])
+                            ChoiceChip(
+                              showCheckmark: false,
+                              side: WidgetStateBorderSide.resolveWith(
+                                (states) => BorderSide(
+                                  color: states.contains(WidgetState.selected)
+                                      ? AppTheme.teal
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.outlineVariant,
+                                ),
+                              ),
+                              selectedColor: AppTheme.tealSoft,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surface,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xs,
+                              ),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.padded,
+                              labelStyle: text.labelLarge?.copyWith(
+                                color: AppTheme.tealDeep,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.sm,
+                                ),
+                              ),
+                              label: Text(
+                                amount == '0.00' ? 'Sin propina' : '\$$amount',
+                              ),
+                              selected: !_customTip && _tipAmount == amount,
+                              onSelected: _pending != null || _sending
+                                  ? null
+                                  : (_) => setState(() {
+                                      _selectedTip = amount;
+                                      _customTip = false;
+                                    }),
+                            ),
+                          ChoiceChip(
+                            showCheckmark: false,
+                            side: WidgetStateBorderSide.resolveWith(
+                              (states) => BorderSide(
+                                color: states.contains(WidgetState.selected)
+                                    ? AppTheme.teal
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            selectedColor: AppTheme.tealSoft,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surface,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                            ),
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            labelStyle: text.labelLarge?.copyWith(
+                              color: AppTheme.tealDeep,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.sm,
+                              ),
+                            ),
+                            label: const Text('Otro monto'),
+                            selected:
+                                _customTip ||
+                                (_pending != null &&
+                                    !<String>[
+                                      '0.00',
+                                      '0.50',
+                                      '1.00',
+                                      '2.00',
+                                    ].contains(_tipAmount)),
+                            onSelected: _pending != null || _sending
+                                ? null
+                                : (_) => setState(() => _customTip = true),
+                          ),
+                        ],
+                      ),
+                      if (_customTip && _pending == null) ...<Widget>[
+                        const SizedBox(height: AppSpacing.sm),
+                        TextField(
+                          controller: _tipController,
+                          enabled: !_sending,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Propina personalizada',
+                            prefixText: '\$ ',
+                            helperText: 'Hasta \$100.00',
+                            errorText: _tipError,
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.sm,
+                              ),
+                            ),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _CheckoutCard(
+                    children: <Widget>[
+                      const _SectionTitle('Resumen'),
+                      _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
+                      _SummaryRow(
+                        label: 'Envío',
+                        value: _feeReady
+                            ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
+                            : '...',
+                        hint: _feeReady && _deliveryFee == null
+                            ? 'No llegamos a esa dirección'
+                            : null,
+                      ),
+                      _SummaryRow(label: 'Propina', value: '\$$_tipAmount'),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                        child: Divider(height: 1),
+                      ),
+                      Row(
+                        children: <Widget>[
+                          const Icon(
+                            Icons.payments_outlined,
+                            size: 18,
+                            color: AppTheme.teal,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              'Pagás en efectivo al recibir',
+                              style: text.bodySmall?.copyWith(
+                                color: AppTheme.navy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   if (_error != null) ...<Widget>[
                     const SizedBox(height: AppSpacing.md),
@@ -613,7 +701,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
@@ -629,11 +720,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             onPressed: canConfirm ? _confirm : null,
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.coralDeep,
-                              minimumSize: const Size.fromHeight(52),
+                              minimumSize: const Size.fromHeight(54),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
-                                  AppRadius.pill,
+                                  AppRadius.image,
                                 ),
                               ),
                             ),
@@ -646,14 +737,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : Text(
-                                    _pending == null
-                                        ? 'Confirmar pedido'
-                                        : 'Recuperar pedido',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: <Widget>[
+                                      Flexible(
+                                        child: Text(
+                                          _pending == null
+                                              ? 'Confirmar pedido'
+                                              : 'Recuperar pedido',
+                                          textAlign: TextAlign.center,
+                                          style: text.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        size: 20,
+                                      ),
+                                    ],
                                   ),
                           ),
                         ),
@@ -681,6 +786,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 }
 
+/// Agrupa las secciones del checkout con la misma superficie y espaciado.
+class _CheckoutCard extends StatelessWidget {
+  const _CheckoutCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.sm,
+    ),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppRadius.image),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    ),
+  );
+}
+
 /// El titulo de una seccion.
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.title);
@@ -692,13 +820,12 @@ class _SectionTitle extends StatelessWidget {
     final TextTheme text = Theme.of(context).textTheme;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Text(
-        title.toUpperCase(),
-        style: text.labelMedium?.copyWith(
-          color: AppTheme.teal,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
+        title,
+        style: text.titleSmall?.copyWith(
+          color: AppTheme.navy,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -719,12 +846,15 @@ class _AddressCard extends StatelessWidget {
 
     return Material(
       color: colors.surface,
-      borderRadius: BorderRadius.circular(AppRadius.card),
+      borderRadius: BorderRadius.circular(AppRadius.image),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
           child: Row(
             children: <Widget>[
               const Icon(Icons.place_rounded, color: AppTheme.teal),
@@ -751,8 +881,6 @@ class _AddressCard extends StatelessWidget {
                             style: text.bodySmall?.copyWith(
                               color: colors.onSurfaceVariant,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           if (address!.reference != null &&
                               address!.reference!.isNotEmpty) ...<Widget>[
@@ -761,7 +889,6 @@ class _AddressCard extends StatelessWidget {
                               address!.reference!,
                               style: text.bodySmall?.copyWith(
                                 color: colors.onSurfaceVariant,
-                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ],
@@ -793,11 +920,21 @@ class _ItemLine extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
         children: <Widget>[
-          Text(
-            '${item.quantity}×',
-            style: text.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppTheme.teal,
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.tealSoft,
+              borderRadius: BorderRadius.circular(AppSpacing.sm),
+            ),
+            child: Text(
+              '${item.quantity}×',
+              style: text.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppTheme.tealDeep,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -805,10 +942,9 @@ class _ItemLine extends StatelessWidget {
             child: Text(
               item.product.name,
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
           Text(
             '\$${item.subtotal}',
             style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
