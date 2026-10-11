@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/theme.dart';
+import '../../../core/money.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
 import '../../../models/restaurant.dart';
@@ -86,6 +87,7 @@ class _RestaurantDetailScreenState
 
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -95,16 +97,16 @@ class _RestaurantDetailScreenState
       builder: (BuildContext sheetContext) => _ProductSheet(
         product: product,
         quantityInCart: cart.quantityOf(product.id),
-        onAdd: () {
+        onAdd: (quantity) {
           Navigator.of(sheetContext).pop();
-          _add(product);
+          _add(product, quantity);
         },
       ),
     );
   }
 
-  /// Agrega una unidad del plato al carrito.
-  Future<void> _add(Product product) async {
+  /// Agrega la cantidad elegida del plato al carrito.
+  Future<void> _add(Product product, int quantity) async {
     final CartNotifier cart = ref.read(cartProvider.notifier);
     final Restaurant restaurant = widget.restaurant;
 
@@ -112,6 +114,7 @@ class _RestaurantDetailScreenState
       product,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
+      quantity: quantity,
     );
 
     // Se agrego bien, o la pantalla ya no esta.
@@ -131,6 +134,7 @@ class _RestaurantDetailScreenState
       product,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
+      quantity: quantity,
     );
   }
 
@@ -796,7 +800,7 @@ class _ErrorBox extends StatelessWidget {
 /// La hoja con el detalle de un plato, y el boton de agregar.
 ///
 /// La biblia la pide asi: *"Detalle de producto (modal/bottom sheet)"*.
-class _ProductSheet extends StatelessWidget {
+class _ProductSheet extends StatefulWidget {
   const _ProductSheet({
     required this.product,
     required this.quantityInCart,
@@ -809,7 +813,14 @@ class _ProductSheet extends StatelessWidget {
   /// agregue dos veces creyendo que la primera no entro.
   final int quantityInCart;
 
-  final VoidCallback onAdd;
+  final ValueChanged<int> onAdd;
+
+  @override
+  State<_ProductSheet> createState() => _ProductSheetState();
+}
+
+class _ProductSheetState extends State<_ProductSheet> {
+  int _quantity = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -819,66 +830,132 @@ class _ProductSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              product.name,
-              style: text.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      widget.product.name,
+                      style: text.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.navy,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cerrar detalle',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: AppTheme.navy,
+                  ),
+                ],
               ),
-            ),
-            if (product.description != null &&
-                product.description!.isNotEmpty) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                product.description!,
-                style: text.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              '\$${product.price}',
-              style: text.headlineSmall?.copyWith(
-                color: AppTheme.coral,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (quantityInCart > 0) ...<Widget>[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                quantityInCart == 1
-                    ? 'Ya tenés 1 en el carrito.'
-                    : 'Ya tenés $quantityInCart en el carrito.',
-                style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              height: 52,
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onAdd,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.coral,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+              if (widget.product.description != null &&
+                  widget.product.description!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  widget.product.description!,
+                  style: text.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.4,
                   ),
                 ),
-                icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
-                label: const Text(
-                  'Agregar al carrito',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '\$${widget.product.price}',
+                style: text.headlineSmall?.copyWith(
+                  color: AppTheme.coral,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ),
-          ],
+              Text(
+                'por unidad',
+                style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              ),
+              if (widget.quantityInCart > 0) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  widget.quantityInCart == 1
+                      ? 'Ya tenés 1 en el carrito.'
+                      : 'Ya tenés ${widget.quantityInCart} en el carrito.',
+                  style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              const Divider(),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Cantidad',
+                      style: text.titleSmall?.copyWith(
+                        color: AppTheme.navy,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: 'Disminuir cantidad',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    onPressed: _quantity > 1
+                        ? () => setState(() => _quantity--)
+                        : null,
+                    icon: const Icon(Icons.remove_rounded),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                    child: Semantics(
+                      liveRegion: true,
+                      label: '$_quantity unidades',
+                      child: Text('$_quantity', style: text.titleMedium),
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: 'Aumentar cantidad',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    onPressed: () => setState(() => _quantity++),
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => widget.onAdd(_quantity),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 54),
+                    backgroundColor: AppTheme.coral,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.image),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
+                  label: Text(
+                    'Agregar al carrito · \$${Money.multiply(widget.product.price, _quantity)}',
+                    style: text.labelLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

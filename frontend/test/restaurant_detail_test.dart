@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/cliente/carrito/cart_provider.dart';
+import 'package:torogo/features/cliente/carrito/cart_sheet.dart';
 import 'package:torogo/features/cliente/restaurante/restaurant_detail_screen.dart';
 import 'package:torogo/models/restaurant.dart';
 
@@ -106,10 +107,30 @@ void main() {
       await tester.tap(add);
       await tester.pumpAndSettle();
       expect(container.read(cartProvider).isEmpty, isTrue);
-      await tester.tap(find.text('Agregar al carrito'));
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is IconButton &&
+                    widget.tooltip == 'Disminuir cantidad',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('Aumentar cantidad'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Aumentar cantidad'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Disminuir cantidad'));
       await tester.pumpAndSettle();
-      expect(container.read(cartProvider).quantityOf(2), 1);
+      expect(find.text(r'Agregar al carrito · $9.00'), findsOneWidget);
+      await tester.tap(find.text(r'Agregar al carrito · $9.00'));
+      await tester.pumpAndSettle();
+      expect(container.read(cartProvider).quantityOf(2), 2);
       expect(find.text('Ver pedido').hitTestable(), findsOneWidget);
+      expect(tester.getSize(find.byType(CartBar)).height, lessThan(160));
       expect(tester.takeException(), isNull);
     }, () => client);
   });

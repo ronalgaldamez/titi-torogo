@@ -55,6 +55,12 @@ void main() {
       await tester.tap(remove);
       await tester.pumpAndSettle();
       expect(container.read(cartProvider).quantityOf(3), 1);
+      expect(find.text('Continuar a la entrega'), findsOneWidget);
+      expect(find.byTooltip('Cerrar carrito'), findsOneWidget);
+      expect(
+        find.text('El envío se calcula al elegir la dirección.'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
