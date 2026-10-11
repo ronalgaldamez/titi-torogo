@@ -179,10 +179,9 @@ class _AddressFormScreenState extends State<AddressFormScreen>
   /// direccion mala nunca llega a convertirse en un pedido.
   Future<bool?> _isInsideZone(Place place) async {
     try {
-      final HomeData data = await HomeRepository(ApiClient()).load(
-        latitude: place.latitude,
-        longitude: place.longitude,
-      );
+      final HomeData data = await HomeRepository(
+        ApiClient(),
+      ).load(latitude: place.latitude, longitude: place.longitude);
 
       return !data.isOutsideCoverage;
     } on ApiException {
@@ -241,9 +240,11 @@ class _AddressFormScreenState extends State<AddressFormScreen>
     //
     // Un aviso no alcanza cuando el sistema, despues, responde que si.
     if (!_place.isReal) {
-      setState(() => _error =
-          'Necesitamos tu ubicación para guardar la dirección. Activá el GPS '
-          'y tocá "Actualizar ubicación".');
+      setState(
+        () => _error =
+            'Necesitamos tu ubicación para guardar la dirección. Activá el GPS '
+            'y tocá "Actualizar ubicación".',
+      );
 
       return;
     }
@@ -253,10 +254,12 @@ class _AddressFormScreenState extends State<AddressFormScreen>
     // responde que llegamos, y el motorizado sale a una cuadra que no es.
     // Con 500 metros de error, "frente a la farmacia" es otra farmacia.
     if (_place.isApproximate) {
-      setState(() => _error =
-          'Tu ubicación es aproximada (${_place.accuracyText} de error). '
-          'Con esa precisión la dirección puede quedar en otra cuadra. Salí a '
-          'un lugar abierto y tocá "Actualizar ubicación".');
+      setState(
+        () => _error =
+            'Tu ubicación es aproximada (${_place.accuracyText} de error). '
+            'Con esa precisión la dirección puede quedar en otra cuadra. Salí a '
+            'un lugar abierto y tocá "Actualizar ubicación".',
+      );
 
       return;
     }
@@ -264,9 +267,11 @@ class _AddressFormScreenState extends State<AddressFormScreen>
     // Fuera de la zona tampoco: una direccion ahi no sirve, porque no se puede
     // pedir. Mejor decirlo ahora.
     if (_inZone == false) {
-      setState(() => _error =
-          'Esa ubicación está fuera de la zona donde entregamos. Volvé a '
-          'intentarlo cuando estés dentro.');
+      setState(
+        () => _error =
+            'Esa ubicación está fuera de la zona donde entregamos. Volvé a '
+            'intentarlo cuando estés dentro.',
+      );
 
       return;
     }
@@ -324,7 +329,8 @@ class _AddressFormScreenState extends State<AddressFormScreen>
   Future<void> _delete() async {
     final Address address = widget.address!;
 
-    final bool confirmed = await showDialog<bool>(
+    final bool confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: Text('¿Borrar "${address.label}"?'),
@@ -421,15 +427,15 @@ class _AddressFormScreenState extends State<AddressFormScreen>
           children: <Widget>[
             _Field(
               controller: _label,
-              label: 'Nombre',
-              hint: 'Casa',
+              label: 'Nombre de la dirección',
+              hint: 'Ej. Casa o trabajo',
               validator: _validateLabel,
             ),
             const SizedBox(height: AppSpacing.md),
             _Field(
               controller: _address,
               label: 'Dirección',
-              hint: 'Colonia Las Flores, calle principal',
+              hint: 'Colonia, calle y número de casa',
               validator: _validateAddress,
               maxLines: 2,
             ),
@@ -437,7 +443,7 @@ class _AddressFormScreenState extends State<AddressFormScreen>
             _Field(
               controller: _reference,
               label: 'Referencia (opcional)',
-              hint: 'Frente a la farmacia, casa de dos pisos',
+              hint: 'Ej. Portón azul, frente a la tienda',
               validator: _validateReference,
               maxLines: 2,
             ),
@@ -458,9 +464,7 @@ class _AddressFormScreenState extends State<AddressFormScreen>
               contentPadding: EdgeInsets.zero,
               activeThumbColor: AppTheme.teal,
               title: const Text('Usar como predeterminada'),
-              subtitle: const Text(
-                'Es la que el checkout elige sola.',
-              ),
+              subtitle: const Text('Se seleccionará al confirmar tus pedidos.'),
             ),
             if (_error != null) ...<Widget>[
               const SizedBox(height: AppSpacing.md),
@@ -478,11 +482,11 @@ class _AddressFormScreenState extends State<AddressFormScreen>
             ],
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
-              height: 52,
               child: FilledButton(
                 // Sin ubicacion real O con una aproximada, el boton queda
                 // apagado: el cliente ya ve en la tarjeta de arriba por que.
-                onPressed: (_saving ||
+                onPressed:
+                    (_saving ||
                         !_place.isReal ||
                         _place.isApproximate ||
                         _inZone == false)
@@ -491,8 +495,9 @@ class _AddressFormScreenState extends State<AddressFormScreen>
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.coral,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 54),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    borderRadius: BorderRadius.circular(AppRadius.image),
                   ),
                 ),
                 child: _saving
@@ -506,8 +511,8 @@ class _AddressFormScreenState extends State<AddressFormScreen>
                       )
                     : Text(
                         _isEditing ? 'Guardar cambios' : 'Guardar dirección',
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: text.labelLarge?.copyWith(
+                          color: Colors.white,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -538,21 +543,40 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      maxLines: maxLines,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.image),
-          borderSide: BorderSide.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: AppTheme.navy,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Semantics(
+          label: label,
+          child: TextFormField(
+            controller: controller,
+            validator: validator,
+            maxLines: maxLines,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            decoration: InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.image),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -676,15 +700,12 @@ class _LocationCard extends StatelessWidget {
       _LocationState.missing => 'No pudimos obtener tu ubicación',
       _LocationState.approximate => 'Tu ubicación es aproximada',
       _LocationState.outside => 'Estás fuera de la zona donde entregamos',
-      _LocationState.good => 'Ubicación tomada de tu GPS',
+      _LocationState.good => 'Ubicación de entrega',
     };
 
     final String message = switch (state) {
       _LocationState.good =>
-        'La dirección va a quedar en el punto donde estás parado AHORA '
-            '(${place.latitude.toStringAsFixed(5)}, '
-            '${place.longitude.toStringAsFixed(5)}). Si todavía no estás en el '
-            'lugar, esperá a llegar para guardarla.',
+        'Esta dirección usará la ubicación indicada abajo. Si estás creando una nueva, guardala cuando estés en el lugar de entrega.',
       _LocationState.approximate =>
         'El GPS no consiguió la señal de los satélites, así que el teléfono '
             'contestó con la ubicación de la antena o del wifi '
@@ -711,7 +732,7 @@ class _LocationCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,29 +753,47 @@ class _LocationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            message,
-            style: text.bodySmall?.copyWith(color: foreground),
-          ),
+          Text(message, style: text.bodySmall?.copyWith(color: foreground)),
           if (state == _LocationState.good && inZone == true) ...<Widget>[
             const SizedBox(height: AppSpacing.xs),
             Row(
               children: <Widget>[
                 Icon(Icons.check_circle_rounded, size: 14, color: foreground),
                 const SizedBox(width: 4),
-                Text(
-                  'Estás dentro de la zona de reparto.',
-                  style: text.bodySmall?.copyWith(
-                    color: foreground,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    'Estás dentro de la zona de reparto.',
+                    style: text.bodySmall?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
           ],
+          if (place.isReal)
+            ExpansionTile(
+              title: Text(
+                'Ver coordenadas',
+                style: text.bodySmall?.copyWith(color: foreground),
+              ),
+              tilePadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              children: <Widget>[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${place.latitude.toStringAsFixed(5)}, ${place.longitude.toStringAsFixed(5)}',
+                    style: text.bodySmall?.copyWith(color: foreground),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: AppSpacing.sm),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: Alignment.centerLeft,
             // Con el permiso bloqueado, "Actualizar" no sirve de nada: Android
             // ya no muestra el cartel. La unica salida son los Ajustes.
             child: state == _LocationState.blocked
@@ -775,9 +814,7 @@ class _LocationCard extends StatelessWidget {
             Text(
               'Tip: si estás bajo techo, el GPS tarda o no llega. Salí a un '
               'lugar abierto y volvé a intentar.',
-              style: text.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
+              style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
         ],
       ),

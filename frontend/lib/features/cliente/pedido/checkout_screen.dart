@@ -224,13 +224,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
     final _PickerResult? result = await showModalBottomSheet<_PickerResult>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppRadius.card),
         ),
       ),
-      builder: (BuildContext context) => _AddressPicker(addresses: _addresses),
+      builder: (BuildContext context) =>
+          _AddressPicker(addresses: _addresses, selectedId: _address?.id),
     );
 
     if (!mounted || result == null) {
@@ -889,15 +891,12 @@ class _PickerResult {
 
 /// La lista de direcciones para elegir.
 class _AddressPicker extends StatelessWidget {
-  const _AddressPicker({required this.addresses});
-
+  const _AddressPicker({required this.addresses, required this.selectedId});
   final List<Address> addresses;
-
+  final int? selectedId;
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
+    final text = Theme.of(context).textTheme;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -905,26 +904,63 @@ class _AddressPicker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              '¿A dónde te lo llevamos?',
-              style: text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.tealSoft,
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '¿Dónde te lo llevamos?',
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.navy,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Cerrar direcciones',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                  color: AppTheme.navy,
+                ),
+              ],
+            ),
+            Text(
+              'Elegí una dirección para este pedido.',
+              style: text.bodySmall,
             ),
             const SizedBox(height: AppSpacing.md),
             if (addresses.isEmpty)
               Text(
                 'Todavía no tenés direcciones guardadas.',
-                style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-              )
-            else
-              for (final Address address in addresses)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                style: text.bodyMedium,
+              ),
+            for (final address in addresses)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Semantics(
+                  selected: address.id == selectedId,
                   child: Material(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    color: address.id == selectedId
+                        ? AppTheme.tealSoft
+                        : Theme.of(context).colorScheme.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.image),
+                      side: BorderSide(
+                        color: address.id == selectedId
+                            ? AppTheme.teal
+                            : Colors.transparent,
+                      ),
+                    ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       onTap: () => Navigator.of(
@@ -934,56 +970,67 @@ class _AddressPicker extends StatelessWidget {
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Row(
                           children: <Widget>[
+                            const Icon(
+                              Icons.place_outlined,
+                              color: AppTheme.tealDeep,
+                              size: 22,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  Row(
+                                  Wrap(
+                                    spacing: AppSpacing.xs,
+                                    runSpacing: AppSpacing.xs,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: <Widget>[
                                       Text(
                                         address.label,
                                         style: text.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.w800,
                                           color: AppTheme.navy,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      if (address.isDefault) ...<Widget>[
-                                        const SizedBox(width: AppSpacing.xs),
+                                      if (address.isDefault)
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 1,
+                                            horizontal: 6,
+                                            vertical: 3,
                                           ),
                                           decoration: BoxDecoration(
                                             color: AppTheme.tealSoft,
                                             borderRadius: BorderRadius.circular(
-                                              AppRadius.pill,
+                                              6,
                                             ),
                                           ),
                                           child: Text(
                                             'Predeterminada',
                                             style: text.labelSmall?.copyWith(
                                               color: AppTheme.tealDeep,
-                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
                                         ),
-                                      ],
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: AppSpacing.xs),
                                   Text(
                                     address.address,
                                     style: text.bodySmall?.copyWith(
-                                      color: colors.onSurfaceVariant,
+                                      color: AppTheme.navy,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppTheme.navy,
+                            const SizedBox(width: AppSpacing.sm),
+                            Icon(
+                              address.id == selectedId
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: AppTheme.tealDeep,
+                              size: 22,
                             ),
                           ],
                         ),
@@ -991,10 +1038,8 @@ class _AddressPicker extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
             const SizedBox(height: AppSpacing.sm),
-            // Crear y administrar viven ACA, y no en una pantalla de atras,
-            // porque este es el momento en que al cliente le falta la
-            // direccion: mandarlo a buscar otra pantalla es perderlo.
             OutlinedButton.icon(
               onPressed: () => Navigator.of(
                 context,
@@ -1002,15 +1047,21 @@ class _AddressPicker extends StatelessWidget {
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Nueva dirección'),
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
+                minimumSize: const Size.fromHeight(52),
+                foregroundColor: AppTheme.tealDeep,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.image),
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            TextButton(
-              onPressed: () => Navigator.of(
-                context,
-              ).pop(const _PickerResult(_PickerAction.manage)),
-              child: const Text('Administrar mis direcciones'),
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(const _PickerResult(_PickerAction.manage)),
+                child: const Text('Administrar mis direcciones'),
+              ),
             ),
           ],
         ),
