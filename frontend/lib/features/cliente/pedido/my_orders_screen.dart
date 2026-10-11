@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/filter_tabs.dart';
 import '../../../models/order.dart';
 import 'order_repository.dart';
 import 'order_tracking_screen.dart';
@@ -160,58 +161,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           AppSpacing.xl,
         ),
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              for (final (index, label, icon) in <(int, String, IconData)>[
-                (0, 'Todos', Icons.schedule_rounded),
-                (1, 'En curso', Icons.delivery_dining_rounded),
-                (2, 'Completados', Icons.check_circle_outline_rounded),
-                (3, 'Cancelados', Icons.cancel_outlined),
-              ])
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: index == 3 ? 0 : AppSpacing.xs,
-                    ),
-                    child: Semantics(
-                      selected: _filter == index,
-                      child: TextButton(
-                        key: ValueKey('order-filter-$index'),
-                        style: TextButton.styleFrom(
-                          backgroundColor: _filter == index
-                              ? AppTheme.tealSoft
-                              : Theme.of(context).colorScheme.surface,
-                          foregroundColor: _filter == index
-                              ? AppTheme.tealDeep
-                              : AppTheme.navy,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 2,
-                          ),
-                          minimumSize: const Size(48, 72),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () => setState(() => _filter = index),
-                        child: Column(
-                          children: <Widget>[
-                            Icon(icon, size: 22),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              label,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          FilterTabs(
+            labels: const ['Todos', 'En curso', 'Completados', 'Cancelados'],
+            icons: const [
+              Icons.schedule_rounded,
+              Icons.delivery_dining_rounded,
+              Icons.check_circle_outline_rounded,
+              Icons.cancel_outlined,
             ],
+            selectedIndex: _filter,
+            onSelected: (index) => setState(() => _filter = index),
+            keyPrefix: 'order-filter',
           ),
           const SizedBox(height: AppSpacing.lg),
           if (active.isEmpty && history.isEmpty)

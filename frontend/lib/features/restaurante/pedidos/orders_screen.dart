@@ -8,6 +8,7 @@ import '../../../core/notifications.dart';
 import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/filter_tabs.dart';
 import '../../../core/widgets/live_chip.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
@@ -48,6 +49,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final Session _session = Session(AuthStorage());
 
   List<Order> _orders = <Order>[];
+  int _stage = 0;
+  static const _stages = ['Pendientes', 'Preparación', 'Entrega'];
+  static int _stageOf(Order order) => switch (order.status) {
+    'pending' => 0,
+    'accepted' || 'preparing' => 1,
+    _ => 2,
+  };
+
   String? _error;
   bool _loading = true;
 
@@ -106,8 +115,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     try {
       final ApiClient api = await _session.client();
-      final RestaurantOrders data =
-          await RestaurantOrderRepository(api).load();
+      final RestaurantOrders data = await RestaurantOrderRepository(api).load();
 
       if (!mounted) {
         return;
@@ -298,9 +306,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
       // La acción pudo guardarse aunque se perdiera su respuesta.
       await _load(silent: true);
     } finally {
@@ -312,7 +320,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   /// Rechazar es la unica accion que no se puede deshacer, asi que se pregunta.
   Future<void> _reject(Order order) async {
-    final bool confirmed = await showDialog<bool>(
+    final bool confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: Text('¿Rechazar el pedido #${order.id}?'),
@@ -345,11 +354,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _confirmLogout() async {
-    final bool confirmed = await showDialog<bool>(
+    final bool confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
             title: const Text('¿Cerrar sesión?'),
-            content: const Text('Vas a tener que volver a entrar con tu correo.'),
+            content: const Text(
+              'Vas a tener que volver a entrar con tu correo.',
+            ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -426,36 +438,82 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return _Message(
         icon: Icons.receipt_long_rounded,
         title: 'No hay pedidos en curso',
-        message: 'Cuando entre uno, va a aparecer acá. Deslizá hacia abajo '
+        message:
+            'Cuando entre uno, va a aparecer acá. Deslizá hacia abajo '
             'para actualizar.',
         actionLabel: 'Actualizar',
         onAction: _load,
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppTheme.teal,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.xl,
+    final visible = _orders
+        .where((order) => _stageOf(order) == _stage)
+        .toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: FilterTabs(
+            labels: _stages,
+            icons: const [
+              Icons.schedule_rounded,
+              Icons.soup_kitchen_rounded,
+              Icons.delivery_dining_rounded,
+            ],
+            selectedIndex: _stage,
+            onSelected: (stage) => setState(() => _stage = stage),
+            keyPrefix: 'restaurant-stage',
+          ),
         ),
-        itemCount: _orders.length,
-        itemBuilder: (BuildContext context, int index) {
-          final Order order = _orders[index];
-
-          return _OrderCard(
-            order: order,
-            action: _actionFor(order),
-            savingStatus: _saving[order.id],
-            onMove: (String status) => _move(order, status),
-            onReject: () => _reject(order),
-          );
-        },
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            0,
+          ),
+          child: Row(
+            children: [
+              for (var stage = 0; stage < _stages.length; stage++)
+                Expanded(
+                  child: Text(
+                    '${_orders.where((order) => _stageOf(order) == stage).length} pedidos',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            color: AppTheme.teal,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                if (visible.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: Text(
+                      'No hay pedidos en esta etapa. Podés revisar las otras etapas o deslizar para actualizar.',
+                    ),
+                  ),
+                for (final order in visible)
+                  _OrderCard(
+                    key: ValueKey(order.id),
+                    order: order,
+                    action: _actionFor(order),
+                    savingStatus: _saving[order.id],
+                    onMove: (status) => _move(order, status),
+                    onReject: () => _reject(order),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -463,6 +521,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 /// Una tarjeta de pedido, con lo que el restaurante necesita para trabajarlo.
 class _OrderCard extends StatelessWidget {
   const _OrderCard({
+    super.key,
     required this.order,
     required this.action,
     required this.savingStatus,
@@ -494,10 +553,18 @@ class _OrderCard extends StatelessWidget {
       return '';
     }
 
-    final String hour = created.hour.toString().padLeft(2, '0');
+    final String hour = (created.hour % 12 == 0 ? 12 : created.hour % 12)
+        .toString();
     final String minute = created.minute.toString().padLeft(2, '0');
 
-    return '$hour:$minute';
+    final now = DateTime.now();
+    final date =
+        created.year == now.year &&
+            created.month == now.month &&
+            created.day == now.day
+        ? ''
+        : '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')} · ';
+    return '$date$hour:$minute ${created.hour < 12 ? 'AM' : 'PM'}';
   }
 
   @override
@@ -516,7 +583,10 @@ class _OrderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               Text(
                 '#${order.id}',
@@ -527,7 +597,6 @@ class _OrderCard extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               _StatusPill(order: order),
-              const Spacer(),
               Text(
                 _time,
                 style: text.labelMedium?.copyWith(
@@ -537,7 +606,7 @@ class _OrderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          for (final OrderItem item in order.items)
+          for (final OrderItem item in order.items.take(2))
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
               child: Row(
@@ -564,6 +633,11 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          if (order.items.length > 2)
+            Text(
+              '+ ${order.items.length - 2} platos más en el detalle',
+              style: text.bodySmall,
             ),
           // La nota del cliente, destacada: "sin cebolla" es lo que hace que
           // el pedido salga bien o vuelva.
@@ -611,7 +685,7 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  order.delivery!.address,
+                  order.delivery?.address ?? 'Sin dirección disponible',
                   style: text.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -620,12 +694,51 @@ class _OrderCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${order.total}',
+                'Total \$${order.total}',
                 style: text.titleSmall?.copyWith(
                   color: AppTheme.coral,
                   fontWeight: FontWeight.w800,
                 ),
               ),
+            ],
+          ),
+          ExpansionTile(
+            key: PageStorageKey('restaurant-detail-${order.id}'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            title: const Text('Ver detalle del pedido'),
+            children: [
+              for (final item in order.items)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${item.quantity}× ${item.name}'),
+                  trailing: Text('\$${item.subtotal}'),
+                ),
+              if (order.delivery != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(order.delivery!.address),
+                ),
+              if (order.delivery?.reference?.isNotEmpty ?? false)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Referencia: ${order.delivery!.reference}'),
+                ),
+              const Divider(),
+              for (final entry in {
+                'Productos': order.subtotal,
+                'Envío': order.deliveryFee,
+                'Propina al motorista': order.tipAmount,
+              }.entries)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(entry.key)),
+                      Text('\$${entry.value}'),
+                    ],
+                  ),
+                ),
             ],
           ),
           if (order.isWaitingForCourier || order.isOnTheWay) ...<Widget>[
@@ -642,30 +755,36 @@ class _OrderCard extends StatelessWidget {
             Row(
               children: <Widget>[
                 if (order.canBeRejected) ...<Widget>[
-                  OutlinedButton(
-                    onPressed: saving ? null : onReject,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.coral,
-                      side: const BorderSide(color: AppTheme.coral),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                  Flexible(
+                    child: OutlinedButton(
+                      onPressed: saving ? null : onReject,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.coral,
+                        side: const BorderSide(color: AppTheme.coral),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.image),
+                        ),
+                      ),
+                      child: Text(
+                        savingStatus == 'rejected' ? 'Rechazando…' : 'Rechazar',
                       ),
                     ),
-                    child: Text(savingStatus == 'rejected' ? 'Rechazando…' : 'Rechazar'),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                 ],
                 if (action != null || saving)
                   Expanded(
-                    child: SizedBox(
-                      height: 44,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
                       child: FilledButton(
                         onPressed: saving ? null : () => onMove(action!.status),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.coral,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.image,
+                            ),
                           ),
                         ),
                         child: saving
@@ -675,7 +794,9 @@ class _OrderCard extends StatelessWidget {
                                   const SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Flexible(child: Text(savingLabel)),
@@ -683,7 +804,9 @@ class _OrderCard extends StatelessWidget {
                               )
                             : Text(
                                 action!.label,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                       ),
                     ),
@@ -719,9 +842,9 @@ class _StatusPill extends StatelessWidget {
         background = AppTheme.tealSoft;
     }
 
-    final Color foreground = background == AppTheme.yellow
-        ? AppTheme.navy
-        : Colors.white;
+    final Color foreground = background == AppTheme.coral
+        ? Colors.white
+        : AppTheme.navy;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -732,9 +855,9 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         order.statusLabel,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w700,
-            ),
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -783,10 +906,7 @@ class _Message extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),
