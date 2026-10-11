@@ -45,7 +45,7 @@ class CartNotifier extends Notifier<Cart> {
     state = saved;
   }
 
-  /// Agrega una unidad de un plato.
+  /// Agrega unidades de un plato; por defecto, una.
   ///
   /// Devuelve `false` si el carrito es de OTRO restaurante. En ese caso no
   /// toca nada: vaciar el carrito es una decision del cliente, y la pantalla
@@ -54,7 +54,11 @@ class CartNotifier extends Notifier<Cart> {
     Product product, {
     required int restaurantId,
     required String restaurantName,
+    int quantity = 1,
   }) async {
+    if (quantity < 1) {
+      throw ArgumentError.value(quantity, 'quantity', 'Debe ser positiva');
+    }
     if (!state.belongsTo(restaurantId)) {
       return false;
     }
@@ -66,16 +70,20 @@ class CartNotifier extends Notifier<Cart> {
     );
 
     if (index >= 0) {
-      items[index] = items[index].withQuantity(items[index].quantity + 1);
+      items[index] = items[index].withQuantity(
+        items[index].quantity + quantity,
+      );
     } else {
-      items.add(CartItem(product: product, quantity: 1));
+      items.add(CartItem(product: product, quantity: quantity));
     }
 
-    await _set(Cart(
-      restaurantId: restaurantId,
-      restaurantName: restaurantName,
-      items: items,
-    ));
+    await _set(
+      Cart(
+        restaurantId: restaurantId,
+        restaurantName: restaurantName,
+        items: items,
+      ),
+    );
 
     return true;
   }

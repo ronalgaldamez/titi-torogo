@@ -47,7 +47,7 @@ class CartBar extends ConsumerWidget {
         ),
         child: Material(
           color: AppTheme.tealDeep,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
+          borderRadius: BorderRadius.circular(AppRadius.image),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () async {
@@ -68,30 +68,9 @@ class CartBar extends ConsumerWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  // El globito con cuantas unidades llevas. Es el dato que el
-                  // cliente busca de reojo mientras sigue mirando la carta.
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.yellow,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      '${cart.totalUnits}',
-                      style: text.labelLarge?.copyWith(
-                        color: AppTheme.navy,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
+                  const Icon(Icons.shopping_cart_outlined, color: Colors.white),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    // Dos lineas SOLO cuando el pedido es de otro restaurante:
-                    // en el caso normal la barrita se queda como estaba, que es
-                    // como el cliente ya la conoce.
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,16 +93,36 @@ class CartBar extends ConsumerWidget {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          cart.totalUnits == 1
+                              ? '1 producto'
+                              : '${cart.totalUnits} productos',
+                          style: text.bodySmall?.copyWith(color: Colors.white),
+                        ),
                       ],
                     ),
                   ),
-                  Text(
-                    '\$${cart.subtotal}',
-                    style: text.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Text(
+                        'Subtotal',
+                        style: text.labelSmall?.copyWith(color: Colors.white),
+                      ),
+                      Text(
+                        '\$${cart.subtotal}',
+                        style: text.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(width: AppSpacing.xs),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.white),
                 ],
               ),
             ),
@@ -153,6 +152,7 @@ class CartSheet extends ConsumerWidget {
     return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: AppTheme.background,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppRadius.card),
@@ -190,12 +190,24 @@ class CartSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              cart.restaurantName ?? 'Tu pedido',
-              style: text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
-              ),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    cart.restaurantName ?? 'Tu pedido',
+                    style: text.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.navy,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Cerrar carrito',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                  color: AppTheme.navy,
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             if (cart.isEmpty)
@@ -239,28 +251,34 @@ class CartSheet extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
-                height: 52,
                 width: double.infinity,
-                child: FilledButton(
+                child: FilledButton.icon(
                   // pop(true): le avisa a la barrita que abra el checkout.
                   // La hoja NO navega sola (ver CartSheet.show).
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.coralDeep,
+                    backgroundColor: AppTheme.coral,
+                    minimumSize: const Size(0, 54),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      borderRadius: BorderRadius.circular(AppRadius.image),
                     ),
                   ),
-                  child: const Text(
-                    'Continuar',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                  label: Text(
+                    'Continuar a la entrega',
+                    style: text.labelLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
               Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
                   onPressed: () async {
                     await ref.read(cartProvider.notifier).clear();
 
@@ -268,7 +286,7 @@ class CartSheet extends ConsumerWidget {
                       Navigator.of(context).pop();
                     }
                   },
-                  child: const Text('Vaciar carrito'),
+                  label: const Text('Vaciar carrito'),
                 ),
               ),
             ],
@@ -382,7 +400,9 @@ class _RoundButton extends StatelessWidget {
         backgroundColor: AppTheme.tealSoft,
         foregroundColor: AppTheme.tealDeep,
         minimumSize: const Size(48, 48),
-        shape: const CircleBorder(),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.image),
+        ),
       ),
       icon: Icon(icon, size: 24),
     );
