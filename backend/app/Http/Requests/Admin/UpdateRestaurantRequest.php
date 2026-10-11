@@ -49,7 +49,7 @@ class UpdateRestaurantRequest extends FormRequest
             'phone' => ['required', 'string', 'max:30'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
-            'prep_time_minutes' => ['required', 'integer', 'min:1', 'max:180'],
+            'prep_time_minutes' => ['required', 'integer', 'min:10', 'max:45'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
@@ -69,6 +69,8 @@ class UpdateRestaurantRequest extends FormRequest
             'latitude.required' => 'Faltan las coordenadas.',
             'longitude.required' => 'Faltan las coordenadas.',
             'prep_time_minutes.required' => 'Poné cuánto tardás en preparar un pedido.',
+            'prep_time_minutes.min' => 'El tiempo debe ser al menos 10 minutos.',
+            'prep_time_minutes.max' => 'El tiempo no puede superar 45 minutos.',
             'delivery_fee.numeric' => 'La tarifa tiene que ser un número (o dejarla vacía).',
         ];
     }

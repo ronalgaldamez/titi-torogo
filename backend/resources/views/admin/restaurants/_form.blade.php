@@ -52,9 +52,9 @@
              :value="$r?->longitude" required
              hint="Ejemplo: -89.1506165. El signo menos importa." />
 
-    <x-field name="prep_time_minutes" label="Tiempo de preparación (minutos)"
-             type="number" :value="$r?->prep_time_minutes ?? 15" required
-             hint="Lo que tarda la cocina. El cliente lo suma al envío." />
+    <x-field name="prep_time_minutes" label="Tiempo máximo de preparación (minutos)"
+             type="number" :value="$r?->preparationMaximumMinutes() ?? 15" min="10" max="45" required
+             hint="Entre 10 y 45 minutos de preparación, sin incluir el recorrido de entrega." />
 
     <x-field name="delivery_fee" label="Tarifa de envío propia (opcional)"
              type="number" step="0.01" :value="$r?->delivery_fee"

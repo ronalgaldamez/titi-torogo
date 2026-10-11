@@ -150,6 +150,9 @@ class RestaurantController extends Controller
             $restaurant->latitude = $request->validated('latitude');
             $restaurant->longitude = $request->validated('longitude');
             $restaurant->prep_time_minutes = $request->validated('prep_time_minutes');
+            if ($restaurant->prep_time_min_minutes !== null && $restaurant->prep_time_min_minutes > $restaurant->prep_time_minutes) {
+                $restaurant->prep_time_min_minutes = $restaurant->prep_time_minutes;
+            }
             $restaurant->delivery_fee = $request->validated('delivery_fee');
             $restaurant->save();
         });

@@ -67,7 +67,7 @@ class RestaurantCard extends StatelessWidget {
                             _Stat(
                               icon: Icons.schedule_rounded,
                               label:
-                                  '${restaurant.estimatedDeliveryMinutes} min',
+                                  'Preparación ${restaurant.preparationTimeLabel}',
                             ),
                             if (restaurant.distanceKm != null)
                               _Stat(
@@ -160,11 +160,13 @@ class _Stat extends StatelessWidget {
       children: <Widget>[
         Icon(icon, size: 16, color: AppTheme.tealDeep),
         const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: AppTheme.navy),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppTheme.navy),
+          ),
         ),
       ],
     );

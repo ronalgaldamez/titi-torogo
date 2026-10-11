@@ -13,6 +13,10 @@ class Restaurant {
     required this.isOpen,
     required this.isBusy,
     required this.estimatedDeliveryMinutes,
+    this.prepTimeMinMinutes,
+    this.prepTimeMaxMinutes,
+    this.estimatedPrepMinMinutes,
+    this.estimatedPrepMaxMinutes,
     this.deliveryFee,
     this.description,
     this.phone,
@@ -37,6 +41,18 @@ class Restaurant {
 
   /// Tiempo estimado, ya con el modo "muy ocupado" aplicado por el backend.
   final int estimatedDeliveryMinutes;
+  final int? prepTimeMinMinutes;
+  final int? prepTimeMaxMinutes;
+  final int? estimatedPrepMinMinutes;
+  final int? estimatedPrepMaxMinutes;
+
+  int get preparationMinimum => prepTimeMinMinutes ?? estimatedDeliveryMinutes;
+  int get preparationMaximum => prepTimeMaxMinutes ?? estimatedDeliveryMinutes;
+  String get preparationTimeLabel {
+    final minimum = estimatedPrepMinMinutes ?? estimatedDeliveryMinutes;
+    final maximum = estimatedPrepMaxMinutes ?? estimatedDeliveryMinutes;
+    return minimum == maximum ? '$maximum min' : '$minimum–$maximum min';
+  }
 
   /// Tarifa final del envio, ya resuelta: la promocion del restaurante si
   /// tiene una, o la de la zona si no. Como String, por lo del dinero.
@@ -62,6 +78,14 @@ class Restaurant {
       isOpen: json['is_open'] as bool,
       isBusy: json['is_busy'] as bool,
       estimatedDeliveryMinutes: json['estimated_delivery_minutes'] as int,
+      prepTimeMinMinutes:
+          json['prep_time_min_minutes'] as int? ??
+          json['prep_time_minutes'] as int?,
+      prepTimeMaxMinutes:
+          json['prep_time_max_minutes'] as int? ??
+          json['prep_time_minutes'] as int?,
+      estimatedPrepMinMinutes: json['estimated_prep_min_minutes'] as int?,
+      estimatedPrepMaxMinutes: json['estimated_prep_max_minutes'] as int?,
       // OJO: '${null}' da la cadena "null", y eso se veria tal cual en la
       // pantalla ("envio $null"). Por eso se revisa antes de convertir.
       deliveryFee: json['delivery_fee'] == null
