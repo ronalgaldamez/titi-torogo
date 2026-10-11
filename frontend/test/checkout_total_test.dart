@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/cliente/carrito/cart_provider.dart';
 import 'package:torogo/features/cliente/pedido/checkout_screen.dart';
 import 'package:torogo/features/cliente/pedido/order_sent_screen.dart';
@@ -18,6 +19,12 @@ void main() {
     testWidgets(
       'El checkout conserva total e intento (respuesta $status; 0=corte, -1=timeout)',
       (WidgetTester tester) async {
+        if (status == 201) {
+          tester.view.physicalSize = const Size(320, 1000);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+        }
         SharedPreferences.setMockInitialValues(<String, Object>{
           'torogo_token': 'token-de-prueba',
         });
@@ -163,11 +170,25 @@ void main() {
           await tester.pumpWidget(
             UncontrolledProviderScope(
               container: container,
-              child: const MaterialApp(home: CheckoutScreen()),
+              child: MaterialApp(
+                theme: AppTheme.light(),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(status == 201 ? 1.2 : 1),
+                  ),
+                  child: child!,
+                ),
+                home: const CheckoutScreen(),
+              ),
             ),
           );
           await tester.pumpAndSettle();
           expect(find.text(r'$6.00'), findsOneWidget);
+          expect(find.text('Tu pedido'), findsOneWidget);
+          expect(find.text('Propina al motorista'), findsOneWidget);
+          expect(find.text('Resumen'), findsOneWidget);
+          expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
+          expect(tester.takeException(), isNull);
           if (status == 201) {
             await tester.ensureVisible(
               find.widgetWithText(ChoiceChip, 'Otro monto'),
