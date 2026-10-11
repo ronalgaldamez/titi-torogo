@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/filter_tabs.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
 import 'categories_screen.dart';
@@ -41,6 +42,43 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   /// en su propia seccion, para que no desaparezcan de la vista.
   List<Product> _uncategorized = <Product>[];
 
+  final TextEditingController _search = TextEditingController();
+  int _category = -1;
+  int _availability = -1;
+  int _page = 0;
+  static const int _pageSize = 8;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _resetFilters() {
+    _search.clear();
+    setState(() {
+      _category = -1;
+      _availability = -1;
+      _page = 0;
+    });
+  }
+
+  static String _normalize(String value) {
+    var result = value.toLowerCase().trim();
+    const accents = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'ü': 'u',
+    };
+    accents.forEach((accent, letter) {
+      result = result.replaceAll(accent, letter);
+    });
+    return result;
+  }
+
   String? _error;
   bool _loading = true;
 
@@ -75,6 +113,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       setState(() {
         _categories = data.categories;
         _uncategorized = data.uncategorized;
+        if (!_categories.any((category) => category.id == _category) &&
+            _category > 0) {
+          _category = -1;
+        }
         _loading = false;
       });
     } on ApiException catch (error) {
@@ -99,10 +141,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     try {
       final ApiClient api = await _session.client();
-      final Product updated = await MenuRepository(api).setAvailable(
-        product.id,
-        isAvailable: isAvailable,
-      );
+      final Product updated = await MenuRepository(
+        api,
+      ).setAvailable(product.id, isAvailable: isAvailable);
 
       if (!mounted) {
         return;
@@ -112,12 +153,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       // que se ve es exactamente lo que quedo guardado, y no lo que creiamos.
       setState(() {
         _categories = _categories
-            .map((MenuCategory category) => category.copyWith(
-                  products: category.products
-                      .map((Product item) =>
-                          item.id == updated.id ? updated : item)
-                      .toList(),
-                ))
+            .map(
+              (MenuCategory category) => category.copyWith(
+                products: category.products
+                    .map(
+                      (Product item) => item.id == updated.id ? updated : item,
+                    )
+                    .toList(),
+              ),
+            )
             .toList();
 
         _uncategorized = _uncategorized
@@ -129,9 +173,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _saving.remove(product.id));
@@ -216,12 +260,23 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ],
       ),
       body: _body(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        backgroundColor: AppTheme.coral,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Agregar plato'),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: FilledButton.icon(
+            onPressed: _loading || _error != null
+                ? null
+                : () => _openForm(categoryId: _category > 0 ? _category : null),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.coral,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Agregar plato'),
+          ),
+        ),
       ),
     );
   }
@@ -251,59 +306,272 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppTheme.teal,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          // Espacio de sobra abajo: el boton flotante de "Agregar plato" tapa
-          // la ultima fila si la lista termina justo en el borde.
-          AppSpacing.xl * 3,
+    final entries = <({Product product, int categoryId, String categoryName})>[
+      for (final category in _categories)
+        for (final product in category.products)
+          (
+            product: product,
+            categoryId: category.id,
+            categoryName: category.name,
+          ),
+      for (final product in _uncategorized)
+        (product: product, categoryId: 0, categoryName: 'Sin categoría'),
+    ];
+    final filtered = entries
+        .where(
+          (entry) =>
+              (_category == -1 || entry.categoryId == _category) &&
+              (_availability == -1 ||
+                  entry.product.isAvailable == (_availability == 1)) &&
+              _normalize(entry.product.name).contains(_normalize(_search.text)),
+        )
+        .toList();
+    final pages = (filtered.length / _pageSize).ceil().clamp(
+      1,
+      entries.length + 1,
+    );
+    final page = _page.clamp(0, pages - 1);
+    final visible = filtered.skip(page * _pageSize).take(_pageSize);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            children: [
+              TextField(
+                controller: _search,
+                onChanged: (_) => setState(() => _page = 0),
+                decoration: InputDecoration(
+                  hintText: 'Buscar un plato',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                    borderSide: const BorderSide(color: AppTheme.teal),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              FilterTabs(
+                labels: const ['Todos', 'Disponibles', 'Agotados'],
+                selectedIndex: _availability == -1
+                    ? 0
+                    : (_availability == 1 ? 1 : 2),
+                onSelected: (index) => setState(() {
+                  _availability = [-1, 1, 0][index];
+                  _page = 0;
+                }),
+                keyPrefix: 'menu-availability',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  key: const ValueKey('menu-category-filter'),
+                  onPressed: _pickCategory,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.tealDeep,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    minimumSize: const Size(0, 48),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 18),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          _category == -1
+                              ? 'Todas las categorías'
+                              : _category == 0
+                              ? 'Sin categoría'
+                              : _categories
+                                    .firstWhere(
+                                      (category) => category.id == _category,
+                                    )
+                                    .name,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              Wrap(
+                spacing: AppSpacing.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      '${filtered.length} de ${entries.length} platos',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  if (_category != -1 ||
+                      _availability != -1 ||
+                      _search.text.isNotEmpty)
+                    TextButton(
+                      onPressed: _resetFilters,
+                      child: const Text('Limpiar filtros'),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
-        children: <Widget>[
-          for (final MenuCategory category in _categories) ...<Widget>[
-            _CategoryHeader(
-              title: category.name,
-              subtitle: _countLabel(category.productCount),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              children: [
+                if (filtered.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: Text(
+                      'No hay platos con estos filtros. Probá otra búsqueda o limpiá los filtros.',
+                    ),
+                  ),
+                for (final entry in visible)
+                  _ProductTile(
+                    key: ValueKey(entry.product.id),
+                    product: entry.product,
+                    categoryName: entry.categoryName,
+                    saving: _saving.contains(entry.product.id),
+                    onChanged: (value) => _toggle(entry.product, value),
+                    onTap: () => _openForm(
+                      product: entry.product,
+                      categoryId: entry.categoryId == 0
+                          ? null
+                          : entry.categoryId,
+                    ),
+                  ),
+              ],
             ),
-            ..._rowsOf(category.products, categoryId: category.id),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-          // Los platos sin categoria van al final, en su propia seccion. Solo
-          // aparece si hay alguno.
-          if (_uncategorized.isNotEmpty) ...<Widget>[
-            _CategoryHeader(
-              title: 'Sin categoría',
-              subtitle: _countLabel(_uncategorized.length),
-            ),
-            ..._rowsOf(_uncategorized),
-          ],
-        ],
-      ),
+          ),
+        ),
+        if (filtered.isNotEmpty)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                tooltip: 'Página anterior',
+                onPressed: page == 0
+                    ? null
+                    : () => setState(() => _page = page - 1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Flexible(child: Text('Página ${page + 1} de $pages')),
+              IconButton(
+                tooltip: 'Página siguiente',
+                onPressed: page + 1 >= pages
+                    ? null
+                    : () => setState(() => _page = page + 1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
-  static String _countLabel(int count) =>
-      count == 1 ? '1 plato' : '$count platos';
-
-  /// Las filas de una lista de platos, o el aviso de que la categoria esta
-  /// vacia.
-  List<Widget> _rowsOf(List<Product> products, {int? categoryId}) {
-    if (products.isEmpty) {
-      return const <Widget>[_EmptyCategory()];
+  Future<void> _pickCategory() async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: AppTheme.background,
+      builder: (context) => SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  'Filtrar por categoría',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final entry in <({int id, String name, int count})>[
+                      (
+                        id: -1,
+                        name: 'Todas las categorías',
+                        count:
+                            _categories.fold<int>(
+                              0,
+                              (sum, category) => sum + category.products.length,
+                            ) +
+                            _uncategorized.length,
+                      ),
+                      for (final category in _categories)
+                        (
+                          id: category.id,
+                          name: category.name,
+                          count: category.products.length,
+                        ),
+                      if (_uncategorized.isNotEmpty || _category == 0)
+                        (
+                          id: 0,
+                          name: 'Sin categoría',
+                          count: _uncategorized.length,
+                        ),
+                    ])
+                      ListTile(
+                        key: ValueKey('menu-category-${entry.id}'),
+                        selected: _category == entry.id,
+                        selectedColor: AppTheme.tealDeep,
+                        selectedTileColor: AppTheme.tealSoft,
+                        leading: Icon(
+                          _category == entry.id
+                              ? Icons.check_circle_rounded
+                              : Icons.restaurant_menu_rounded,
+                        ),
+                        title: Text(entry.name),
+                        trailing: Text('${entry.count}'),
+                        onTap: () => Navigator.of(context).pop(entry.id),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
     }
-
-    return products
-        .map((Product product) => _ProductTile(
-              product: product,
-              saving: _saving.contains(product.id),
-              onChanged: (bool value) => _toggle(product, value),
-              onTap: () => _openForm(product: product, categoryId: categoryId),
-            ))
-        .toList();
+    setState(() {
+      _category = selected;
+      _page = 0;
+    });
   }
 
   Future<void> _confirmLogout() async {
@@ -331,64 +599,21 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 }
 
-/// El encabezado de una seccion: una barrita de color, el nombre y cuantos
-/// platos tiene.
-class _CategoryHeader extends StatelessWidget {
-  const _CategoryHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 4,
-            height: 18,
-            decoration: BoxDecoration(
-              color: AppTheme.teal,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              title,
-              style: text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: text.labelMedium?.copyWith(color: AppTheme.teal),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Una fila del menu: el plato a la izquierda, su interruptor a la derecha.
 ///
 /// Tocar la fila abre el formulario para editarlo. El interruptor es SOLO
 /// para agotar: son dos acciones distintas y por eso estan separadas.
 class _ProductTile extends StatelessWidget {
   const _ProductTile({
+    super.key,
+    required this.categoryName,
     required this.product,
     required this.saving,
     required this.onChanged,
     required this.onTap,
   });
 
+  final String categoryName;
   final Product product;
   final bool saving;
   final ValueChanged<bool> onChanged;
@@ -400,7 +625,6 @@ class _ProductTile extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
     final bool available = product.isAvailable;
-    final String? description = product.description;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -409,7 +633,7 @@ class _ProductTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.card),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: saving ? null : onTap,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -433,24 +657,21 @@ class _ProductTile extends StatelessWidget {
                           color: available
                               ? AppTheme.navy
                               : colors.onSurfaceVariant,
-                          decoration:
-                              available ? null : TextDecoration.lineThrough,
+                          decoration: available
+                              ? null
+                              : TextDecoration.lineThrough,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (description != null &&
-                          description.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(
-                          description,
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        '$categoryName · ${available ? 'Disponible' : 'Agotado'} · Editar',
+                        style: text.bodySmall?.copyWith(
+                          color: AppTheme.tealDeep,
                         ),
-                      ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         '\$${product.price}',
@@ -473,36 +694,11 @@ class _ProductTile extends StatelessWidget {
                     ),
                   )
                 else
-                  Switch(
-                    value: available,
-                    onChanged: onChanged,
-                  ),
+                  Switch(value: available, onChanged: onChanged),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// El aviso de una categoria sin platos.
-class _EmptyCategory extends StatelessWidget {
-  const _EmptyCategory();
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Text(
-        'Esta categoría todavía no tiene platos.',
-        style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
       ),
     );
   }
@@ -551,10 +747,7 @@ class _Message extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),
