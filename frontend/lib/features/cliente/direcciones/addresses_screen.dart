@@ -101,12 +101,35 @@ class _AddressesScreenState extends State<AddressesScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        backgroundColor: AppTheme.coral,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nueva dirección'),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          child: FilledButton.icon(
+            onPressed: () => _openForm(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.coral,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.image),
+              ),
+            ),
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: Text(
+              'Nueva dirección',
+              style: text.labelLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
       ),
       body: _body(),
     );
@@ -131,7 +154,8 @@ class _AddressesScreenState extends State<AddressesScreen> {
       return _Message(
         icon: Icons.place_outlined,
         title: 'Todavía no tenés direcciones',
-        message: 'Agregá una para poder pedir. La primera queda como '
+        message:
+            'Agregá una para poder pedir. La primera queda como '
             'predeterminada sola.',
         actionLabel: 'Agregar dirección',
         onAction: () => _openForm(),
@@ -142,11 +166,12 @@ class _AddressesScreenState extends State<AddressesScreen> {
       onRefresh: _load,
       color: AppTheme.teal,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
           AppSpacing.sm,
           AppSpacing.md,
-          AppSpacing.xl * 3,
+          AppSpacing.md,
         ),
         children: <Widget>[
           for (final Address address in _addresses)
@@ -176,7 +201,7 @@ class _AddressRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Material(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        borderRadius: BorderRadius.circular(AppRadius.image),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -184,11 +209,28 @@ class _AddressRow extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: <Widget>[
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.tealSoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: AppTheme.tealDeep,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Row(
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: <Widget>[
                           Text(
                             address.label,
@@ -198,7 +240,6 @@ class _AddressRow extends StatelessWidget {
                             ),
                           ),
                           if (address.isDefault) ...<Widget>[
-                            const SizedBox(width: AppSpacing.xs),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -206,8 +247,9 @@ class _AddressRow extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: AppTheme.tealSoft,
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.pill),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
                               ),
                               child: Text(
                                 'Predeterminada',
@@ -234,14 +276,17 @@ class _AddressRow extends StatelessWidget {
                           address.reference!,
                           style: text.bodySmall?.copyWith(
                             color: colors.onSurfaceVariant,
-                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppTheme.navy),
+                const SizedBox(width: AppSpacing.sm),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.tealDeep,
+                ),
               ],
             ),
           ),
@@ -294,10 +339,7 @@ class _Message extends StatelessWidget {
               style: text.bodyMedium?.copyWith(color: AppTheme.navy),
             ),
             const SizedBox(height: AppSpacing.md),
-            FilledButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),
