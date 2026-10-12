@@ -37,9 +37,10 @@ Problema observado: existen pedidos de prueba que siguen pendientes durante día
 
 - [ ] Logo del negocio en Mi local: revisar carga, edición y visualización; por ahora conservar la inicial del restaurante.
 
-- [ ] Revisar primero la pantalla Pedidos y su funcionamiento actual.
+- [x] Revisar y mejorar Pedidos y Mi menú del restaurante.
 - [ ] Proponer mejoras visuales consistentes con Toro Go y mostrarlas antes de implementar.
-- [ ] Revisar después Mi menú y Mi local, conservando las funcionalidades existentes.
+- [x] Mejorar Mi local y configurar preparación entre 10 y 45 minutos.
+- [ ] Validar el historial del restaurante: filtros por estado y período, paginación, detalle y aislamiento entre cuentas.
 
 ## Estimación de entrega completa
 

@@ -13,6 +13,7 @@ import '../../../core/widgets/live_chip.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
 import 'restaurant_order_repository.dart';
+import 'restaurant_history_screen.dart';
 
 /// Los pedidos del restaurante.
 ///
@@ -399,6 +400,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Historial de pedidos',
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const RestaurantHistoryScreen(),
+              ),
+            ),
+          ),
           if (_connected) const LiveChip(),
           IconButton(
             onPressed: _load,

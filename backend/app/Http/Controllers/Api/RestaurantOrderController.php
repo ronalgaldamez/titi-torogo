@@ -35,6 +35,40 @@ class RestaurantOrderController extends Controller
     {
         $restaurant = $request->user()->restaurant;
 
+        if ($request->query('scope') === 'history') {
+            $filters = $request->validate([
+                'status' => ['sometimes', 'string', 'in:delivered,rejected,cancelled'],
+                'period' => ['sometimes', 'string', 'in:today,week,all'],
+                'page' => ['sometimes', 'integer', 'min:1'],
+            ]);
+            $period = $filters['period'] ?? 'week';
+            $query = $restaurant->orders()->with(['items', 'restaurant'])
+                ->whereIn('status', OrderStatus::finalValues());
+            if (isset($filters['status'])) {
+                $query->where('status', $filters['status']);
+            }
+            if ($period !== 'all') {
+                $start = now()->startOfDay();
+                if ($period === 'week') {
+                    $start->subDays(6);
+                }
+                $query->whereRaw('COALESCE(delivered_at, cancelled_at, created_at) >= ?', [$start])
+                    ->whereRaw('COALESCE(delivered_at, cancelled_at, created_at) < ?', [now()->startOfDay()->addDay()]);
+            }
+            $orders = $query->orderByRaw('COALESCE(delivered_at, cancelled_at, created_at) DESC')
+                ->orderByDesc('id')->paginate(20);
+
+            return response()->json([
+                'restaurant' => ['id' => $restaurant->id, 'name' => $restaurant->name],
+                'orders' => OrderResource::collection($orders->items()),
+                'pagination' => [
+                    'current_page' => $orders->currentPage(),
+                    'last_page' => $orders->lastPage(),
+                    'total' => $orders->total(),
+                ],
+            ]);
+        }
+
         $query = $restaurant->orders()
             ->with(['items', 'restaurant'])
             ->latest();
