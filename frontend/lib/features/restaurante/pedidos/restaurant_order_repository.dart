@@ -1,6 +1,19 @@
 import '../../../core/api_client.dart';
 import '../../../models/order.dart';
 
+class RestaurantHistoryPage {
+  const RestaurantHistoryPage({
+    required this.orders,
+    required this.page,
+    required this.pages,
+    required this.total,
+  });
+  final List<Order> orders;
+  final int page;
+  final int pages;
+  final int total;
+}
+
 /// Lo que devuelve la lista de pedidos del restaurante.
 ///
 /// Trae los pedidos Y de que restaurante son. El id no es un adorno: es lo que
@@ -32,6 +45,32 @@ class RestaurantOrderRepository {
   RestaurantOrderRepository(this._api);
 
   final ApiClient _api;
+
+  Future<RestaurantHistoryPage> history({
+    required String period,
+    String? status,
+    int page = 1,
+  }) async {
+    final json = await _api.get(
+      '/restaurant/orders',
+      query: <String, dynamic>{
+        'scope': 'history',
+        'period': period,
+        'page': page,
+        'status': ?status,
+      },
+    );
+    final pagination = json['pagination'] as Map<String, dynamic>;
+    return RestaurantHistoryPage(
+      orders: (json['orders'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(Order.fromJson)
+          .toList(),
+      page: pagination['current_page'] as int,
+      pages: pagination['last_page'] as int,
+      total: pagination['total'] as int,
+    );
+  }
 
   /// GET /api/restaurant/orders
   ///
