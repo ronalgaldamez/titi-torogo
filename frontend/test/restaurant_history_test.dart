@@ -121,8 +121,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(queries.last['period'], 'week');
         expect(find.text('Entregado'), findsOneWidget);
-        expect(find.text('11/10/2026'), findsOneWidget);
-        expect(find.text('12:35 PM'), findsOneWidget);
+        expect(find.text('11/10/2026 · 12:35 PM'), findsOneWidget);
+        expect(find.text('Pupusa de queso con nombre largo'), findsNothing);
         expect(find.text('Aceptar'), findsNothing);
         await tester.tap(find.text('Ver detalle del pedido').first);
         await tester.pumpAndSettle();
@@ -132,7 +132,15 @@ void main() {
           150,
           scrollable: scrollable,
         );
-        expect(find.text('Productos'), findsOneWidget);
+        expect(find.text('Productos'), findsNWidgets(2));
+        expect(find.text('Pupusa de queso con nombre largo'), findsOneWidget);
+        expect(find.text('Casa'), findsOneWidget);
+        expect(find.text('Referencia: Portón azul'), findsOneWidget);
+        final firstOrder = find.byKey(const ValueKey('history-card-1'));
+        expect(
+          find.descendant(of: firstOrder, matching: find.text(r'$6.00')),
+          findsOneWidget,
+        );
         expect(find.text('Propina al motorista'), findsOneWidget);
         expect(find.text(r'$1.00'), findsOneWidget);
         await tester.tap(find.byTooltip('Página siguiente'));

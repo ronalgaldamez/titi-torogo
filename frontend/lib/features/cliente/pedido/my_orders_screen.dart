@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
@@ -22,7 +24,8 @@ class MyOrdersScreen extends StatefulWidget {
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
 }
 
-class _MyOrdersScreenState extends State<MyOrdersScreen> {
+class _MyOrdersScreenState extends State<MyOrdersScreen>
+    with WidgetsBindingObserver {
   final Session _session = Session(AuthStorage());
 
   List<Order> _active = <Order>[];
@@ -31,18 +34,48 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   bool _loading = true;
   String? _error;
   int _filter = 0;
+  Timer? _refreshTimer;
+  bool _fetching = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_active.isNotEmpty &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        unawaited(_load(silent: true));
+      }
+    });
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _active.isNotEmpty &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      unawaited(_load(silent: true));
+    }
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (_fetching) return;
+    _fetching = true;
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final ApiClient api = await _session.client();
@@ -59,16 +92,20 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         _active = active;
         _history = history;
         _loading = false;
+        _error = null;
       });
     } on ApiException catch (error) {
       if (!mounted) {
         return;
       }
 
+      if (silent) return;
       setState(() {
         _error = error.message;
         _loading = false;
       });
+    } finally {
+      _fetching = false;
     }
   }
 

@@ -39,6 +39,64 @@ Map<String, dynamic> order(int id, String status, String label) => {
 };
 
 void main() {
+  testWidgets(
+    'Mis pedidos refleja vencimientos sin actualizar y conserva datos si falla la red',
+    (tester) async {
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+      SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
+      var cancelled = false;
+      var fail = false;
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        if (fail) return http.Response('{"message":"Sin conexión"}', 503);
+        final history = request.url.queryParameters['scope'] == 'history';
+        return http.Response(
+          jsonEncode({
+            'orders': history
+                ? (cancelled ? [order(1, 'cancelled', 'Cancelado')] : [])
+                : (cancelled ? [] : [order(1, 'pending', 'Pendiente')]),
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      await http.runWithClient(() async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpWidget(
+          MaterialApp(theme: AppTheme.light(), home: const MyOrdersScreen()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Pendiente'), findsOneWidget);
+        expect(requests, 2);
+        fail = true;
+        await tester.pump(const Duration(seconds: 15));
+        await tester.pumpAndSettle();
+        expect(find.text('Pendiente'), findsOneWidget);
+        expect(find.text('Sin conexión'), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        fail = false;
+        cancelled = true;
+        await tester.pump(const Duration(seconds: 15));
+        await tester.pumpAndSettle();
+        expect(find.text('Pendiente'), findsNothing);
+        expect(find.text('Cancelado'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('order-filter-3')));
+        await tester.pumpAndSettle();
+        expect(find.text('Cancelado'), findsOneWidget);
+        final afterCancellation = requests;
+        await tester.pump(const Duration(seconds: 30));
+        await tester.pumpAndSettle();
+        expect(requests, afterCancellation);
+        expect(tester.takeException(), isNull);
+      }, () => client);
+    },
+  );
+
   testWidgets('Mis pedidos filtra sin recargar y conserva estados y montos', (
     tester,
   ) async {
@@ -46,6 +104,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
     SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
     int requests = 0;
     bool fail = false;
@@ -133,6 +194,9 @@ void main() {
   });
 
   testWidgets('Un filtro vacío permite volver a todos', (tester) async {
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
     SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
     final client = MockClient(
       (request) async => http.Response(

@@ -378,6 +378,11 @@ class _HistoryCard extends StatelessWidget {
             style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.sm),
+          if (order.cancellationReason != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Text(order.cancellationReason!, style: text.bodySmall),
+            ),
           ExpansionTile(
             key: PageStorageKey('restaurant-history-detail-${order.id}'),
             tilePadding: EdgeInsets.zero,

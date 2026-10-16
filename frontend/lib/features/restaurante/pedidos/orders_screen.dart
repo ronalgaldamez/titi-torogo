@@ -644,6 +644,14 @@ class _OrderCard extends StatelessWidget {
               ),
             ],
           ),
+          if (order.acceptanceDeadlineLabel != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Text(
+                order.acceptanceDeadlineLabel!,
+                style: text.bodySmall,
+              ),
+            ),
           // La nota del cliente, destacada: "sin cebolla" es lo que hace que
           // el pedido salga bien o vuelva.
           if (notes != null && notes.isNotEmpty) ...<Widget>[

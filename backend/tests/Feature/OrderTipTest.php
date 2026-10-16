@@ -17,6 +17,18 @@ class OrderTipTest extends TestCase
 
     private array $payload;
 
+    public function test_new_order_has_five_minutes_and_retry_does_not_extend_deadline(): void
+    {
+        $this->freezeTime();
+        $response = $this->postJson('/api/orders', $this->payload)->assertCreated();
+        $deadline = $response->json('order.acceptance_expires_at');
+        $this->assertSame(now()->addMinutes(5)->toIso8601String(), $deadline);
+        $this->travel(2)->minutes();
+        $this->postJson('/api/orders', $this->payload)->assertOk()
+            ->assertJsonPath('order.acceptance_expires_at', $deadline);
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

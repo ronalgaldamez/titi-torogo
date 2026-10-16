@@ -208,7 +208,8 @@ void main() {
       expect(find.byIcon(Icons.soup_kitchen_rounded), findsOneWidget);
       expect(find.byIcon(Icons.delivery_dining_rounded), findsOneWidget);
       expect(find.text('Aceptar'), findsOneWidget);
-      expect(find.text(r'Total $4.00'), findsOneWidget);
+      expect(find.text('Total del pedido'), findsOneWidget);
+      expect(find.text(r'$4.00'), findsOneWidget);
       expect(find.text('Sin cebolla'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('restaurant-stage-1')));
       await tester.pumpAndSettle();

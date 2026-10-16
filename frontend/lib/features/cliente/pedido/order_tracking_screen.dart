@@ -271,14 +271,22 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       order.deliveredAt ?? order.cancelledAt ?? order.createdAt,
                   format: _format,
                 ),
+                if (order.acceptanceDeadlineLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Text(order.acceptanceDeadlineLabel!),
+                  ),
                 if (order.status == 'rejected')
                   const _Notice(
                     message: 'El restaurante no pudo con este pedido.',
                     color: AppTheme.coral,
                   ),
                 if (order.status == 'cancelled')
-                  const _Notice(
-                    message: 'Este pedido se canceló.',
+                  _Notice(
+                    message:
+                        order.cancellationReason ?? 'Este pedido se canceló.',
                     color: AppTheme.coral,
                   ),
                 if (order.status == 'ready')
@@ -309,7 +317,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       ),
                       child: Text(
                         order.paymentMethod == 'cash'
-                            ? 'Pagás en efectivo al recibir'
+                            ? switch (order.status) {
+                                'cancelled' =>
+                                  'Pedido cancelado · No tenés que pagar',
+                                'rejected' =>
+                                  'Pedido rechazado · No tenés que pagar',
+                                _ => 'Pagás en efectivo al recibir',
+                              }
                             : 'Pago: ${order.paymentMethod}',
                         style: text.bodySmall?.copyWith(color: AppTheme.navy),
                       ),

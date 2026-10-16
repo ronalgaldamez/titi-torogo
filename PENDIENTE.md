@@ -25,6 +25,7 @@ Antes de implementar, revisar el código para distinguir funcionalidades faltant
 Problema observado: existen pedidos de prueba que siguen pendientes durante días porque el restaurante no los aceptó.
 
 - [ ] Revisar si existe actualmente un vencimiento de pedidos pendientes y por qué permanecen abiertos.
+- Implementación en la rama `titi/feature/vencimiento-pedidos`: plazo acordado de 5 minutos para pedidos nuevos, motivo de cancelación, bloqueo de aceptación tardía y scheduler cada 10 segundos. Pendiente ejecutar migración y pruebas. Los pedidos anteriores conservan plazo nulo y no se cancelan automáticamente.
 - [ ] Acordar el tiempo máximo de espera antes de cancelar automáticamente un pedido sin respuesta. El plazo todavía no está definido.
 - [ ] Definir desde qué momento se cuenta el plazo y qué sucede si el restaurante intenta aceptar justo cuando vence.
 - [ ] Mostrar al cliente y al restaurante el vencimiento y el motivo de cancelación, conservando el historial.

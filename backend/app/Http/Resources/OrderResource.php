@@ -78,6 +78,8 @@ class OrderResource extends JsonResource
             'picked_up_at' => $this->picked_up_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(),
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'acceptance_expires_at' => $this->acceptance_expires_at?->toIso8601String(),
+            'cancellation_reason' => $this->cancellation_reason,
 
             'created_at' => $this->created_at?->toIso8601String(),
 

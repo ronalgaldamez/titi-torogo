@@ -80,6 +80,25 @@ services:
       - torogo
 
   # --------------------------------------------------------------------------
+  # SCHEDULER: ejecuta los vencimientos aunque nadie tenga la app abierta.
+  # --------------------------------------------------------------------------
+  scheduler:
+    image: torogo/php:8.4
+    container_name: torogo_scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./:/var/www/html
+      - vendor:/var/www/html/vendor
+    environment:
+      TZ: ${APP_TIMEZONE:-America/El_Salvador}
+    depends_on:
+      - app
+    networks:
+      - torogo
+
+  # --------------------------------------------------------------------------
   # NGINX : servidor web. Expone la app en http://localhost:8080
   # --------------------------------------------------------------------------
   nginx:

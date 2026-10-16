@@ -101,6 +101,8 @@ class Order {
     this.pickedUpAt,
     this.deliveredAt,
     this.cancelledAt,
+    this.acceptanceExpiresAt,
+    this.cancellationReason,
     this.distanceKm,
   });
 
@@ -140,6 +142,16 @@ class Order {
   final DateTime? pickedUpAt;
   final DateTime? deliveredAt;
   final DateTime? cancelledAt;
+  final DateTime? acceptanceExpiresAt;
+  final String? cancellationReason;
+
+  String? get acceptanceDeadlineLabel {
+    final date = acceptanceExpiresAt;
+    if (status != 'pending' || date == null) return null;
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    return 'Aceptación hasta las $hour:$minute ${date.hour < 12 ? "AM" : "PM"} (5 minutos)';
+  }
 
   /// Distancia del motorizado al restaurante. null salvo cuando la pide el
   /// motorizado.
@@ -218,6 +230,8 @@ class Order {
       pickedUpAt: _date(json['picked_up_at']),
       deliveredAt: _date(json['delivered_at']),
       cancelledAt: _date(json['cancelled_at']),
+      acceptanceExpiresAt: _date(json['acceptance_expires_at']),
+      cancellationReason: json['cancellation_reason'] as String?,
       distanceKm: (json['distance_km'] as num?)?.toDouble(),
     );
   }
