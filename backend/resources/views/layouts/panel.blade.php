@@ -42,11 +42,12 @@
             "Pedidos" que lleva a una pagina en blanco confunde mas de lo que
             ayuda. Las que faltan se van sumando aca.
         --}}
-        <nav class="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
+        <nav class="mx-auto flex max-w-6xl flex-wrap gap-1 px-4 pb-2">
             @php
                 $secciones = [
                     ['route' => 'admin.dashboard', 'label' => 'Tablero'],
                     ['route' => 'admin.restaurants.index', 'label' => 'Restaurantes'],
+                    ['route' => 'admin.categories.index', 'label' => 'Categorías'],
                     ['route' => 'admin.couriers.index', 'label' => 'Motorizados'],
                     ['route' => 'admin.orders.index', 'label' => 'Pedidos'],
                     ['route' => 'admin.customers.index', 'label' => 'Clientes'],

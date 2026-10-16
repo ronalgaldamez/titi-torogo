@@ -1,10 +1,17 @@
 import '../../../core/api_client.dart';
 import '../../../models/delivery_zone.dart';
 import '../../../models/restaurant.dart';
+import '../../../models/food_category.dart';
 
 /// Todo lo que necesita la pantalla del Home de una sola vez.
 class HomeData {
-  const HomeData({required this.zone, required this.restaurants});
+  const HomeData({
+    required this.zone,
+    required this.restaurants,
+    this.categories = const [],
+  });
+
+  final List<FoodCategory> categories;
 
   /// null = el cliente esta fuera de toda zona de reparto.
   final DeliveryZone? zone;
@@ -38,6 +45,9 @@ class HomeRepository {
         (json['restaurants'] as List<dynamic>?) ?? <dynamic>[];
 
     return HomeData(
+      categories: (json['food_categories'] as List<dynamic>? ?? [])
+          .map((value) => FoodCategory.fromJson(value as Map<String, dynamic>))
+          .toList(),
       zone: zoneJson == null
           ? null
           : DeliveryZone.fromJson(zoneJson as Map<String, dynamic>),

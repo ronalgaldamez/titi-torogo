@@ -6,6 +6,7 @@ import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/restaurant.dart';
 import 'restaurant_status_repository.dart';
+import 'restaurant_categories_screen.dart';
 
 /// El dashboard del restaurante: el estado de su local.
 ///
@@ -290,6 +291,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _StatusHeader(restaurant: restaurant),
+          const SizedBox(height: AppSpacing.md),
+          ListTile(
+            key: const ValueKey('local-categories'),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(
+              Icons.category_outlined,
+              color: AppTheme.tealDeep,
+            ),
+            title: const Text('Categorías de mi local'),
+            subtitle: Text(
+              restaurant.foodCategories.isEmpty
+                  ? 'Elegí los tipos de comida que ofrecés'
+                  : restaurant.foodCategories.map((c) => c.name).join(' · '),
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _saving
+                ? null
+                : () async {
+                    await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const RestaurantCategoriesScreen(),
+                      ),
+                    );
+                    if (mounted) await _load();
+                  },
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Disponibilidad del local',

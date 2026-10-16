@@ -11,6 +11,8 @@ use App\Http\Resources\RestaurantResource;
 use App\Models\DeliveryZone;
 use App\Models\MenuCategory;
 use App\Models\Restaurant;
+use App\Models\RestaurantCategory;
+use App\Http\Resources\RestaurantCategoryResource;
 use App\Support\Geometry;
 use Illuminate\Http\JsonResponse;
 
@@ -48,6 +50,7 @@ class RestaurantController extends Controller
         }
 
         $restaurants = Restaurant::query()
+            ->with('categories')
             ->where('is_active', true)
             ->where('is_open', true)
             ->get();
@@ -76,6 +79,9 @@ class RestaurantController extends Controller
         return response()->json([
             'zone' => new DeliveryZoneResource($zone),
             'restaurants' => RestaurantResource::collection($restaurants),
+            'food_categories' => RestaurantCategoryResource::collection(
+                RestaurantCategory::where('is_active', true)->orderBy('sort_order')->orderBy('id')->get(),
+            ),
         ]);
     }
 
@@ -92,6 +98,7 @@ class RestaurantController extends Controller
         int $restaurant,
     ): JsonResponse {
         $model = Restaurant::query()
+            ->with('categories')
             ->where('is_active', true)
             ->findOrFail($restaurant);
 

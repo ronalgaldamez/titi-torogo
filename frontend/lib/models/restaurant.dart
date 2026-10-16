@@ -1,3 +1,5 @@
+import 'food_category.dart';
+
 /// Un restaurante tal como lo devuelve `GET /api/restaurants`.
 ///
 /// Se escriben los `fromJson` a mano en vez de usar generadores de codigo:
@@ -22,8 +24,10 @@ class Restaurant {
     this.phone,
     this.logoUrl,
     this.distanceKm,
+    this.foodCategories = const [],
   });
 
+  final List<FoodCategory> foodCategories;
   final int id;
   final String name;
   final String? description;
@@ -67,6 +71,9 @@ class Restaurant {
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
     return Restaurant(
+      foodCategories: (json['food_categories'] as List<dynamic>? ?? [])
+          .map((value) => FoodCategory.fromJson(value as Map<String, dynamic>))
+          .toList(),
       id: json['id'] as int,
       name: json['name'] as String,
       description: json['description'] as String?,

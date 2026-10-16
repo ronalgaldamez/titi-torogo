@@ -25,6 +25,7 @@ class RestaurantResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'food_categories' => RestaurantCategoryResource::collection($this->whenLoaded('categories')),
             'description' => $this->description,
             'address' => $this->address,
             'phone' => $this->phone,

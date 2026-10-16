@@ -39,7 +39,7 @@ class RestaurantStatusController extends Controller
     public function show(Request $request): JsonResponse
     {
         return response()->json([
-            'restaurant' => new RestaurantResource($request->user()->restaurant),
+            'restaurant' => new RestaurantResource($request->user()->restaurant->load('categories')),
         ]);
     }
 
@@ -68,7 +68,7 @@ class RestaurantStatusController extends Controller
         $restaurant->save();
 
         return response()->json([
-            'restaurant' => new RestaurantResource($restaurant),
+            'restaurant' => new RestaurantResource($restaurant->load('categories')),
         ]);
     }
 }
