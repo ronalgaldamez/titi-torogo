@@ -83,6 +83,12 @@
                     </div>
                 </div>
 
+                @if ($order->cancellation_reason)
+                    <p class="mt-4 text-sm font-semibold text-coral">{{ $order->cancellation_reason }}</p>
+                @endif
+                @if ($order->status === \App\Enums\OrderStatus::Pending && $order->acceptance_expires_at)
+                    <p class="mt-4 text-sm text-navy">Aceptación hasta {{ $order->acceptance_expires_at->format('d/m/Y h:i A') }}.</p>
+                @endif
                 @if ($order->notes)
                     <div class="mt-4 rounded-xl bg-teal-soft px-4 py-3 text-sm text-teal-deep">
                         <span class="font-bold">Nota del cliente:</span> {{ $order->notes }}

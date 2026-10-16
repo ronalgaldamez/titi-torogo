@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderUpdated;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -63,6 +65,7 @@ class Order extends Model
             'delivery_longitude' => 'float',
 
             'accepted_at' => 'datetime',
+            'acceptance_expires_at' => 'datetime',
             'ready_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
@@ -111,6 +114,31 @@ class Order extends Model
     public function isActive(): bool
     {
         return $this->status->isActive();
+    }
+
+    /** El llamador debe mantener lockForUpdate dentro de una transacción. */
+    public function expirePending(): bool
+    {
+        if ($this->status !== OrderStatus::Pending
+            || $this->acceptance_expires_at === null
+            || $this->acceptance_expires_at->isFuture()) {
+            return false;
+        }
+
+        $this->moveTo(OrderStatus::Cancelled);
+        $this->cancellation_reason = 'El restaurante no respondió a tiempo.';
+        $this->save();
+
+        DB::afterCommit(function () {
+            // Una caída de Reverb no debe impedir cancelar los siguientes pedidos.
+            try {
+                OrderUpdated::announce($this, OrderStatus::Pending->value);
+            } catch (\Throwable $error) {
+                report($error);
+            }
+        });
+
+        return true;
     }
 
     /**

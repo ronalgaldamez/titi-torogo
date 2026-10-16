@@ -142,6 +142,7 @@ class OrderController extends Controller
                 $order->delivery_longitude = $address->longitude;
 
                 $order->status = OrderStatus::Pending;
+                $order->acceptance_expires_at = now()->addMinutes(5);
 
                 // La biblia: pago SOLO en efectivo, sin pasarela.
                 $order->payment_method = 'cash';

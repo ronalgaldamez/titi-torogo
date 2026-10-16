@@ -9,6 +9,66 @@ import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/cliente/pedido/order_tracking_screen.dart';
 
 void main() {
+  for (final status in ['cancelled', 'rejected']) {
+    testWidgets('Pedido $status en efectivo no indica un pago pendiente', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
+      final client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'order': {
+              'id': 35,
+              'status': status,
+              'status_label': status == 'cancelled' ? 'Cancelado' : 'Rechazado',
+              'is_active': false,
+              'restaurant': {
+                'id': 1,
+                'name': 'Local',
+                'address': 'Centro',
+                'latitude': 14.1,
+                'longitude': -89.1,
+              },
+              'items': [],
+              'subtotal': '1.00',
+              'delivery_fee': '2.00',
+              'courier_fee': '1.50',
+              'platform_fee': '0.50',
+              'total': '3.00',
+              'payment_method': 'cash',
+              'cancellation_reason': status == 'cancelled'
+                  ? 'El restaurante no respondió a tiempo.'
+                  : null,
+            },
+          }),
+          200,
+        ),
+      );
+      addTearDown(client.close);
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: const OrderTrackingScreen(orderId: 35),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('No tenés que pagar'), findsOneWidget);
+        expect(find.text('Pagás en efectivo al recibir'), findsNothing);
+        expect(find.text(r'$3.00'), findsOneWidget);
+        if (status == 'cancelled') {
+          expect(
+            find.text('El restaurante no respondió a tiempo.'),
+            findsOneWidget,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }, () => client);
+    });
+  }
+
   testWidgets(
     'Detalle conserva total, propina y mapa desplegable al finalizar',
     (tester) async {

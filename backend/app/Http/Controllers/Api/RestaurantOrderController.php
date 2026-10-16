@@ -124,6 +124,14 @@ class RestaurantOrderController extends Controller
             // Sobre la relacion: el pedido de otro restaurante responde 404.
             $model = $restaurant->orders()->lockForUpdate()->findOrFail($order);
 
+            // Responder sin lanzar excepción: la cancelación debe confirmarse.
+            if ($model->expirePending()) {
+                return response()->json([
+                    'message' => 'El pedido venció porque no se aceptó dentro de 5 minutos.',
+                    'order' => new OrderResource($model->load(['items', 'restaurant'])),
+                ], 409);
+            }
+
             $status = OrderStatus::from($request->validated('status'));
 
             // 1) ¿Le toca al restaurante?
