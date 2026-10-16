@@ -387,9 +387,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final TextTheme text = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(
@@ -573,7 +573,7 @@ class _OrderCard extends StatelessWidget {
             created.month == now.month &&
             created.day == now.day
         ? ''
-        : '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')} · ';
+        : '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')}/${created.year} · ';
     return '$date$hour:$minute ${created.hour < 12 ? 'AM' : 'PM'}';
   }
 
@@ -587,68 +587,63 @@ class _OrderCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              Text(
-                '#${order.id}',
-                style: text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.navy,
+          _StatusPill(order: order),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Pedido #${order.id}',
+                  style: text.headlineSmall?.copyWith(
+                    color: AppTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              _StatusPill(order: order),
-              Text(
-                _time,
-                style: text.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('Total del pedido', style: text.labelSmall),
+                    Text(
+                      '\$${order.total}',
+                      style: text.headlineSmall?.copyWith(
+                        color: AppTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          for (final OrderItem item in order.items.take(2))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
-                children: <Widget>[
-                  Text(
-                    '${item.quantity}×',
-                    style: text.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.teal,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      item.name,
-                      style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-                    ),
-                  ),
-                  Text(
-                    '\$${item.subtotal}',
-                    style: text.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            _time,
+            style: text.labelMedium?.copyWith(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            children: [
+              Text(
+                '${order.items.length} ${order.items.length == 1 ? 'producto' : 'productos'}',
+                style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
-            ),
-          if (order.items.length > 2)
-            Text(
-              '+ ${order.items.length - 2} platos más en el detalle',
-              style: text.bodySmall,
-            ),
+              Text(
+                '· ${order.totalUnits} ${order.totalUnits == 1 ? 'unidad en total' : 'unidades en total'}',
+                style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ),
           // La nota del cliente, destacada: "sin cebolla" es lo que hace que
           // el pedido salga bien o vuelva.
           if (notes != null && notes.isNotEmpty) ...<Widget>[
@@ -685,70 +680,129 @@ class _OrderCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: <Widget>[
-              Icon(
-                Icons.place_outlined,
-                size: 14,
-                color: colors.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order.delivery?.address ?? 'Sin dirección disponible',
-                  style: text.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                'Total \$${order.total}',
-                style: text.titleSmall?.copyWith(
-                  color: AppTheme.coral,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
           ExpansionTile(
             key: PageStorageKey('restaurant-detail-${order.id}'),
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            title: const Text('Ver detalle del pedido'),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            title: Text(
+              'Ver detalle del pedido',
+              style: text.titleSmall?.copyWith(
+                color: AppTheme.tealDeep,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             children: [
-              for (final item in order.items)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('${item.quantity}× ${item.name}'),
-                  trailing: Text('\$${item.subtotal}'),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Productos',
+                  style: text.labelLarge?.copyWith(
+                    color: AppTheme.tealDeep,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              if (order.delivery != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(order.delivery!.address),
-                ),
-              if (order.delivery?.reference?.isNotEmpty ?? false)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Referencia: ${order.delivery!.reference}'),
-                ),
-              const Divider(),
-              for (final entry in {
-                'Productos': order.subtotal,
-                'Envío': order.deliveryFee,
-                'Propina al motorista': order.tipAmount,
-              }.entries)
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              for (final OrderItem item in order.items)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: Text(entry.key)),
-                      Text('\$${entry.value}'),
+                      Text(
+                        '${item.quantity}×',
+                        style: text.bodyMedium?.copyWith(
+                          color: AppTheme.tealDeep,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text(item.name, style: text.bodyMedium)),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        '\$${item.subtotal}',
+                        style: text.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: colors.outlineVariant)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 18,
+                          color: AppTheme.tealDeep,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'Entrega',
+                          style: text.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      order.delivery?.address ?? 'Sin dirección disponible',
+                      style: text.bodyMedium,
+                    ),
+                    if (order.delivery?.reference?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Referencia: ${order.delivery!.reference}',
+                        style: text.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: colors.outlineVariant)),
+                ),
+                child: Column(
+                  children: [
+                    for (final entry in {
+                      'Productos': order.subtotal,
+                      'Envío': order.deliveryFee,
+                      'Propina al motorista': order.tipAmount,
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xs,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(entry.key, style: text.bodySmall),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text('\$${entry.value}', style: text.bodySmall),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
           if (order.isWaitingForCourier || order.isOnTheWay) ...<Widget>[
@@ -765,12 +819,17 @@ class _OrderCard extends StatelessWidget {
             Row(
               children: <Widget>[
                 if (order.canBeRejected) ...<Widget>[
-                  Flexible(
+                  Expanded(
                     child: OutlinedButton(
                       onPressed: saving ? null : onReject,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.coral,
-                        side: const BorderSide(color: AppTheme.coral),
+                        foregroundColor: AppTheme.coralDeep,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.sm,
+                        ),
+                        side: const BorderSide(color: AppTheme.coralDeep),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppRadius.image),
                         ),
@@ -784,13 +843,18 @@ class _OrderCard extends StatelessWidget {
                 ],
                 if (action != null || saving)
                   Expanded(
+                    flex: order.canBeRejected ? 2 : 1,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: FilledButton(
                         onPressed: saving ? null : () => onMove(action!.status),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.coral,
+                          backgroundColor: AppTheme.coralDeep,
                           foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.sm,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(
                               AppRadius.image,
@@ -842,25 +906,26 @@ class _StatusPill extends StatelessWidget {
 
     switch (order.status) {
       case 'pending':
-        background = AppTheme.coral;
+        background = AppTheme.tealDeep;
       case 'accepted':
       case 'preparing':
         background = AppTheme.yellow;
       case 'ready':
         background = AppTheme.mint;
       default:
-        background = AppTheme.tealSoft;
+        background = AppTheme.navy;
     }
 
-    final Color foreground = background == AppTheme.coral
+    final Color foreground =
+        background == AppTheme.tealDeep || background == AppTheme.navy
         ? Colors.white
         : AppTheme.navy;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         order.statusLabel,

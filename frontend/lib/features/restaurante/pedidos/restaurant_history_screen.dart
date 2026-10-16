@@ -71,7 +71,7 @@ class _RestaurantHistoryScreenState extends State<RestaurantHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
           'Historial',
@@ -80,7 +80,7 @@ class _RestaurantHistoryScreenState extends State<RestaurantHistoryScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        backgroundColor: AppTheme.background,
+        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
@@ -270,21 +270,7 @@ class _RestaurantHistoryScreenState extends State<RestaurantHistoryScreen> {
                 ],
               ),
             ),
-          for (var index = 0; index < orders.length; index++) ...[
-            if (index == 0 ||
-                _date(_closedAt(orders[index])) !=
-                    _date(_closedAt(orders[index - 1])))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Text(
-                  _date(_closedAt(orders[index])),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-            _HistoryCard(order: orders[index]),
-          ],
+          for (final order in orders) _HistoryCard(order: order),
         ],
       ),
     );
@@ -307,45 +293,57 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    final date = _closedAt(order);
     return Container(
+      key: ValueKey('history-card-${order.id}'),
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.xs,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Pedido #${order.id}',
-                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              Expanded(
+                child: Text(
+                  'Pedido #${order.id}',
+                  style: text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
-              Text(
-                '\$${order.total}',
-                style: text.titleMedium?.copyWith(
-                  color: AppTheme.coral,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Total del pedido',
+                      style: text.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '\$${order.total}',
+                      style: text.headlineSmall?.copyWith(
+                        color: AppTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            order.items
-                .map((item) => '${item.quantity}× ${item.name}')
-                .join(' · '),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: text.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Wrap(
-            spacing: AppSpacing.md,
+            spacing: AppSpacing.sm,
             runSpacing: AppSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
@@ -356,55 +354,148 @@ class _HistoryCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: order.status == 'delivered'
-                      ? AppTheme.tealSoft
-                      : AppTheme.background,
-                  borderRadius: BorderRadius.circular(AppRadius.image),
+                      ? AppTheme.tealDeep
+                      : AppTheme.navy,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   order.statusLabel,
                   style: text.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                date == null ? _date(date) : '${_date(date)} · ${_time(date)}',
+                style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '${order.items.length} ${order.items.length == 1 ? 'producto' : 'productos'} · ${order.totalUnits} ${order.totalUnits == 1 ? 'unidad' : 'unidades'}',
+            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ExpansionTile(
+            key: PageStorageKey('restaurant-history-detail-${order.id}'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            title: Text(
+              'Ver detalle del pedido',
+              style: text.titleSmall?.copyWith(
+                color: AppTheme.tealDeep,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Productos',
+                  style: text.labelLarge?.copyWith(
                     color: AppTheme.tealDeep,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              Text(_time(_closedAt(order)), style: text.bodySmall),
-            ],
-          ),
-          ExpansionTile(
-            key: PageStorageKey('restaurant-history-detail-${order.id}'),
-            tilePadding: EdgeInsets.zero,
-            title: const Text('Ver detalle del pedido'),
-            children: [
               for (final item in order.items)
-                _Amount(
-                  label: '${item.quantity}× ${item.name}',
-                  amount: item.subtotal,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${item.quantity}×',
+                        style: text.bodyMedium?.copyWith(
+                          color: AppTheme.tealDeep,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text(item.name, style: text.bodyMedium)),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        '\$${item.subtotal}',
+                        style: text.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               if (order.notes?.isNotEmpty ?? false)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Notas: ${order.notes}'),
-                ),
-              const Divider(),
-              _Amount(label: 'Productos', amount: order.subtotal),
-              _Amount(label: 'Envío', amount: order.deliveryFee),
-              _Amount(label: 'Propina al motorista', amount: order.tipAmount),
-              const Divider(),
-              _Amount(label: 'Total del pedido', amount: order.total),
-              if (order.delivery != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Dirección: ${order.delivery!.address}'),
+                    child: Text('Notas: ${order.notes}', style: text.bodySmall),
                   ),
                 ),
-              if (order.delivery?.reference?.isNotEmpty ?? false)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Referencia: ${order.delivery!.reference}'),
+              if (order.delivery != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: colors.outlineVariant),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.place_outlined,
+                            size: 18,
+                            color: AppTheme.tealDeep,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            'Entrega',
+                            style: text.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(order.delivery!.address, style: text.bodyMedium),
+                      if (order.delivery?.reference?.isNotEmpty ?? false) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Referencia: ${order.delivery!.reference}',
+                          style: text.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: colors.outlineVariant)),
+                ),
+                child: Column(
+                  children: [
+                    _Amount(label: 'Productos', amount: order.subtotal),
+                    _Amount(label: 'Envío', amount: order.deliveryFee),
+                    _Amount(
+                      label: 'Propina al motorista',
+                      amount: order.tipAmount,
+                    ),
+                  ],
+                ),
+              ),
               if (order.status != 'delivered')
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -427,9 +518,11 @@ class _Amount extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
     child: Row(
       children: [
-        Expanded(child: Text(label)),
+        Expanded(
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
         const SizedBox(width: AppSpacing.sm),
-        Flexible(child: Text('\$$amount')),
+        Text('\$$amount', style: Theme.of(context).textTheme.bodySmall),
       ],
     ),
   );
