@@ -2,50 +2,61 @@
 
 Esta lista organiza trabajo por revisar y acordar. No autoriza implementar funcionalidades ni modificar reglas de negocio automáticamente.
 
+Actualizada el 18/10/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; no significan que se hayan vuelto a ejecutar las pruebas hoy.
+
 ## Cliente: revisar y completar
 
 - [ ] Perfil: revisar qué datos personales puede consultar y editar el cliente, incluidos nombre y teléfono.
 - [ ] Cancelaciones: comprobar cuándo puede cancelar y explicar claramente las restricciones y los estados.
 - [ ] Probar el recorrido completo: pedido normal, rechazo del restaurante, pérdida de conexión, recuperación sin duplicados y entrega final.
 - [ ] Seguimiento GPS: verificar la ubicación real del motorista que recibe y muestra el cliente, diferenciándola de las actualizaciones del estado del pedido.
+  - Implementado en `titi/feature/seguimiento-gps`, pendiente de ejecutar pruebas y validar dos sesiones/dispositivos: captura Android con notificación durante entregas propias, consulta privada del cliente cada 10 segundos, precisión y caducidad visibles. Solo se conserva la última posición en caché por dos minutos; no se publica en canales compartidos. Ver `backend/COURIER_GPS.md` para permisos y pruebas con pantalla bloqueada, desconexión y reasignación.
 - [ ] Estados y permisos: revisar carga, pantallas vacías, errores recuperables y acceso únicamente a los pedidos de la propia cuenta.
 
 Antes de implementar, revisar el código para distinguir funcionalidades faltantes de las que solo necesitan validación.
 
 ## Categorías dinámicas administradas desde el panel
 
-Implementación en `titi/feature/categorias-dinamicas`, pendiente de ejecutar migración y pruebas: catálogo global del administrador, selección múltiple desde Mi local y filtros del inicio del cliente. Se mantienen separadas de las categorías del menú. Las cinco opciones anteriores se crean como catálogo inicial; cada restaurante elige sus categorías, sin asignaciones automáticas por nombre. El cliente obtiene cambios al actualizar el inicio y el restaurante al abrir su selector.
+Implementadas y fusionadas en `main` desde `titi/feature/categorias-dinamicas`: catálogo global del administrador, selección múltiple desde Mi local y filtros del inicio del cliente. Las cinco opciones anteriores se crean como catálogo inicial; cada restaurante elige sus categorías, sin asignaciones automáticas por nombre. El cliente obtiene cambios al actualizar el inicio y el restaurante al abrir su selector. Ronald confirmó que pudo agregar «Cuca» desde el administrador.
 
 Iconos: se conserva la presentación con icono y nombre debajo. El administrador puede subir PNG/JPG/WebP opcional (hasta 2 MB y 1024 × 1024), conservarlo al editar o quitarlo. Sin imagen, o si falla al cargar, se utiliza un icono predeterminado. Los archivos se guardan en el disco público local y se sirven mediante la API para que funcionen en el emulador sin configurar enlaces de almacenamiento.
 
-- [ ] Revisar las categorías que se muestran al cliente y reemplazar las opciones fijas por categorías administrables desde el panel de administración.
-- [ ] Permitir que Ronald agregue categorías desde el administrador.
-- [ ] Cuando un restaurante solicite una categoría nueva, Ronald podrá revisarla y agregarla desde el administrador. No se ha acordado crear un flujo de solicitudes dentro de la app.
-- [ ] Cargar esas categorías en el perfil del restaurante para que pueda utilizar las opciones disponibles. Definir primero cómo se seleccionan y se relacionan con cada establecimiento.
-- [ ] Aclarar si estas categorías describen restaurantes o tipos de comida, y distinguirlas de las categorías internas del menú de cada restaurante antes de cambiar modelos o datos existentes.
+- [x] Reemplazar las opciones fijas del inicio del cliente por categorías administrables y filtros funcionales.
+- [x] Permitir al administrador crear, editar, ordenar y desactivar categorías.
+- [x] Permitir que Ronald agregue desde el administrador las categorías que le soliciten los restaurantes. No se creó un flujo de solicitudes dentro de la app.
+- [x] Cargar las opciones activas en Mi local y permitir seleccionar varias categorías por restaurante.
+- [x] Separar las categorías globales de tipos de comida de las categorías internas del menú.
+- [x] Recuperar la presentación con iconos y reducir la separación entre opciones.
+- [x] Implementar imágenes opcionales administrables e iconos predeterminados cuando no haya imagen o falle su carga.
+- [ ] Confirmar las pruebas de backend y Flutter después de incorporar los iconos personalizados; las 41 pruebas de Flutter reportadas como aprobadas fueron anteriores a ese ajuste.
+- [ ] Probar en el entorno local subir, reemplazar y quitar una imagen, y verificar su visualización en el emulador.
+- [ ] Verificar manualmente selección en Mi local, filtrado del cliente y ocultación de una categoría desactivada.
 
 ## Pedidos que el restaurante no acepta
 
-Problema observado: existen pedidos de prueba que siguen pendientes durante días porque el restaurante no los aceptó.
+Problema original: existían pedidos de prueba que seguían pendientes durante días porque el restaurante no los aceptó. Los pedidos anteriores se conservan sin vencimiento y siguen sujetos a una decisión aparte.
 
-- [ ] Revisar si existe actualmente un vencimiento de pedidos pendientes y por qué permanecen abiertos.
-- Implementación en la rama `titi/feature/vencimiento-pedidos`: plazo acordado de 5 minutos para pedidos nuevos, motivo de cancelación, bloqueo de aceptación tardía y scheduler cada 10 segundos. Pendiente ejecutar migración y pruebas. Los pedidos anteriores conservan plazo nulo y no se cancelan automáticamente.
-- [ ] Acordar el tiempo máximo de espera antes de cancelar automáticamente un pedido sin respuesta. El plazo todavía no está definido.
-- [ ] Definir desde qué momento se cuenta el plazo y qué sucede si el restaurante intenta aceptar justo cuando vence.
-- [ ] Mostrar al cliente y al restaurante el vencimiento y el motivo de cancelación, conservando el historial.
+- [x] Revisar e implementar el vencimiento; fusionado desde `titi/feature/vencimiento-pedidos`.
+- [x] Acordar e implementar 5 minutos para aceptar pedidos nuevos, contados desde su creación. Los reintentos no extienden el plazo.
+- [x] Proteger la aceptación al llegar al límite con bloqueo de fila y cancelación confirmada en la misma transacción.
+- [x] Ejecutar la migración y levantar el scheduler, que revisa los vencimientos cada 10 segundos.
+- [x] Mostrar fecha límite y motivo de cancelación al cliente y al restaurante, conservando el historial.
+- [x] Actualizar Mis pedidos del cliente automáticamente cada 15 segundos mientras hay pedidos activos y la pantalla está visible en primer plano.
+- [x] Implementar el aviso de que no hay que pagar para pedidos cancelados o rechazados en efectivo.
 - [ ] Evaluar que el tiempo de espera sea configurable desde el administrador.
-- [ ] Revisar el efecto sobre cobros, propinas y ganancias: un pedido vencido no debe contarse como una entrega completada.
+- [x] Mantener el desglose original, registrar la cancelación sin marcar entrega y verificar que el vencimiento no modifica los montos.
 - [ ] Acordar cómo tratar los pedidos antiguos de prueba antes de actualizar datos. No borrar ni cancelar pedidos existentes automáticamente por crear esta lista.
-- [ ] Probar el vencimiento, la aceptación antes del límite y la ausencia de acciones o notificaciones duplicadas.
+- [x] Aprobar las pruebas de backend del vencimiento: límite exacto, aceptación previa, pedidos antiguos, aislamiento entre cuentas y ausencia de eventos duplicados. Ronald reportó 33 pruebas aprobadas y 300 verificaciones en esa etapa.
+- [x] Comprobar en la app un pedido cancelado con el motivo «El restaurante no respondió a tiempo».
 
 ## Restaurante: siguiente revisión
 
 - [ ] Logo del negocio en Mi local: revisar carga, edición y visualización; por ahora conservar la inicial del restaurante.
 
 - [x] Revisar y mejorar Pedidos y Mi menú del restaurante.
-- [ ] Proponer mejoras visuales consistentes con Toro Go y mostrarlas antes de implementar.
+- [x] Mostrar propuestas y aplicar los diseños aprobados para Pedidos, Mi menú, Mi local e Historial.
 - [x] Mejorar Mi local y configurar preparación entre 10 y 45 minutos.
-- [ ] Validar el historial del restaurante: filtros por estado y período, paginación, detalle y aislamiento entre cuentas.
+- [x] Implementar y probar el historial del restaurante: filtros por estado y período, paginación, detalle y aislamiento entre cuentas. Ronald aprobó el diseño y reportó las pruebas correspondientes como aprobadas antes del merge.
 
 ## Estimación de entrega completa
 

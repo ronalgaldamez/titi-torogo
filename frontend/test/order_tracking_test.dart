@@ -6,9 +6,120 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
+import 'package:torogo/core/widgets/torogo_map.dart';
 import 'package:torogo/features/cliente/pedido/order_tracking_screen.dart';
 
 void main() {
+  testWidgets(
+    'Cliente muestra GPS privado, oculta posiciones antiguas y detiene consultas al finalizar',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
+      var stale = false;
+      var finished = false;
+      var gpsRequests = 0;
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/location')) {
+          gpsRequests++;
+          return http.Response(
+            jsonEncode({
+              'order_id': 40,
+              'courier_id': finished ? null : 2,
+              'status': finished ? 'delivered' : 'picked_up',
+              'location': finished
+                  ? null
+                  : {
+                      'latitude': 14.15,
+                      'longitude': -89.15,
+                      'accuracy': 12,
+                      'captured_at': DateTime.now()
+                          .subtract(Duration(minutes: stale ? 5 : 0))
+                          .toUtc()
+                          .toIso8601String(),
+                    },
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'order': {
+              'id': 40,
+              'status': finished ? 'delivered' : 'picked_up',
+              'status_label': finished ? 'Entregado' : 'En camino',
+              'is_active': !finished,
+              'restaurant': {
+                'id': 1,
+                'name': 'Local',
+                'address': 'Centro',
+                'latitude': 14.1,
+                'longitude': -89.1,
+              },
+              'delivery': {
+                'address': 'Casa',
+                'latitude': 14.2,
+                'longitude': -89.2,
+              },
+              'courier': {'id': 2, 'name': 'Motorista'},
+              'items': [],
+              'subtotal': '1.00',
+              'delivery_fee': '2.00',
+              'courier_fee': '1.50',
+              'platform_fee': '0.50',
+              'total': '3.00',
+              'payment_method': 'cash',
+            },
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      await http.runWithClient(() async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: const OrderTrackingScreen(orderId: 40),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<TorogoMap>(find.byType(TorogoMap))
+              .points
+              .any(
+                (p) =>
+                    p.icon == Icons.delivery_dining_rounded &&
+                    p.latitude == 14.15,
+              ),
+          isTrue,
+        );
+        stale = true;
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<TorogoMap>(find.byType(TorogoMap))
+              .points
+              .any((p) => p.icon == Icons.delivery_dining_rounded),
+          isFalse,
+        );
+        finished = true;
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pumpAndSettle();
+        expect(find.text('Entregado'), findsWidgets);
+        final stoppedAt = gpsRequests;
+        await tester.pump(const Duration(seconds: 20));
+        await tester.pumpAndSettle();
+        expect(gpsRequests, stoppedAt);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }, () => client);
+    },
+  );
+
   for (final status in ['cancelled', 'rejected']) {
     testWidgets('Pedido $status en efectivo no indica un pago pendiente', (
       tester,

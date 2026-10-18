@@ -11,6 +11,24 @@ class CourierOrderRepository {
 
   final ApiClient _api;
 
+  Future<void> sendLocation(
+    int orderId, {
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+    required DateTime capturedAt,
+  }) async {
+    await _api.patch(
+      '/courier/orders/$orderId/location',
+      body: {
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracy': accuracy,
+        'captured_at': capturedAt.toUtc().toIso8601String(),
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> loadSummary() => _api.get('/courier/summary');
 
   Future<Map<String, dynamic>> loadHistory({

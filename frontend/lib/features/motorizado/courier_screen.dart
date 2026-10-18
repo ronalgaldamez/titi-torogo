@@ -15,6 +15,7 @@ import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
 import 'courier_profile.dart';
 import 'pedidos/courier_order_repository.dart';
+import 'pedidos/courier_gps_tracker.dart';
 import 'pedidos/courier_history_screen.dart';
 
 /// Destino del siguiente tramo de la entrega.
@@ -55,7 +56,10 @@ class _Step {
   final String label;
 }
 
-class _CourierScreenState extends State<CourierScreen> {
+class _CourierScreenState extends State<CourierScreen>
+    with WidgetsBindingObserver {
+  late final CourierGpsTracker _gps;
+
   /// Donde esta el motorizado.
   ///
   /// Arranca en la ubicacion de respaldo (Mall del Sol) y se reemplaza por la
@@ -91,11 +95,21 @@ class _CourierScreenState extends State<CourierScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _gps = CourierGpsTracker(
+      repository: () async => CourierOrderRepository(await _session.client()),
+      onAssignmentsChanged: () {
+        if (mounted) unawaited(_load(silent: true));
+      },
+    )..addListener(_gpsChanged);
     _start();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _gps.removeListener(_gpsChanged);
+    _gps.dispose();
     _liveSub?.cancel();
     _connectedSub?.cancel();
 
@@ -105,6 +119,29 @@ class _CourierScreenState extends State<CourierScreen> {
     _watch?.close();
 
     super.dispose();
+  }
+
+  void _gpsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _syncGps() {
+    _gps.setOrders(
+      _mine
+          .where((o) => o.status == 'ready' || o.status == 'picked_up')
+          .map((o) => o.id)
+          .toSet(),
+    );
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      unawaited(_gps.start());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(silent: true));
+    }
   }
 
   /// Pide la ubicacion UNA vez y despues carga.
@@ -119,9 +156,12 @@ class _CourierScreenState extends State<CourierScreen> {
       setState(() => _place = place);
     }
 
+    if (!mounted) {
+      return;
+    }
     await _load();
 
-    _startRealtime();
+    if (mounted) _startRealtime();
   }
 
   /// Carga todo: disponibilidad, cercanos y los mios.
@@ -178,6 +218,7 @@ class _CourierScreenState extends State<CourierScreen> {
         _loading = false;
         _error = null;
       });
+      _syncGps();
     } on ApiException catch (error) {
       if (!mounted || version != _loadVersion) {
         return;
@@ -373,7 +414,8 @@ class _CourierScreenState extends State<CourierScreen> {
       title: '¿Tomar el pedido #${order.id}?',
       message:
           'Te comprometés a recogerlo en ${order.restaurant.name}. '
-          'La dirección de entrega aparece después de tomar el pedido.',
+          'La dirección de entrega aparece después de tomar el pedido. '
+          'Durante tus entregas se comparte tu GPS con el cliente.',
       actionLabel: 'Tomar',
     );
 
@@ -473,7 +515,9 @@ class _CourierScreenState extends State<CourierScreen> {
     } catch (error) {
       debugPrint('No se pudo abrir la navegación: $error');
     }
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('No pudimos abrir Google Maps. Intentá de nuevo.'),
@@ -505,6 +549,7 @@ class _CourierScreenState extends State<CourierScreen> {
         false;
 
     if (confirmed) {
+      _gps.setOrders({});
       widget.onLogout?.call();
     }
   }
@@ -662,6 +707,24 @@ class _CourierScreenState extends State<CourierScreen> {
           const SizedBox(height: AppSpacing.lg),
 
           if (_mine.isNotEmpty) ...<Widget>[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.gps_fixed_rounded,
+                color: AppTheme.tealDeep,
+              ),
+              title: Text(_gps.message),
+              subtitle: const Text(
+                'Solo durante pedidos asignados. No se comparte una ubicación de respaldo.',
+              ),
+              trailing: _gps.running
+                  ? null
+                  : IconButton(
+                      tooltip: 'Activar seguimiento GPS',
+                      icon: const Icon(Icons.my_location_rounded),
+                      onPressed: () => _gps.start(ask: true),
+                    ),
+            ),
             for (final Order order in _mine)
               _MyOrderCard(
                 order: order,
@@ -692,7 +755,9 @@ class _CourierScreenState extends State<CourierScreen> {
 
   Widget _orderActions() {
     final orders = _mine.where((order) => _stepFor(order) != null).toList();
-    if (orders.isEmpty) return const SizedBox.shrink();
+    if (orders.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: SafeArea(

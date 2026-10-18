@@ -11,6 +11,9 @@ class OrderRepository {
   OrderRepository(this._api);
 
   final ApiClient _api;
+
+  Future<Map<String, dynamic>> courierLocation(int orderId) =>
+      _api.get('/orders/$orderId/location');
   final PendingOrderStorage _storage = PendingOrderStorage();
   int? _userId;
 

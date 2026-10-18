@@ -53,6 +53,7 @@ class TorogoMap extends StatelessWidget {
     this.center,
     this.zoom = 15,
     this.height = 220,
+    this.controller,
     super.key,
   });
 
@@ -64,6 +65,7 @@ class TorogoMap extends StatelessWidget {
 
   final double zoom;
   final double height;
+  final MapController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +82,7 @@ class TorogoMap extends StatelessWidget {
       child: SizedBox(
         height: height,
         child: FlutterMap(
+          mapController: controller,
           options: MapOptions(
             initialCenter: middle.latLng,
             initialZoom: zoom,
