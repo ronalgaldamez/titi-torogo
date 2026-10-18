@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
@@ -10,6 +12,7 @@ import '../../../core/theme.dart';
 import '../../../core/widgets/live_chip.dart';
 import '../../../core/widgets/torogo_map.dart';
 import '../../../models/order.dart';
+import '../../../models/courier_location.dart';
 import '../../../models/order_item.dart';
 import 'order_repository.dart';
 
@@ -38,7 +41,14 @@ class _Milestone {
   bool get done => at != null;
 }
 
-class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+class _OrderTrackingScreenState extends State<OrderTrackingScreen>
+    with WidgetsBindingObserver {
+  Order? _gpsOrder;
+  CourierLocation? _location;
+  Timer? _gpsTimer;
+  bool _locating = false;
+  bool _gpsError = false;
+  int _orderVersion = 0;
   late Future<Order> _future;
 
   /// El pedido tal como lo conto el tiempo real (WebSocket).
@@ -63,12 +73,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _future = _load();
     _startRealtime();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _gpsTimer?.cancel();
     _liveSub?.cancel();
     _connectedSub?.cancel();
 
@@ -152,6 +165,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       final Order order = Order.fromJson(raw);
 
       if (mounted) {
+        _orderVersion++;
+        _syncLocation(order);
         setState(() => _liveOrder = order);
       }
     } catch (_) {
@@ -160,11 +175,79 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Future<Order> _load() async {
+    final version = ++_orderVersion;
     final ApiClient api = await Session(AuthStorage()).client();
 
     // Se pide de nuevo en vez de recibirlo de la pantalla anterior: mientras el
     // cliente venia caminando hasta aca, el restaurante pudo haberlo aceptado.
-    return OrderRepository(api).show(widget.orderId);
+    final order = await OrderRepository(api).show(widget.orderId);
+    if (mounted && version == _orderVersion) {
+      _syncLocation(order);
+    }
+    return order;
+  }
+
+  void _syncLocation(Order order) {
+    if (_gpsOrder?.courier?.id != order.courier?.id || !order.isActive) {
+      _location = null;
+    }
+    _gpsOrder = order;
+    if (!order.isActive || order.courier == null) {
+      _gpsTimer?.cancel();
+      _gpsTimer = null;
+      return;
+    }
+    _gpsTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        unawaited(_loadLocation());
+      }
+    });
+    unawaited(_loadLocation());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _gpsOrder?.isActive == true) {
+      _reload();
+    }
+  }
+
+  Future<void> _loadLocation() async {
+    final order = _gpsOrder;
+    if (_locating ||
+        order == null ||
+        !order.isActive ||
+        order.courier == null) {
+      return;
+    }
+    _locating = true;
+    final version = _orderVersion;
+    try {
+      final api = await Session(AuthStorage()).client();
+      final data = await OrderRepository(api).courierLocation(order.id);
+      if (!mounted || version != _orderVersion) {
+        return;
+      }
+      if (data['courier_id'] != order.courier!.id ||
+          data['status'] != order.status) {
+        setState(() => _location = null);
+        _reload();
+        return;
+      }
+      final raw = data['location'];
+      setState(() {
+        _location = raw is Map<String, dynamic>
+            ? CourierLocation.fromJson(raw)
+            : null;
+        _gpsError = false;
+      });
+    } on ApiException {
+      if (mounted && version == _orderVersion) setState(() => _gpsError = true);
+    } finally {
+      _locating = false;
+    }
   }
 
   void _reload() {
@@ -335,7 +418,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   _DetailCard(
                     children: <Widget>[
                       const _SectionTitle('Dónde va tu pedido'),
-                      _OrderMap(order: order),
+                      _OrderMap(order: order, location: _location),
                     ],
                   ),
                 ],
@@ -406,6 +489,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         ],
                       ),
                     ],
+                    if (order.isActive && order.courier != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        _location?.isFresh == true
+                            ? _gpsError
+                                  ? 'Última ubicación recibida · Sin conexión GPS actualizada'
+                                  : 'GPS actualizado · Precisión ±${_location!.accuracy.round()} m'
+                            : 'Esperando una ubicación reciente del motorista.',
+                        key: const ValueKey('courier-gps-status'),
+                        style: text.bodySmall,
+                      ),
+                    ],
                     if (!order.isActive)
                       ExpansionTile(
                         tilePadding: EdgeInsets.zero,
@@ -469,16 +564,38 @@ class _DetailCard extends StatelessWidget {
   );
 }
 
-class _OrderMap extends StatelessWidget {
-  const _OrderMap({required this.order});
-
+class _OrderMap extends StatefulWidget {
+  const _OrderMap({required this.order, this.location});
   final Order order;
+  final CourierLocation? location;
+  @override
+  State<_OrderMap> createState() => _OrderMapState();
+}
+
+class _OrderMapState extends State<_OrderMap> {
+  final _controller = MapController();
+  Order get order => widget.order;
+  CourierLocation? get location =>
+      widget.location?.isFresh == true ? widget.location : null;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
     children: <Widget>[
       TorogoMap(
+        controller: _controller,
         points: <MapPoint>[
+          if (location != null)
+            MapPoint(
+              latitude: location!.latitude,
+              longitude: location!.longitude,
+              icon: Icons.delivery_dining_rounded,
+              color: AppTheme.navy,
+            ),
           MapPoint(
             latitude: order.restaurant.latitude,
             longitude: order.restaurant.longitude,
@@ -494,6 +611,15 @@ class _OrderMap extends StatelessWidget {
             ),
         ],
       ),
+      if (location != null)
+        TextButton.icon(
+          onPressed: () => _controller.move(
+            LatLng(location!.latitude, location!.longitude),
+            15,
+          ),
+          icon: const Icon(Icons.my_location_rounded),
+          label: const Text('Ver motorista en el mapa'),
+        ),
       const SizedBox(height: AppSpacing.sm),
       Row(
         children: <Widget>[

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CourierOrderController;
+use App\Http\Controllers\Api\CourierLocationController;
 use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
@@ -121,6 +122,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/orders/{order}', [OrderController::class, 'show'])
         ->name('api.orders.show');
+
+    Route::get('/orders/{order}/location', [CourierLocationController::class, 'show'])
+        ->middleware('throttle:30,1');
 });
 
 // ------------------------ Panel del restaurante ------------------------
@@ -234,6 +238,9 @@ Route::middleware(['auth:sanctum', 'courier'])
         // Recogido y entregado.
         Route::patch('/orders/{order}', [CourierOrderController::class, 'updateStatus'])
             ->name('api.courier.orders.status');
+
+        Route::patch('/orders/{order}/location', [CourierLocationController::class, 'update'])
+            ->middleware('throttle:60,1');
     });
 
 // ------------------------------ Tiempo real ----------------------------
