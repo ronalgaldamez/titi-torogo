@@ -7,13 +7,14 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
+import 'package:torogo/core/widgets/food_category_icon.dart';
 import 'package:torogo/features/cliente/home/home_screen.dart';
 import 'package:torogo/features/cliente/home/widgets/restaurant_card.dart';
 import 'package:torogo/models/restaurant.dart';
 
 void main() {
   testWidgets(
-    'Inicio busca restaurantes, conserva pedidos y distingue funciones pendientes',
+    'Inicio filtra categorías y búsqueda sin recargar, conserva pedidos y errores',
     (tester) async {
       tester.view.physicalSize = const Size(375, 812);
       tester.view.devicePixelRatio = 1;
@@ -70,11 +71,21 @@ void main() {
                     'courier_fee': '1.50',
                     'platform_fee': '0.50',
                   },
+            'food_categories': [
+              {'id': 1, 'name': 'Pupusas'},
+              {'id': 2, 'name': 'Pizzas'},
+            ],
             'restaurants': <dynamic>[
               for (final name in <String>['Los Tres Cerditos', 'Urban Pizza'])
                 <String, dynamic>{
                   'id': name == 'Urban Pizza' ? 2 : 1,
                   'name': name,
+                  'food_categories': [
+                    {
+                      'id': name == 'Urban Pizza' ? 2 : 1,
+                      'name': name == 'Urban Pizza' ? 'Pizzas' : 'Pupusas',
+                    },
+                  ],
                   'address': 'Centro',
                   'latitude': 14.1,
                   'longitude': -89.1,
@@ -103,8 +114,35 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Zona de prueba'), findsOneWidget);
-        expect(find.text('Categorías · Próximamente'), findsOneWidget);
+        expect(find.text('Categorías'), findsOneWidget);
+        for (final id in [1, 2]) {
+          expect(
+            find.descendant(
+              of: find.byKey(ValueKey('home-category-$id')),
+              matching: find.byType(FoodCategoryIcon),
+            ),
+            findsOneWidget,
+          );
+        }
         final initialLoads = loads;
+        await tester.tap(find.byKey(const ValueKey('home-category-2')));
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Urban Pizza'),
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        expect(find.text('Los Tres Cerditos'), findsNothing);
+        expect(loads, initialLoads);
+        await tester.drag(find.byType(ListView), const Offset(0, 1000));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('home-category-all')));
+        await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'URBAN');
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(

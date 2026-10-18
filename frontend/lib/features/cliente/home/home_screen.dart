@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import '../../../core/location.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/food_category_icon.dart';
 import '../../../models/delivery_zone.dart';
 import '../../../models/restaurant.dart';
+import '../../../models/food_category.dart';
 import '../pedido/my_orders_screen.dart';
 import '../../shared/account_profile.dart';
 import '../restaurante/restaurant_detail_screen.dart';
@@ -37,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final HomeRepository _repository;
   late Future<HomeData> _future;
   int _tab = 0;
+  int? _categoryId;
   final TextEditingController _search = TextEditingController();
 
   @override
@@ -339,10 +342,18 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
+        final selectedCategory = data.categories.any((c) => c.id == _categoryId)
+            ? _categoryId
+            : null;
         final String query = _search.text.trim().toLowerCase();
         final List<Restaurant> restaurants = data.restaurants
             .where(
-              (restaurant) => restaurant.name.toLowerCase().contains(query),
+              (restaurant) =>
+                  restaurant.name.toLowerCase().contains(query) &&
+                  (selectedCategory == null ||
+                      restaurant.foodCategories.any(
+                        (c) => c.id == selectedCategory,
+                      )),
             )
             .toList();
         final int total = restaurants.length;
@@ -364,6 +375,9 @@ class _HomeScreenState extends State<HomeScreen> {
               if (index == 0) {
                 return _Header(
                   zone: data.zone!,
+                  categories: data.categories,
+                  selectedCategory: selectedCategory,
+                  onCategory: (id) => setState(() => _categoryId = id),
                   search: _search,
                   onSearch: () => setState(() {}),
                 );
@@ -392,16 +406,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? Icons.storefront_outlined
                       : Icons.search_off_rounded,
                   title: query.isEmpty
-                      ? 'No hay restaurantes disponibles'
+                      ? selectedCategory == null
+                            ? 'No hay restaurantes disponibles'
+                            : 'No hay restaurantes en esta categoría'
                       : 'No encontramos ese restaurante',
                   message: query.isEmpty
-                      ? 'Probá actualizar en unos minutos.'
+                      ? selectedCategory == null
+                            ? 'Probá actualizar en unos minutos.'
+                            : 'Probá otra categoría o elegí Todas.'
                       : 'Probá otro nombre o borrá la búsqueda.',
-                  onRetry: query.isEmpty
+                  onRetry: query.isEmpty && selectedCategory == null
                       ? _reload
                       : () async {
                           _search.clear();
-                          setState(() {});
+                          setState(() => _categoryId = null);
                         },
                 );
               }
@@ -517,8 +535,14 @@ class _Header extends StatelessWidget {
     required this.zone,
     required this.search,
     required this.onSearch,
+    required this.categories,
+    required this.selectedCategory,
+    required this.onCategory,
   });
   final DeliveryZone zone;
+  final List<FoodCategory> categories;
+  final int? selectedCategory;
+  final ValueChanged<int?> onCategory;
   final TextEditingController search;
   final VoidCallback onSearch;
 
@@ -596,53 +620,35 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text(
-          'Categorías · Próximamente',
-          style: text.labelMedium?.copyWith(color: colors.onSurfaceVariant),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: <Widget>[
-              for (final entry in const <String, IconData>{
-                'Pupusas': Icons.restaurant_rounded,
-                'Hamburguesas': Icons.lunch_dining_rounded,
-                'Pollo': Icons.restaurant_menu_rounded,
-                'Tacos': Icons.fastfood_rounded,
-                'Comida típica': Icons.rice_bowl_rounded,
-              }.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.md),
-                  child: Semantics(
-                    enabled: false,
-                    label: '${entry.key}, próximamente',
-                    excludeSemantics: true,
-                    child: Column(
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          decoration: BoxDecoration(
-                            color: AppTheme.tealSoft,
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.image,
-                            ),
-                          ),
-                          child: Icon(
-                            entry.value,
-                            color: AppTheme.tealDeep,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(entry.key, style: text.labelMedium),
-                      ],
-                    ),
+        if (categories.isNotEmpty) ...[
+          Text('Categorías', style: text.labelMedium),
+          const SizedBox(height: AppSpacing.sm),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _CategoryTile(
+                  key: const ValueKey('home-category-all'),
+                  category: const FoodCategory(
+                    id: 0,
+                    name: 'Todas',
+                    iconKey: 'all',
                   ),
+                  selected: selectedCategory == null,
+                  onTap: () => onCategory(null),
                 ),
-            ],
+                for (final category in categories)
+                  _CategoryTile(
+                    key: ValueKey('home-category-${category.id}'),
+                    category: category,
+                    selected: selectedCategory == category.id,
+                    onTap: () => onCategory(category.id),
+                  ),
+              ],
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         Container(
           decoration: BoxDecoration(
@@ -690,6 +696,76 @@ class _Header extends StatelessWidget {
       ],
     );
   }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.category,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+  final FoodCategory category;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.zero,
+    child: Semantics(
+      button: true,
+      selected: selected,
+      label: category.name,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: category.name,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppRadius.image),
+            child: SizedBox(
+              width: 64,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? AppTheme.tealDeep : AppTheme.tealSoft,
+                        borderRadius: BorderRadius.circular(AppRadius.image),
+                      ),
+                      child: FoodCategoryIcon(
+                        category: category,
+                        size: category.iconUrl == null ? 24 : 36,
+                        color: selected ? Colors.white : AppTheme.tealDeep,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      category.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppTheme.navy,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Titulo de seccion con el conteo, como en las referencias.

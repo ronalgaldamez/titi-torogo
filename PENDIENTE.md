@@ -14,6 +14,10 @@ Antes de implementar, revisar el código para distinguir funcionalidades faltant
 
 ## Categorías dinámicas administradas desde el panel
 
+Implementación en `titi/feature/categorias-dinamicas`, pendiente de ejecutar migración y pruebas: catálogo global del administrador, selección múltiple desde Mi local y filtros del inicio del cliente. Se mantienen separadas de las categorías del menú. Las cinco opciones anteriores se crean como catálogo inicial; cada restaurante elige sus categorías, sin asignaciones automáticas por nombre. El cliente obtiene cambios al actualizar el inicio y el restaurante al abrir su selector.
+
+Iconos: se conserva la presentación con icono y nombre debajo. El administrador puede subir PNG/JPG/WebP opcional (hasta 2 MB y 1024 × 1024), conservarlo al editar o quitarlo. Sin imagen, o si falla al cargar, se utiliza un icono predeterminado. Los archivos se guardan en el disco público local y se sirven mediante la API para que funcionen en el emulador sin configurar enlaces de almacenamiento.
+
 - [ ] Revisar las categorías que se muestran al cliente y reemplazar las opciones fijas por categorías administrables desde el panel de administración.
 - [ ] Permitir que Ronald agregue categorías desde el administrador.
 - [ ] Cuando un restaurante solicite una categoría nueva, Ronald podrá revisarla y agregarla desde el administrador. No se ha acordado crear un flujo de solicitudes dentro de la app.

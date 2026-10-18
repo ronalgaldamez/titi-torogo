@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\RestaurantController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\RestaurantCategoryController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,6 +54,12 @@ Route::prefix('admin')->group(function (): void {
             ->name('admin.logout');
 
         // ------------------------- Restaurantes -------------------------
+
+        Route::get('/categorias', [RestaurantCategoryController::class, 'index'])->name('admin.categories.index');
+        Route::get('/categorias/crear', [RestaurantCategoryController::class, 'create'])->name('admin.categories.create');
+        Route::post('/categorias', [RestaurantCategoryController::class, 'store'])->name('admin.categories.store');
+        Route::get('/categorias/{category}/editar', [RestaurantCategoryController::class, 'edit'])->name('admin.categories.edit');
+        Route::put('/categorias/{category}', [RestaurantCategoryController::class, 'update'])->name('admin.categories.update');
 
         Route::get('/restaurantes', [RestaurantController::class, 'index'])
             ->name('admin.restaurants.index');

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\RestaurantOrderController;
 use App\Http\Controllers\Api\RestaurantStatusController;
+use App\Http\Controllers\Api\RestaurantCategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,9 @@ Route::post('/register', [AuthController::class, 'register'])
     ->name('api.register');
 
 // --------------------------- Home del cliente --------------------------
+
+Route::get('/category-icons/{category}', [RestaurantCategoryController::class, 'icon'])
+    ->name('api.category.icon');
 
 /*
  * Publica a proposito: mostrar los restaurantes ANTES de pedir registro
@@ -132,6 +136,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'restaurant'])
     ->prefix('restaurant')
     ->group(function () {
+        Route::get('/categories', [RestaurantCategoryController::class, 'index']);
+        Route::put('/categories', [RestaurantCategoryController::class, 'update']);
         Route::get('/menu', [MenuController::class, 'index'])
             ->name('api.restaurant.menu.index');
 
