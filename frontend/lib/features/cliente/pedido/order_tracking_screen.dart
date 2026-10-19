@@ -48,6 +48,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   Timer? _gpsTimer;
   bool _locating = false;
   bool _gpsError = false;
+  bool _cancelling = false;
   int _orderVersion = 0;
   late Future<Order> _future;
 
@@ -244,7 +245,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         _gpsError = false;
       });
     } on ApiException {
-      if (mounted && version == _orderVersion) setState(() => _gpsError = true);
+      if (mounted && version == _orderVersion) {
+        setState(() => _gpsError = true);
+      }
     } finally {
       _locating = false;
     }
@@ -264,6 +267,65 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       _liveOrder = null;
       _future = _load();
     });
+  }
+
+  Future<void> _cancel() async {
+    if (_cancelling) {
+      return;
+    }
+    setState(() => _cancelling = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('¿Cancelar el pedido #${widget.orderId}?'),
+          content: const Text(
+            'Podés cancelar mientras el restaurante no lo haya aceptado. '
+            'Si se cancela, no tenés que pagar.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Seguir esperando'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sí, cancelar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        return;
+      }
+      final api = await Session(AuthStorage()).client();
+      final order = await OrderRepository(api).cancel(widget.orderId);
+      if (!mounted) {
+        return;
+      }
+      _orderVersion++;
+      _syncLocation(order);
+      setState(() => _liveOrder = order);
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      // Ante un fallo de red, consultar el estado antes de dar por fallida la cancelación.
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.statusCode == null
+                ? 'No pudimos confirmar la cancelación. Revisá el estado del pedido antes de reintentar.'
+                : error.message,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _cancelling = false);
+      }
+    }
   }
 
   String _format(DateTime date) {
@@ -360,6 +422,21 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       vertical: AppSpacing.sm,
                     ),
                     child: Text(order.acceptanceDeadlineLabel!),
+                  ),
+                if (order.status == 'pending' && order.acceptedAt == null)
+                  OutlinedButton.icon(
+                    onPressed: _cancelling ? null : _cancel,
+                    icon: const Icon(Icons.close_rounded),
+                    label: Text(
+                      _cancelling ? 'Procesando…' : 'Cancelar pedido',
+                    ),
+                  )
+                else if (order.isActive)
+                  const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
+                    child: Text(
+                      'El restaurante ya aceptó tu pedido. Ya no podés cancelarlo desde la app.',
+                    ),
                   ),
                 if (order.status == 'rejected')
                   const _Notice(

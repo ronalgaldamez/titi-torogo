@@ -12,6 +12,11 @@ class OrderRepository {
 
   final ApiClient _api;
 
+  Future<Order> cancel(int orderId) async {
+    final json = await _api.post('/orders/$orderId/cancel');
+    return Order.fromJson(json['order'] as Map<String, dynamic>);
+  }
+
   Future<Map<String, dynamic>> courierLocation(int orderId) =>
       _api.get('/orders/$orderId/location');
   final PendingOrderStorage _storage = PendingOrderStorage();

@@ -123,6 +123,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/{order}', [OrderController::class, 'show'])
         ->name('api.orders.show');
 
+    Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])
+        ->middleware('throttle:30,1')
+        ->name('api.orders.cancel');
+
     Route::get('/orders/{order}/location', [CourierLocationController::class, 'show'])
         ->middleware('throttle:30,1');
 });

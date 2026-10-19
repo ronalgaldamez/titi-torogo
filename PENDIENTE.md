@@ -7,7 +7,7 @@ Actualizada el 18/10/2026. Las casillas distinguen implementación completada de
 ## Cliente: revisar y completar
 
 - [ ] Perfil: revisar qué datos personales puede consultar y editar el cliente, incluidos nombre y teléfono.
-- [ ] Cancelaciones: comprobar cuándo puede cancelar y explicar claramente las restricciones y los estados.
+- [ ] Cancelaciones: implementadas en `titi/feature/cliente-cancelar-pedido`, pendientes de pruebas. El cliente solo puede cancelar pedidos propios pendientes, antes de la aceptación; confirmación en seguimiento, motivo en historial y aviso de que no debe pagar. El servidor bloquea la fila para coordinar con aceptación y vencimiento, conserva montos y permite reintentos sin repetir eventos. No se cancelan pedidos antiguos en lote.
 - [ ] Probar el recorrido completo: pedido normal, rechazo del restaurante, pérdida de conexión, recuperación sin duplicados y entrega final.
 - [ ] Seguimiento GPS: verificar la ubicación real del motorista que recibe y muestra el cliente, diferenciándola de las actualizaciones del estado del pedido.
   - Implementado en `titi/feature/seguimiento-gps`, pendiente de ejecutar pruebas y validar dos sesiones/dispositivos: captura Android con notificación durante entregas propias, consulta privada del cliente cada 10 segundos, precisión y caducidad visibles. Solo se conserva la última posición en caché por dos minutos; no se publica en canales compartidos. Ver `backend/COURIER_GPS.md` para permisos y pruebas con pantalla bloqueada, desconexión y reasignación.
