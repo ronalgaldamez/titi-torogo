@@ -6,6 +6,7 @@ import '../../core/auth_storage.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../models/user.dart';
+import 'client_personal_info_sheet.dart';
 
 class AccountProfile extends StatefulWidget {
   const AccountProfile({required this.onLogout, super.key});
@@ -183,7 +184,26 @@ class _AccountProfileState extends State<AccountProfile> {
     ),
   );
 
-  void _showPersonalInfo(User user) {
+  Future<void> _showPersonalInfo(User user) async {
+    if (user.role == 'client') {
+      final updated = await showModalBottomSheet<User>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        showDragHandle: true,
+        builder: (_) => ClientPersonalInfoSheet(user: user),
+      );
+      if (mounted && updated != null) {
+        setState(() {
+          _user = Future.value(updated);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tus datos se guardaron.')),
+        );
+      }
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -85,6 +86,17 @@ class AuthController extends Controller
     public function me(Request $request): UserResource
     {
         return new UserResource($request->user());
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): UserResource
+    {
+        $user = $request->user();
+        $user->name = $request->validated('name');
+        $phone = $request->validated('phone');
+        $user->phone = $phone === null ? null : preg_replace('/^\+503/', '', $phone);
+        $user->save();
+
+        return new UserResource($user);
     }
 
     /**

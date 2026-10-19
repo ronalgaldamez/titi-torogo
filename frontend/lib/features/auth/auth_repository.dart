@@ -16,6 +16,11 @@ class AuthRepository {
   final ApiClient _api;
   final AuthStorage _storage;
 
+  Future<User> updateProfile({required String name, String? phone}) async {
+    final json = await _api.patch('/me', body: {'name': name, 'phone': phone});
+    return User.fromJson(json);
+  }
+
   /// POST /api/login
   ///
   /// Si las credenciales estan mal, Laravel responde 422 y el ApiClient ya
@@ -40,10 +45,7 @@ class AuthRepository {
 
     // El token y el perfil se guardan ANTES de devolver el resultado: si la
     // app se cierra justo despues del login, la sesion ya quedo guardada.
-    await _storage.saveSession(
-      token: json['token'] as String,
-      role: user.role,
-    );
+    await _storage.saveSession(token: json['token'] as String, role: user.role);
 
     return AuthResult(user: user);
   }

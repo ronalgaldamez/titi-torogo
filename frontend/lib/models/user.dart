@@ -9,11 +9,13 @@ class User {
     required this.email,
     required this.role,
     required this.roleLabel,
+    this.phone,
   });
 
   final int id;
   final String name;
   final String email;
+  final String? phone;
 
   /// Valor tecnico: 'client', 'restaurant', 'courier' o 'admin'.
   final String role;
@@ -27,6 +29,7 @@ class User {
       id: json['id'] as int,
       name: json['name'] as String,
       email: json['email'] as String,
+      phone: json['phone'] as String?,
       role: json['role'] as String,
       roleLabel: json['role_label'] as String,
     );
