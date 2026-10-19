@@ -80,6 +80,40 @@ class OrderController extends Controller
         });
     }
 
+    public function cancel(Request $request, int $order): JsonResponse
+    {
+        return DB::transaction(function () use ($request, $order): JsonResponse {
+            $model = $request->user()->orders()->lockForUpdate()->findOrFail($order);
+
+            // Conserva el motivo del vencimiento aunque el scheduler aún no haya pasado.
+            if ($model->expirePending() || $model->status === OrderStatus::Cancelled) {
+                return $this->ok($model);
+            }
+
+            if ($model->status !== OrderStatus::Pending || $model->accepted_at !== null) {
+                return response()->json([
+                    'message' => 'Solo podés cancelar antes de que el restaurante acepte el pedido.',
+                    'order' => new OrderResource($model->load(['items', 'restaurant', 'courier'])),
+                ], 409);
+            }
+
+            $model->moveTo(OrderStatus::Cancelled);
+            $model->cancellation_reason = 'El cliente canceló el pedido.';
+            $model->save();
+
+            DB::afterCommit(function () use ($model): void {
+                // La cancelación queda confirmada aunque Reverb no esté disponible.
+                try {
+                    OrderUpdated::announce($model, OrderStatus::Pending->value);
+                } catch (\Throwable $error) {
+                    report($error);
+                }
+            });
+
+            return $this->ok($model);
+        });
+    }
+
     private function lockAccount(Request $request): void
     {
         // ponytail: serializa creacion/recuperacion por cuenta; usar locks por clave si el volumen lo exige.
