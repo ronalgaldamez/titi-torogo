@@ -6,7 +6,7 @@ Actualizada el 18/10/2026. Las casillas distinguen implementación completada de
 
 ## Cliente: revisar y completar
 
-- [ ] Perfil: revisar qué datos personales puede consultar y editar el cliente, incluidos nombre y teléfono.
+- [ ] Perfil: edición de nombre y teléfono implementada en `titi/feature/cliente-perfil`, pendiente de pruebas automáticas y manuales. Se conserva el avatar y el diseño; correo de solo lectura, teléfono opcional de El Salvador (8 dígitos, admite +503), validación y reintento sin perder el formulario. La API solo permite editar la cuenta cliente autenticada, sin cambiar correo, contraseña ni permisos. No requiere migraciones.
 - [ ] Cancelaciones: implementadas en `titi/feature/cliente-cancelar-pedido`, pendientes de pruebas. El cliente solo puede cancelar pedidos propios pendientes, antes de la aceptación; confirmación en seguimiento, motivo en historial y aviso de que no debe pagar. El servidor bloquea la fila para coordinar con aceptación y vencimiento, conserva montos y permite reintentos sin repetir eventos. No se cancelan pedidos antiguos en lote.
 - [ ] Probar el recorrido completo: pedido normal, rechazo del restaurante, pérdida de conexión, recuperación sin duplicados y entrega final.
 - [ ] Seguimiento GPS: verificar la ubicación real del motorista que recibe y muestra el cliente, diferenciándola de las actualizaciones del estado del pedido.

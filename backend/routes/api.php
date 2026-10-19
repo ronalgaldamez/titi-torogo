@@ -72,6 +72,8 @@ Route::get('/restaurants/{restaurant}', [RestaurantController::class, 'show'])
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
+    Route::patch('/me', [AuthController::class, 'updateProfile'])
+        ->middleware('throttle:30,1')->name('api.profile.update');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
 
     // ---------------------------- Direcciones ----------------------------
