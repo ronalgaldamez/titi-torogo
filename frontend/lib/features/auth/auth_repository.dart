@@ -41,6 +41,29 @@ class AuthRepository {
       },
     );
 
+    return _saveSession(json);
+  }
+
+  Future<AuthResult> register({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final json = await _api.post(
+      '/register',
+      body: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'device_name': 'app-movil',
+      },
+    );
+    return _saveSession(json);
+  }
+
+  Future<AuthResult> _saveSession(Map<String, dynamic> json) async {
     final User user = User.fromJson(json['user'] as Map<String, dynamic>);
 
     // El token y el perfil se guardan ANTES de devolver el resultado: si la

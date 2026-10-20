@@ -11,10 +11,12 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onAuthenticated,
     required this.onSkip,
+    this.repository,
     super.key,
   });
   final ValueChanged<User> onAuthenticated;
   final VoidCallback onSkip;
+  final AuthRepository? repository;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -24,21 +26,27 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _name = TextEditingController();
+  final _confirmation = TextEditingController();
   late final AuthRepository _repository;
   bool _loading = false;
   bool _showPassword = false;
+  bool _registering = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _repository = AuthRepository(ApiClient(), AuthStorage());
+    _repository =
+        widget.repository ?? AuthRepository(ApiClient(), AuthStorage());
   }
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _name.dispose();
+    _confirmation.dispose();
     super.dispose();
   }
 
@@ -54,10 +62,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final result = await _repository.login(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
+      final result = _registering
+          ? await _repository.register(
+              name: _name.text.trim(),
+              email: _email.text.trim(),
+              password: _password.text,
+              passwordConfirmation: _confirmation.text,
+            )
+          : await _repository.login(
+              email: _email.text.trim(),
+              password: _password.text,
+            );
       if (!mounted) {
         return;
       }
@@ -72,6 +87,21 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  void _switchMode() {
+    if (_loading) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    _formKey.currentState?.reset();
+    setState(() {
+      _registering = !_registering;
+      _error = null;
+      _showPassword = false;
+      _password.clear();
+      _confirmation.clear();
+    });
   }
 
   @override
@@ -114,30 +144,60 @@ class _LoginScreenState extends State<LoginScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(text: 'toro'),
-                                      TextSpan(
-                                        text: 'go',
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(text: 'toro'),
+                                            TextSpan(
+                                              text: 'go',
+                                              style: TextStyle(
+                                                color: AppTheme.yellow,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: '.',
+                                              style: TextStyle(
+                                                color: _Colors.accent,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                         style: TextStyle(
-                                          color: AppTheme.yellow,
+                                          color: _Colors.paper,
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -2,
                                         ),
                                       ),
-                                      TextSpan(
-                                        text: '.',
-                                        style: TextStyle(color: _Colors.accent),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    OutlinedButton(
+                                      onPressed: _loading ? null : _switchMode,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: _Colors.paper,
+                                        side: BorderSide(
+                                          color: _Colors.paper.withValues(
+                                            alpha: .25,
+                                          ),
+                                        ),
+                                        minimumSize: const Size(0, 44),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                  style: TextStyle(
-                                    color: _Colors.paper,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -2,
-                                  ),
+                                      child: Text(
+                                        _registering
+                                            ? 'Iniciar sesión'
+                                            : 'Crear cuenta',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 42),
+                                SizedBox(height: _registering ? 24 : 42),
                                 const Row(
                                   children: [
                                     Icon(
@@ -160,17 +220,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 18),
-                                const Text.rich(
+                                Text.rich(
                                   TextSpan(
                                     children: [
-                                      TextSpan(text: 'Pedí cerca.\n'),
                                       TextSpan(
-                                        text: 'Comé rico.',
-                                        style: TextStyle(color: _Colors.accent),
+                                        text: _registering
+                                            ? 'Tu lugar\n'
+                                            : 'Pedí cerca.\n',
+                                      ),
+                                      TextSpan(
+                                        text: _registering
+                                            ? 'a la mesa.'
+                                            : 'Comé rico.',
+                                        style: const TextStyle(
+                                          color: _Colors.accent,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: _Colors.paper,
                                     fontSize: 46,
                                     height: 1.08,
@@ -252,9 +320,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
+                                        if (_registering) ...[
+                                          _Field(
+                                            controller: _name,
+                                            label: 'Tu nombre',
+                                            hint: '¿Cómo te llamás?',
+                                            enabled: !_loading,
+                                            textInputAction:
+                                                TextInputAction.next,
+                                            autofillHints: const [
+                                              AutofillHints.name,
+                                            ],
+                                            maxLength: 255,
+                                            suffix: const Icon(
+                                              Icons.person_outline,
+                                              color: _Colors.muted,
+                                              size: 20,
+                                            ),
+                                            validator: (value) =>
+                                                (value ?? '').trim().isEmpty
+                                                ? 'Escribí tu nombre.'
+                                                : null,
+                                          ),
+                                          const SizedBox(height: 22),
+                                        ],
                                         _Field(
                                           controller: _email,
                                           label: 'Correo electrónico',
+                                          maxLength: 255,
                                           hint: 'tu@correo.com',
                                           enabled: !_loading,
                                           keyboardType:
@@ -287,11 +380,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                           hint: 'Tu contraseña',
                                           enabled: !_loading,
                                           obscure: !_showPassword,
-                                          textInputAction: TextInputAction.done,
-                                          autofillHints: const [
-                                            AutofillHints.password,
+                                          textInputAction: _registering
+                                              ? TextInputAction.next
+                                              : TextInputAction.done,
+                                          autofillHints: [
+                                            _registering
+                                                ? AutofillHints.newPassword
+                                                : AutofillHints.password,
                                           ],
-                                          onSubmitted: (_) => _submit(),
+                                          onSubmitted: _registering
+                                              ? null
+                                              : (_) => _submit(),
                                           suffix: IconButton(
                                             onPressed: _loading
                                                 ? null
@@ -311,11 +410,46 @@ class _LoginScreenState extends State<LoginScreen> {
                                               size: 20,
                                             ),
                                           ),
-                                          validator: (value) =>
-                                              (value ?? '').isEmpty
-                                              ? 'Escribí tu contraseña.'
-                                              : null,
+                                          validator: (value) {
+                                            if ((value ?? '').isEmpty) {
+                                              return 'Escribí tu contraseña.';
+                                            }
+                                            if (_registering &&
+                                                value!.runes.length < 8) {
+                                              return 'Usá al menos 8 caracteres.';
+                                            }
+                                            return null;
+                                          },
                                         ),
+                                        if (_registering) ...[
+                                          const SizedBox(height: 22),
+                                          _Field(
+                                            controller: _confirmation,
+                                            label: 'Confirmá tu contraseña',
+                                            hint: 'Una vez más',
+                                            enabled: !_loading,
+                                            obscure: !_showPassword,
+                                            autofillHints: const [
+                                              AutofillHints.newPassword,
+                                            ],
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            onSubmitted: (_) => _submit(),
+                                            suffix: const Icon(
+                                              Icons.lock_outline,
+                                              color: _Colors.muted,
+                                              size: 20,
+                                            ),
+                                            validator: (value) {
+                                              if ((value ?? '').isEmpty) {
+                                                return 'Confirmá tu contraseña.';
+                                              }
+                                              return value != _password.text
+                                                  ? 'Las contraseñas no coinciden.'
+                                                  : null;
+                                            },
+                                          ),
+                                        ],
                                         if (_error != null) ...[
                                           const SizedBox(height: 16),
                                           Semantics(
@@ -355,7 +489,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 child: Text(
                                                   _loading
                                                       ? 'Un momento…'
-                                                      : 'Vamos a lo rico',
+                                                      : _registering
+                                                      ? 'Crear mi cuenta'
+                                                      : 'Puyale, pedí ya',
                                                   style: const TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w800,
@@ -592,6 +728,7 @@ class _Field extends StatelessWidget {
     this.textInputAction,
     this.autofillHints,
     this.onSubmitted,
+    this.maxLength,
   });
   final TextEditingController controller;
   final String label;
@@ -604,6 +741,7 @@ class _Field extends StatelessWidget {
   final List<String>? autofillHints;
   final Widget suffix;
   final ValueChanged<String>? onSubmitted;
+  final int? maxLength;
 
   @override
   Widget build(BuildContext context) => TextFormField(
@@ -615,11 +753,13 @@ class _Field extends StatelessWidget {
     autofillHints: autofillHints,
     onFieldSubmitted: onSubmitted,
     validator: validator,
+    maxLength: maxLength,
     autocorrect: false,
     enableSuggestions: !obscure,
     cursorColor: AppTheme.yellow,
     style: const TextStyle(color: _Colors.paper, fontSize: 16),
     decoration: InputDecoration(
+      counterText: '',
       labelText: label.toUpperCase(),
       hintText: hint,
       floatingLabelBehavior: FloatingLabelBehavior.always,
