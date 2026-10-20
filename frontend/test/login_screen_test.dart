@@ -68,7 +68,9 @@ void main() {
 
       Future<void> submit() async {
         final button = find.widgetWithText(FilledButton, 'Crear mi cuenta');
+        await tester.pumpAndSettle();
         await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
         await tester.tap(button);
         await tester.pump();
       }
