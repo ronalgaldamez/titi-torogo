@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/location.dart';
@@ -12,6 +13,7 @@ import '../../shared/account_profile.dart';
 import '../restaurante/restaurant_detail_screen.dart';
 import 'home_repository.dart';
 import 'widgets/restaurant_card.dart';
+import 'widgets/home_banners.dart';
 
 /// El Home del cliente: los restaurantes que SI entregan donde esta.
 ///
@@ -40,11 +42,15 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<HomeData> _future;
   int _tab = 0;
   int? _categoryId;
+  bool _onlyOpen = false;
   final TextEditingController _search = TextEditingController();
+  final _catalogueScroll = ScrollController();
+  final _headerKey = GlobalKey();
 
   @override
   void dispose() {
     _search.dispose();
+    _catalogueScroll.dispose();
     super.dispose();
   }
 
@@ -110,6 +116,37 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  void _exploreBanner(String kind, List<FoodCategory> categories) {
+    final pattern = switch (kind) {
+      'pupusas' => RegExp('pupus'),
+      'burgers' => RegExp('hamburg|burger|sándwich|sandwich'),
+      _ => RegExp('típico|tipico'),
+    };
+    int? selected;
+    for (final category in categories) {
+      if (pattern.hasMatch(category.name.toLowerCase())) {
+        selected = category.id;
+        break;
+      }
+    }
+    _search.clear();
+    setState(() {
+      _categoryId = selected;
+      _onlyOpen = false;
+    });
+    final height = _headerKey.currentContext?.size?.height;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_catalogueScroll.hasClients) {
+        return;
+      }
+      _catalogueScroll.animateTo(
+        (height ?? 0.0).clamp(0.0, _catalogueScroll.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   /// Pide confirmacion antes de cerrar sesion.
@@ -239,12 +276,23 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: _tab == 0
+            ? AppTheme.discoveryBackground
+            : AppTheme.background,
         appBar: _tab == 1 && widget.onLogout != null
             ? null
             : AppBar(
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                backgroundColor: AppTheme.background,
+                backgroundColor: _tab == 0
+                    ? AppTheme.discoveryBackground
+                    : AppTheme.background,
+                foregroundColor: _tab == 0
+                    ? AppTheme.discoveryPaper
+                    : AppTheme.navy,
+                systemOverlayStyle: _tab == 0
+                    ? SystemUiOverlayStyle.light
+                    : SystemUiOverlayStyle.dark,
                 title: _tab == 0 ? const _Wordmark() : const Text('Perfil'),
                 actions: _tab == 0
                     ? <Widget>[
@@ -261,48 +309,71 @@ class _HomeScreenState extends State<HomeScreen> {
                       ]
                     : null,
               ),
-        bottomNavigationBar: NavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          indicatorColor: AppTheme.tealSoft,
-          selectedIndex: _tab,
-          onDestinationSelected: (index) {
-            if (index == 1 && widget.onLogout == null) {
-              showDialog<void>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Tus pedidos'),
-                  content: const Text(
-                    'Iniciá sesión para consultar tus pedidos.',
-                  ),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Entendido'),
+        bottomNavigationBar: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                color: _tab == 0
+                    ? states.contains(WidgetState.selected)
+                          ? AppTheme.discoveryBackground
+                          : AppTheme.discoveryMuted
+                    : AppTheme.navy,
+              ),
+            ),
+            labelTextStyle: WidgetStatePropertyAll(
+              TextStyle(
+                color: _tab == 0 ? AppTheme.discoveryPaper : AppTheme.navy,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          child: NavigationBar(
+            backgroundColor: _tab == 0
+                ? AppTheme.discoveryBackground
+                : Theme.of(context).colorScheme.surface,
+            indicatorColor: _tab == 0
+                ? AppTheme.discoveryAccent
+                : AppTheme.tealSoft,
+            selectedIndex: _tab,
+            onDestinationSelected: (index) {
+              if (index == 1 && widget.onLogout == null) {
+                showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Tus pedidos'),
+                    content: const Text(
+                      'Iniciá sesión para consultar tus pedidos.',
                     ),
-                  ],
-                ),
-              );
-              return;
-            }
-            setState(() => _tab = index);
-          },
-          destinations: const <NavigationDestination>[
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Inicio',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded),
-              label: 'Pedidos',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Perfil',
-            ),
-          ],
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Entendido'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+              setState(() => _tab = index);
+            },
+            destinations: const <NavigationDestination>[
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Inicio',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long_rounded),
+                label: 'Pedidos',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'Perfil',
+              ),
+            ],
+          ),
         ),
         body: _tab == 1
             ? const MyOrdersScreen()
@@ -314,125 +385,204 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _home() {
-    return FutureBuilder<HomeData>(
-      future: _future,
-      builder: (BuildContext context, AsyncSnapshot<HomeData> snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingList();
-        }
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: Theme.of(context).textTheme.apply(
+          bodyColor: AppTheme.discoveryPaper,
+          displayColor: AppTheme.discoveryPaper,
+        ),
+        scaffoldBackgroundColor: AppTheme.discoveryBackground,
+        colorScheme: const ColorScheme.dark(
+          primary: AppTheme.discoveryAccent,
+          onPrimary: AppTheme.discoveryBackground,
+          surface: AppTheme.discoveryBackground,
+          onSurface: AppTheme.discoveryPaper,
+          onSurfaceVariant: AppTheme.discoveryMuted,
+          outline: Color(0xFF56717D),
+          outlineVariant: Color(0xFF2B4B59),
+          surfaceContainerHighest: Color(0xFF204555),
+        ),
+      ),
+      child: FutureBuilder<HomeData>(
+        future: _future,
+        builder: (BuildContext context, AsyncSnapshot<HomeData> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const _LoadingList();
+          }
 
-        if (snapshot.hasError) {
-          return _MessageState(
-            icon: Icons.wifi_off_rounded,
-            title: 'No pudimos cargar los restaurantes',
-            message: '${snapshot.error}',
-            onRetry: _reload,
-          );
-        }
+          if (snapshot.hasError) {
+            return _MessageState(
+              icon: Icons.wifi_off_rounded,
+              title: 'No pudimos cargar los restaurantes',
+              message: '${snapshot.error}',
+              onRetry: _reload,
+            );
+          }
 
-        final HomeData data = snapshot.data!;
+          final HomeData data = snapshot.data!;
 
-        if (data.isOutsideCoverage) {
-          return const _MessageState(
-            icon: Icons.location_off_rounded,
-            title: 'Todavia no llegamos ahi',
-            message:
-                'Estamos empezando en esta zona. '
-                'Pronto vamos a cubrir mas lugares.',
-          );
-        }
+          if (data.isOutsideCoverage) {
+            return const _MessageState(
+              icon: Icons.location_off_rounded,
+              title: 'Todavia no llegamos ahi',
+              message:
+                  'Estamos empezando en esta zona. '
+                  'Pronto vamos a cubrir mas lugares.',
+            );
+          }
 
-        final selectedCategory = data.categories.any((c) => c.id == _categoryId)
-            ? _categoryId
-            : null;
-        final String query = _search.text.trim().toLowerCase();
-        final List<Restaurant> restaurants = data.restaurants
-            .where(
-              (restaurant) =>
-                  restaurant.name.toLowerCase().contains(query) &&
-                  (selectedCategory == null ||
-                      restaurant.foodCategories.any(
-                        (c) => c.id == selectedCategory,
-                      )),
-            )
-            .toList();
-        final int total = restaurants.length;
+          final selectedCategory =
+              data.categories.any((c) => c.id == _categoryId)
+              ? _categoryId
+              : null;
+          final String query = _search.text.trim().toLowerCase();
+          final List<Restaurant> restaurants = data.restaurants
+              .where(
+                (restaurant) =>
+                    restaurant.name.toLowerCase().contains(query) &&
+                    (!_onlyOpen || restaurant.isOpen) &&
+                    (selectedCategory == null ||
+                        restaurant.foodCategories.any(
+                          (c) => c.id == selectedCategory,
+                        )),
+              )
+              .toList();
+          final int total = restaurants.length;
 
-        return RefreshIndicator(
-          onRefresh: _reload,
-          child: ListView.separated(
-            key: const PageStorageKey<String>('client-home'),
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.xl,
-            ),
-            itemCount: total + 2 + (total == 0 ? 1 : 0),
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (BuildContext context, int index) {
-              if (index == 0) {
-                return _Header(
-                  zone: data.zone!,
-                  categories: data.categories,
-                  selectedCategory: selectedCategory,
-                  onCategory: (id) => setState(() => _categoryId = id),
-                  search: _search,
-                  onSearch: () => setState(() {}),
-                );
-              }
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView.separated(
+              controller: _catalogueScroll,
+              key: const PageStorageKey<String>('client-home'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xl,
+              ),
+              itemCount: (total + 1) ~/ 2 + 3 + (total == 0 ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+              itemBuilder: (BuildContext context, int index) {
+                if (index == 0) {
+                  return _Header(
+                    key: _headerKey,
+                    onExplore: (kind) => _exploreBanner(kind, data.categories),
+                    zone: data.zone!,
+                    categories: data.categories,
+                    selectedCategory: selectedCategory,
+                    onCategory: (id) => setState(() => _categoryId = id),
+                    search: _search,
+                    onSearch: () => setState(() {}),
+                  );
+                }
 
-              if (index == 1) {
-                return Column(
-                  children: <Widget>[
-                    // Si el GPS no dio una ubicacion de verdad, se dice. Es
-                    // la diferencia entre "esto es lo que hay cerca tuyo" y
-                    // "esto es lo que hay cerca de la zona de reparto".
-                    //
-                    // Y si la dio pero con error de cuadras, tambien: el
-                    // cliente tiene que poder entender por que la lista se ve
-                    // distinta a lo que esperaba.
-                    if (!_place.isReal || _place.isApproximate)
-                      _LocationNotice(place: _place),
-                    _SectionTitle(count: total),
+                if (index == 1) {
+                  return Column(
+                    children: <Widget>[
+                      // Si el GPS no dio una ubicacion de verdad, se dice. Es
+                      // la diferencia entre "esto es lo que hay cerca tuyo" y
+                      // "esto es lo que hay cerca de la zona de reparto".
+                      //
+                      // Y si la dio pero con error de cuadras, tambien: el
+                      // cliente tiene que poder entender por que la lista se ve
+                      // distinta a lo que esperaba.
+                      if (!_place.isReal || _place.isApproximate)
+                        _LocationNotice(place: _place),
+                      _SectionTitle(
+                        count: total,
+                        onlyOpen: _onlyOpen,
+                        onToggle: () => setState(() => _onlyOpen = !_onlyOpen),
+                      ),
+                    ],
+                  );
+                }
+
+                if (index == (total + 1) ~/ 2 + 2 + (total == 0 ? 1 : 0)) {
+                  return Column(
+                    children: [
+                      LocalFoodBanner(
+                        onExplore: () =>
+                            _exploreBanner('tipicos', data.categories),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.favorite_border_rounded,
+                              color: AppTheme.discoveryAccent,
+                              size: 22,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Menos vueltas.\nMás de lo que te gusta.',
+                                style: TextStyle(
+                                  color: AppTheme.discoveryMuted,
+                                  fontSize: 12,
+                                  height: 1.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                if (total == 0) {
+                  return _MessageState(
+                    icon: query.isEmpty
+                        ? Icons.storefront_outlined
+                        : Icons.search_off_rounded,
+                    title: query.isEmpty
+                        ? selectedCategory == null
+                              ? 'No hay restaurantes disponibles'
+                              : 'No hay restaurantes en esta categoría'
+                        : 'No encontramos ese restaurante',
+                    message: query.isEmpty
+                        ? selectedCategory == null
+                              ? 'Probá actualizar en unos minutos.'
+                              : 'Probá otra categoría o elegí Todas.'
+                        : 'Probá otro nombre o borrá la búsqueda.',
+                    onRetry:
+                        query.isEmpty && selectedCategory == null && !_onlyOpen
+                        ? _reload
+                        : () async {
+                            _search.clear();
+                            setState(() {
+                              _categoryId = null;
+                              _onlyOpen = false;
+                            });
+                          },
+                  );
+                }
+                final first = (index - 2) * 2;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var offset = 0; offset < 2; offset++) ...[
+                      if (offset == 1) const SizedBox(width: 14),
+                      Expanded(
+                        child: first + offset < total
+                            ? RestaurantCard(
+                                restaurant: restaurants[first + offset],
+                                onTap: () => _openRestaurant(
+                                  restaurants[first + offset],
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
                   ],
                 );
-              }
-
-              if (total == 0) {
-                return _MessageState(
-                  icon: query.isEmpty
-                      ? Icons.storefront_outlined
-                      : Icons.search_off_rounded,
-                  title: query.isEmpty
-                      ? selectedCategory == null
-                            ? 'No hay restaurantes disponibles'
-                            : 'No hay restaurantes en esta categoría'
-                      : 'No encontramos ese restaurante',
-                  message: query.isEmpty
-                      ? selectedCategory == null
-                            ? 'Probá actualizar en unos minutos.'
-                            : 'Probá otra categoría o elegí Todas.'
-                      : 'Probá otro nombre o borrá la búsqueda.',
-                  onRetry: query.isEmpty && selectedCategory == null
-                      ? _reload
-                      : () async {
-                          _search.clear();
-                          setState(() => _categoryId = null);
-                        },
-                );
-              }
-              final Restaurant restaurant = restaurants[index - 2];
-
-              return RestaurantCard(
-                restaurant: restaurant,
-                onTap: () => _openRestaurant(restaurant),
-              );
-            },
-          ),
-        );
-      },
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -512,18 +662,23 @@ class _Wordmark extends StatelessWidget {
       TextSpan(
         children: <TextSpan>[
           TextSpan(
-            text: 'Toro',
-            style: TextStyle(color: AppTheme.teal),
+            text: 'toro',
+            style: TextStyle(color: AppTheme.discoveryPaper),
           ),
           TextSpan(
-            text: 'Go',
-            style: TextStyle(color: AppTheme.navy),
+            text: 'go',
+            style: TextStyle(color: AppTheme.yellow),
+          ),
+          TextSpan(
+            text: '.',
+            style: TextStyle(color: AppTheme.discoveryAccent),
           ),
         ],
       ),
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.w800,
-        letterSpacing: -0.5,
+        letterSpacing: -1.8,
+        fontSize: 29,
       ),
     );
   }
@@ -538,6 +693,8 @@ class _Header extends StatelessWidget {
     required this.categories,
     required this.selectedCategory,
     required this.onCategory,
+    required this.onExplore,
+    super.key,
   });
   final DeliveryZone zone;
   final List<FoodCategory> categories;
@@ -545,6 +702,7 @@ class _Header extends StatelessWidget {
   final ValueChanged<int?> onCategory;
   final TextEditingController search;
   final VoidCallback onSearch;
+  final ValueChanged<String> onExplore;
 
   @override
   Widget build(BuildContext context) {
@@ -555,16 +713,27 @@ class _Header extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            const Icon(Icons.place_rounded, color: AppTheme.tealDeep, size: 28),
+            const Icon(
+              Icons.place_outlined,
+              color: AppTheme.discoveryAccent,
+              size: 22,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('Entregamos en', style: text.bodySmall),
+                  Text(
+                    'ENTREGAMOS EN',
+                    style: text.bodySmall?.copyWith(
+                      color: AppTheme.discoveryMuted,
+                      fontSize: 11,
+                      letterSpacing: 1.3,
+                    ),
+                  ),
                   Text(
                     zone.name,
-                    style: text.titleLarge?.copyWith(
+                    style: text.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -573,7 +742,10 @@ class _Header extends StatelessWidget {
             ),
             IconButton(
               tooltip: 'Tarifas de entrega',
-              icon: const Icon(Icons.info_outline_rounded),
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: AppTheme.discoveryMuted,
+              ),
               onPressed: () => showDialog<void>(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -592,7 +764,9 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
+        const _DiscoveryIntro(),
+        const SizedBox(height: AppSpacing.lg),
         TextField(
           controller: search,
           onChanged: (_) => onSearch(),
@@ -649,53 +823,119 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: AppSpacing.lg),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.tealDeep,
-            borderRadius: BorderRadius.circular(AppRadius.image),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'El sabor de tu zona',
-                        style: text.titleLarge?.copyWith(
-                          color: colors.onPrimary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Descubrí restaurantes locales y elegí qué comer hoy.',
-                        style: text.bodySmall?.copyWith(
-                          color: colors.onPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              ExcludeSemantics(
-                child: Image.asset(
-                  'assets/login.jpg',
-                  width: 96,
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: AppSpacing.md),
+        HomePromoSlider(onExplore: onExplore),
       ],
     );
   }
+}
+
+class _DiscoveryIntro extends StatelessWidget {
+  const _DiscoveryIntro();
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      const Positioned(
+        right: 8,
+        top: 10,
+        child: _IntroDoodle(
+          icon: Icons.local_pizza_outlined,
+          angle: .3,
+          size: 42,
+        ),
+      ),
+      const Positioned(
+        right: 66,
+        top: 75,
+        child: _IntroDoodle(
+          icon: Icons.lunch_dining_outlined,
+          angle: -.25,
+          size: 45,
+        ),
+      ),
+      const Positioned(
+        right: 110,
+        top: 2,
+        child: _IntroDoodle(
+          icon: Icons.restaurant_outlined,
+          angle: -.4,
+          size: 28,
+        ),
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '¿QUÉ SE TE ANTOJA HOY?',
+            style: TextStyle(
+              color: AppTheme.discoveryMuted,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 13),
+          const Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: 'Hoy se come\n'),
+                TextSpan(
+                  text: 'bien rico.',
+                  style: TextStyle(color: AppTheme.discoveryAccent),
+                ),
+              ],
+            ),
+            style: TextStyle(
+              color: AppTheme.discoveryPaper,
+              fontSize: 40,
+              height: 1.04,
+              letterSpacing: -1.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 15),
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Elegí cerca. Disfrutá en casa.',
+                  style: TextStyle(
+                    color: AppTheme.discoveryMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Icon(Icons.north_east, color: AppTheme.yellow, size: 26),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+class _IntroDoodle extends StatelessWidget {
+  const _IntroDoodle({
+    required this.icon,
+    required this.angle,
+    required this.size,
+  });
+  final IconData icon;
+  final double angle;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Transform.rotate(
+      angle: angle,
+      child: Icon(
+        icon,
+        size: size,
+        color: AppTheme.discoveryMuted.withValues(alpha: .12),
+      ),
+    ),
+  );
 }
 
 class _CategoryTile extends StatelessWidget {
@@ -735,13 +975,17 @@ class _CategoryTile extends StatelessWidget {
                       height: 56,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: selected ? AppTheme.tealDeep : AppTheme.tealSoft,
+                        color: selected
+                            ? AppTheme.yellow
+                            : const Color(0xFF183A49),
                         borderRadius: BorderRadius.circular(AppRadius.image),
                       ),
                       child: FoodCategoryIcon(
                         category: category,
                         size: category.iconUrl == null ? 24 : 36,
-                        color: selected ? Colors.white : AppTheme.tealDeep,
+                        color: selected
+                            ? AppTheme.discoveryBackground
+                            : AppTheme.discoveryMuted,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -751,7 +995,9 @@ class _CategoryTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppTheme.navy,
+                        color: selected
+                            ? AppTheme.yellow
+                            : AppTheme.discoveryMuted,
                         fontWeight: selected
                             ? FontWeight.w700
                             : FontWeight.w400,
@@ -770,31 +1016,57 @@ class _CategoryTile extends StatelessWidget {
 
 /// Titulo de seccion con el conteo, como en las referencias.
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.count});
+  const _SectionTitle({
+    required this.count,
+    required this.onlyOpen,
+    required this.onToggle,
+  });
 
   final int count;
+  final bool onlyOpen;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         Expanded(
-          child: Text(
-            'Restaurantes para vos',
-            style: text.titleMedium?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Por aquí cerca',
+                style: text.titleMedium?.copyWith(
+                  color: AppTheme.discoveryPaper,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$count restaurantes',
+                style: text.bodySmall?.copyWith(
+                  color: AppTheme.discoveryMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          '$count restaurantes',
-          style: text.bodySmall?.copyWith(color: AppTheme.teal),
+        FilterChip(
+          label: const Text('Abiertos'),
+          selected: onlyOpen,
+          onSelected: (_) => onToggle(),
+          selectedColor: const Color(0xFF204555),
+          backgroundColor: AppTheme.discoveryBackground,
+          labelStyle: const TextStyle(
+            color: AppTheme.discoveryPaper,
+            fontSize: 11,
+          ),
+          checkmarkColor: AppTheme.discoveryAccent,
         ),
       ],
     );
@@ -921,7 +1193,7 @@ class _MessageState extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: text.titleMedium?.copyWith(
-                  color: AppTheme.navy,
+                  color: colors.onSurface,
                   fontWeight: FontWeight.w800,
                 ),
               ),

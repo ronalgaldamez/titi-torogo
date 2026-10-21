@@ -125,6 +125,27 @@ void main() {
           );
         }
         final initialLoads = loads;
+        await tester.scrollUntilVisible(
+          find.byWidgetPredicate(
+            (widget) => widget is RestaurantCard && widget.restaurant.id == 1,
+          ),
+          150,
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        expect(find.byType(RestaurantCard), findsNWidgets(2));
+        final firstCard = tester.getRect(find.byType(RestaurantCard).first);
+        final secondCard = tester.getRect(find.byType(RestaurantCard).last);
+        expect(firstCard.top, secondCard.top);
+        expect(firstCard.right, lessThan(secondCard.left));
+        expect(firstCard.width, lessThan(180));
+        expect(tester.takeException(), isNull);
+        await tester.drag(find.byType(ListView), const Offset(0, 1000));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('home-category-2')));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
@@ -241,11 +262,17 @@ void main() {
               data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
               child: ListView(
                 children: <Widget>[
-                  RestaurantCard(
-                    restaurant: restaurant,
-                    onTap: () {
-                      opened++;
-                    },
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 140,
+                      child: RestaurantCard(
+                        restaurant: restaurant,
+                        onTap: () {
+                          opened++;
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -258,6 +285,7 @@ void main() {
       expect(find.text('Muy ocupado'), findsOneWidget);
       await tester.tap(find.text(restaurant.name));
       expect(opened, 1);
+      expect(tester.takeException(), isNull);
     },
   );
 }

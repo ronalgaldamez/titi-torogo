@@ -14,6 +14,10 @@ import 'package:flutter/material.dart';
 /// limitada y consistente". Todo lo demas (tonos claros, bordes, fondos)
 /// lo deriva Material 3 a partir de estos.
 class AppTheme {
+  static const discoveryBackground = Color(0xFF102E3C);
+  static const discoveryPaper = Color(0xFFFFF8ED);
+  static const discoveryMuted = Color(0xFFB0C0C6);
+  static const discoveryAccent = Color(0xFFFF825E);
   // ------------------------ Paleta de marca ------------------------
 
   /// Teal del fondo del logo. Es EL color de ToroGo.
