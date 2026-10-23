@@ -52,6 +52,7 @@
                     ['route' => 'admin.orders.index', 'label' => 'Pedidos'],
                     ['route' => 'admin.customers.index', 'label' => 'Clientes'],
                     ['route' => 'admin.settings.index', 'label' => 'Configuración'],
+                    ['route' => 'admin.landing.edit', 'label' => 'Página web'],
                 ];
             @endphp
 

@@ -3,13 +3,16 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 
 class ExampleTest extends TestCase
 {
-    public function test_home_redirects_to_admin(): void
+    use DatabaseMigrations;
+
+    public function test_home_shows_the_public_landing(): void
     {
         $response = $this->get('/');
 
-        $response->assertRedirect('/admin');
+        $response->assertOk()->assertSee('Lo bueno');
     }
 }

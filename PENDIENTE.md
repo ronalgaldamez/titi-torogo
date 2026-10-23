@@ -49,6 +49,12 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 - [x] Aprobar las pruebas de backend del vencimiento: límite exacto, aceptación previa, pedidos antiguos, aislamiento entre cuentas y ausencia de eventos duplicados. Ronald reportó 33 pruebas aprobadas y 300 verificaciones en esa etapa.
 - [x] Comprobar en la app un pedido cancelado con el motivo «El restaurante no respondió a tiempo».
 
+## Web pública de ToroGo
+
+- [ ] Validar la landing implementada en `titi/feature/web-landing`: diseño público en `/`, textos y dos imágenes editables desde `/admin/pagina-web`, acceso exclusivo de administrador, validación y pruebas de persistencia y archivos. Requiere ejecutar la migración nueva; no es necesario reiniciar ni sembrar la base.
+- [ ] Conectar `/pedir` al catálogo, autenticación, carrito y pedidos existentes. Por ahora la ruta muestra un aviso explícito de que los pedidos web están en preparación; no simula compras reales.
+- [ ] Validar correo de contacto configurado en el administrador para negocios y motoristas. Esta etapa abre el correo del visitante, no crea solicitudes ni envía mensajes automáticamente.
+
 ## Restaurante: siguiente revisión
 
 - [ ] Logo del negocio en Mi local: revisar carga, edición y visualización; por ahora conservar la inicial del restaurante.
