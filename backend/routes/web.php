@@ -9,6 +9,8 @@ use App\Http\Controllers\Admin\RestaurantController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\RestaurantCategoryController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LandingController;
+use App\Http\Controllers\Admin\LandingPageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,9 +25,9 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// La raiz lleva al panel. El sitio publico todavia no existe, y la pantalla de
-// bienvenida de Laravel no le sirve a nadie.
-Route::redirect('/', '/admin');
+Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::get('/pedir', [LandingController::class, 'order'])->name('web.order');
+Route::get('/web/imagenes/{slot}', [LandingController::class, 'image'])->whereIn('slot', array_keys(config('landing.images')))->name('landing.image');
 
 Route::prefix('admin')->group(function (): void {
     // ---------------------- Sin sesion: el login ----------------------
@@ -47,6 +49,8 @@ Route::prefix('admin')->group(function (): void {
     // ---------------------- Con sesion: el panel ----------------------
 
     Route::middleware(['auth', 'admin'])->group(function (): void {
+        Route::get('/pagina-web', [LandingPageController::class, 'edit'])->name('admin.landing.edit');
+        Route::put('/pagina-web', [LandingPageController::class, 'update'])->middleware('throttle:30,1')->name('admin.landing.update');
         Route::get('/', [DashboardController::class, 'index'])
             ->name('admin.dashboard');
 
