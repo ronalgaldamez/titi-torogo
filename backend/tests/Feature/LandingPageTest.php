@@ -33,12 +33,38 @@ class LandingPageTest extends TestCase
             ->assertSee('Descargas aún no disponibles.')->assertDontSee('SABOR LOCAL')
             ->assertSee('images/landing/pupusas-banner.webp', false)
             ->assertSee('Preferencias de cookies')->assertSee('Términos y condiciones')
-            ->assertSee('La política de privacidad aún no está publicada.')
-            ->assertSee('no permite cambiar preferencias ni registra consentimiento.');
+            ->assertSee('no permite cambiar preferencias ni registra consentimiento.')
+            ->assertSee('Desarrollado por Yerba Digital')
+            ->assertSee('mailto:torogoappsv@gmail.com', false);
         $this->get('/pedir')->assertOk()->assertSee('no permite crear pedidos');
         $this->assertDatabaseCount('landing_pages', 0);
         $this->get('/web/imagenes/hero')->assertNotFound();
         $this->get('/web/imagenes/invalid')->assertNotFound();
+    }
+
+    public function test_saved_empty_contact_uses_default_and_custom_contact_is_preserved(): void
+    {
+        $page = new LandingPage;
+        $page->content = ['contact_email' => null];
+        $this->assertSame('torogoappsv@gmail.com', $page->texts()['contact_email']);
+        $page->content = ['contact_email' => 'soporte@example.com'];
+        $this->assertSame('soporte@example.com', $page->texts()['contact_email']);
+    }
+
+    public function test_legal_documents_are_public_and_linked_from_the_landing(): void
+    {
+        foreach (['privacidad', 'terminos', 'cookies'] as $document) {
+            $url = route('landing.legal', $document);
+            $this->get('/')->assertOk()->assertSee($url, false);
+            $this->get($url)->assertOk()->assertSee('Borrador para revisión')
+                ->assertSee('Francisco Ronal Galdamez Funes')
+                ->assertSee('mailto:torogoappsv@gmail.com', false);
+        }
+        $this->get('/informacion/privacidad')->assertSee('Ubicación durante las entregas');
+        $this->get('/informacion/terminos')->assertSee('cinco minutos')->assertSee('Tejutla');
+        $this->get('/informacion/cookies')->assertSee('XSRF-TOKEN')->assertSee('no guarda consentimiento');
+        $this->get('/informacion/invalido')->assertNotFound();
+        $this->assertDatabaseCount('landing_pages', 0);
     }
 
     public function test_only_admin_can_read_and_publish_the_landing_editor(): void

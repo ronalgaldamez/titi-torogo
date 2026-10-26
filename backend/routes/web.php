@@ -27,6 +27,8 @@ use App\Http\Controllers\Admin\LandingPageController;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 Route::get('/pedir', [LandingController::class, 'order'])->name('web.order');
+Route::get('/informacion/{document}', [LandingController::class, 'legal'])
+    ->whereIn('document', ['privacidad', 'terminos', 'cookies'])->name('landing.legal');
 Route::get('/web/imagenes/{slot}', [LandingController::class, 'image'])->whereIn('slot', array_keys(config('landing.images')))->name('landing.image');
 
 Route::prefix('admin')->group(function (): void {

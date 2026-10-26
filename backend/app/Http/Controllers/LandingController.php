@@ -21,6 +21,17 @@ class LandingController extends Controller
         return view('landing.order');
     }
 
+    public function legal(string $document): View
+    {
+        $policy = config('legal.pages.'.$document);
+        abort_unless(is_array($policy), 404);
+        $content = LandingPage::current()->texts();
+        $content['meta_title'] = $policy['title'].' · ToroGo';
+        $content['meta_description'] = $policy['description'];
+
+        return view('landing.legal', compact('policy', 'content', 'document'));
+    }
+
     public function image(string $slot): StreamedResponse
     {
         abort_unless(array_key_exists($slot, config('landing.images')), 404);
