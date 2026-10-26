@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\RestaurantOrderController;
 use App\Http\Controllers\Api\RestaurantStatusController;
+use App\Http\Controllers\Api\RestaurantImagesController;
 use App\Http\Controllers\Api\RestaurantCategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -188,6 +189,9 @@ Route::middleware(['auth:sanctum', 'restaurant'])
         */
         Route::get('/status', [RestaurantStatusController::class, 'show'])
             ->name('api.restaurant.status.show');
+
+        Route::post('/images', [RestaurantImagesController::class, 'update'])
+            ->middleware('throttle:20,1')->name('api.restaurant.images.update');
 
         // PATCH y no PUT: cambia DOS campos del restaurante, no lo reemplaza.
         Route::patch('/status', [RestaurantStatusController::class, 'update'])

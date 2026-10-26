@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
  * Un producto del menu, tal como lo ve el restaurante que lo administra.
  *
  * Se manda 'image_url' y no 'image_path': la app no tiene por que saber que
- * los archivos viven en MinIO ni armar rutas. El backend entrega la URL lista.
+ * los archivos viven en S3 privado ni armar rutas. El backend entrega una URL firmada.
  *
  * @mixin \App\Models\Product
  */
@@ -32,7 +32,7 @@ class ProductResource extends JsonResource
             'price' => $this->price,
 
             'image_url' => $this->image_path
-                ? Storage::disk('s3')->url($this->image_path)
+                ? Storage::disk('s3')->temporaryUrl($this->image_path, now()->addHour())
                 : null,
 
             // Aqui SI van los agotados. Al contrario que la carta publica

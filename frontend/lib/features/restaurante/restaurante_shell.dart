@@ -34,20 +34,25 @@ class _RestauranteShellState extends State<RestauranteShell> {
         children: <Widget>[
           OrdersScreen(onLogout: widget.onLogout),
           RestaurantMenuScreen(onLogout: widget.onLogout),
-          const DashboardScreen(),
+          DashboardScreen(onMenu: () => setState(() => _tab = 1)),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          iconTheme: WidgetStatePropertyAll(IconThemeData(color: _tab == 2 ? AppTheme.discoveryPaper : AppTheme.navy)),
+          labelTextStyle: WidgetStatePropertyAll(TextStyle(color: _tab == 2 ? AppTheme.discoveryPaper : AppTheme.navy, fontSize: 12)),
+        ),
+        child: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (int index) => setState(() => _tab = index),
-        backgroundColor: Colors.white,
-        indicatorColor: AppTheme.tealSoft,
-        destinations: const <NavigationDestination>[
+        backgroundColor: _tab == 2 ? AppTheme.discoveryBackground : Colors.white,
+        indicatorColor: _tab == 2 ? AppTheme.discoveryAccent : AppTheme.tealSoft,
+        destinations: <NavigationDestination>[
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(
               Icons.receipt_long_rounded,
-              color: AppTheme.tealDeep,
+              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
             ),
             label: 'Pedidos',
           ),
@@ -55,7 +60,7 @@ class _RestauranteShellState extends State<RestauranteShell> {
             icon: Icon(Icons.restaurant_menu_outlined),
             selectedIcon: Icon(
               Icons.restaurant_menu_rounded,
-              color: AppTheme.tealDeep,
+              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
             ),
             label: 'Mi menú',
           ),
@@ -66,12 +71,12 @@ class _RestauranteShellState extends State<RestauranteShell> {
             icon: Icon(Icons.storefront_outlined),
             selectedIcon: Icon(
               Icons.storefront_rounded,
-              color: AppTheme.tealDeep,
+              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
             ),
             label: 'Mi local',
           ),
         ],
-      ),
+      )),
     );
   }
 }

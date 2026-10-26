@@ -11,6 +11,7 @@ import '../carrito/cart.dart';
 import '../carrito/cart_provider.dart';
 import '../carrito/cart_sheet.dart';
 import 'restaurant_detail_repository.dart';
+import 'restaurant_profile_widgets.dart';
 
 /// La carta de un restaurante.
 ///
@@ -88,19 +89,28 @@ class _RestaurantDetailScreenState
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.discoveryBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppRadius.card),
         ),
       ),
-      builder: (BuildContext sheetContext) => _ProductSheet(
-        product: product,
-        quantityInCart: cart.quantityOf(product.id),
-        onAdd: (quantity) {
-          Navigator.of(sheetContext).pop();
-          _add(product, quantity);
-        },
+      builder: (BuildContext sheetContext) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.discoveryAccent,
+            surface: AppTheme.discoveryBackground,
+            onSurface: AppTheme.discoveryPaper,
+          ),
+        ),
+        child: _ProductSheet(
+          product: product,
+          quantityInCart: cart.quantityOf(product.id),
+          onAdd: (quantity) {
+            Navigator.of(sheetContext).pop();
+            _add(product, quantity);
+          },
+        ),
       ),
     );
   }
@@ -172,553 +182,242 @@ class _RestaurantDetailScreenState
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.restaurant.name,
-          style: text.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+  void _showInfo(Restaurant restaurant) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(restaurant.name),
+        content: SingleChildScrollView(
+          child: Text(
+            [
+              restaurant.address,
+              if (restaurant.phone?.isNotEmpty ?? false)
+                'Teléfono: ${restaurant.phone}',
+            ].join('\n\n'),
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
-      ),
-      // La barrita del carrito. Se muestra sola cuando hay algo adentro.
-      //
-      // Se le pasa el restaurante de esta carta para que, si el pedido que
-      // lleva el cliente es de OTRO, la barrita lo diga (ver CartBar).
-      bottomNavigationBar: CartBar(restaurantId: widget.restaurant.id),
-      body: FutureBuilder<RestaurantDetail>(
-        future: _future,
-        builder:
-            (BuildContext context, AsyncSnapshot<RestaurantDetail> snapshot) {
-              // Mientras carga se ve el encabezado con los datos que ya tenemos
-              // del Home, y solo la carta queda esperando.
-              final Restaurant restaurant =
-                  snapshot.data?.restaurant ?? widget.restaurant;
-              final categories = snapshot.data?.categories ?? <MenuCategory>[];
-              String? coverUrl;
-              for (final category in categories) {
-                for (final product in category.products) {
-                  if (product.imageUrl?.isNotEmpty ?? false) {
-                    coverUrl = product.imageUrl;
-                    break;
-                  }
-                }
-                if (coverUrl != null) {
-                  break;
-                }
-              }
-
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.xl,
-                ),
-                children: <Widget>[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                    child: SizedBox(
-                      height: 160,
-                      width: double.infinity,
-                      child: coverUrl == null
-                          ? Image.asset(
-                              'assets/login.jpg',
-                              fit: BoxFit.cover,
-                              excludeFromSemantics: true,
-                            )
-                          : Image.network(
-                              coverUrl,
-                              fit: BoxFit.cover,
-                              excludeFromSemantics: true,
-                              errorBuilder: (_, _, _) => Image.asset(
-                                'assets/login.jpg',
-                                fit: BoxFit.cover,
-                                excludeFromSemantics: true,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _Header(restaurant: restaurant),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      FilledButton.tonal(
-                        onPressed: () => setState(() => _categoryId = null),
-                        child: const Text('Menú'),
-                      ),
-                      TextButton(
-                        onPressed: () => showDialog<void>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text(restaurant.name),
-                            content: SingleChildScrollView(
-                              child: Text(
-                                [
-                                  restaurant.address,
-                                  if (restaurant.phone?.isNotEmpty ?? false)
-                                    'Teléfono: ${restaurant.phone}',
-                                ].join('\n\n'),
-                              ),
-                            ),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Cerrar'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        child: const Text('Información'),
-                      ),
-                      Text('Reseñas · Próximamente', style: text.labelSmall),
-                    ],
-                  ),
-                  if (categories.length > 1) ...<Widget>[
-                    const SizedBox(height: AppSpacing.sm),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              right: AppSpacing.sm,
-                            ),
-                            child: ChoiceChip(
-                              label: const Text('Todos'),
-                              selected: _categoryId == null,
-                              onSelected: (_) =>
-                                  setState(() => _categoryId = null),
-                            ),
-                          ),
-                          for (final category in categories)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                right: AppSpacing.sm,
-                              ),
-                              child: ChoiceChip(
-                                label: Text(category.name),
-                                selected: _categoryId == category.id,
-                                onSelected: (_) =>
-                                    setState(() => _categoryId = category.id),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const Padding(
-                      padding: EdgeInsets.only(top: AppSpacing.xl),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (snapshot.hasError)
-                    _ErrorBox(
-                      message: _errorMessage(snapshot.error),
-                      onRetry: _reload,
-                    )
-                  else if (!(snapshot.data?.hasMenu ?? false))
-                    const _EmptyMenu()
-                  else
-                    for (final MenuCategory category in categories.where(
-                      (category) =>
-                          _categoryId == null || category.id == _categoryId,
-                    )) ...<Widget>[
-                      _CategoryHeader(category: category),
-                      for (final Product product in category.products)
-                        _ProductRow(
-                          product: product,
-                          onTap: () => _openProduct(product),
-                        ),
-                      const SizedBox(height: AppSpacing.lg),
-                    ],
-                ],
-              );
-            },
-      ),
-    );
-  }
-}
-
-/// El encabezado: portada de color, nombre, direccion y los tres datos que le
-/// importan al cliente.
-class _Header extends StatelessWidget {
-  const _Header({required this.restaurant});
-
-  final Restaurant restaurant;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final List<Color> cover = AppTheme.coverFor(restaurant.id);
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.image),
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: restaurant.logoUrl?.isNotEmpty ?? false
-                      ? Image.network(
-                          restaurant.logoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _logo(cover),
-                        )
-                      : _logo(cover),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  restaurant.name,
-                  style: text.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.navy,
-                  ),
-                ),
-              ),
-            ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
           ),
-          if (restaurant.description != null &&
-              restaurant.description!.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              restaurant.description!,
-              style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: <Widget>[
-              Icon(
-                Icons.place_outlined,
-                size: 16,
-                color: colors.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  restaurant.address,
-                  style: text.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: <Widget>[
-              _Stat(
-                icon: Icons.schedule_rounded,
-                label: 'Preparación ${restaurant.preparationTimeLabel}',
-              ),
-              if (restaurant.distanceKm != null)
-                _Stat(
-                  icon: Icons.near_me_rounded,
-                  label: '${restaurant.distanceKm} km',
-                ),
-              if (restaurant.deliveryFee != null)
-                _Stat(
-                  icon: Icons.delivery_dining_rounded,
-                  label: 'envío \$${restaurant.deliveryFee}',
-                ),
-            ],
-          ),
-          // El aviso de cerrado o muy ocupado. Va abajo de los datos, no
-          // arriba: primero el cliente ve QUE hay, despues cuando.
-          if (!restaurant.isOpen || restaurant.isBusy) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            _Notice(
-              message: restaurant.isOpen
-                  ? 'Este restaurante está muy ocupado: puede tardar más.'
-                  : 'Está cerrado en este momento.',
-              background: restaurant.isOpen ? AppTheme.yellow : AppTheme.coral,
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _logo(List<Color> cover) => ColoredBox(
-    color: cover[0],
-    child: Center(
-      child: Text(
-        restaurant.name.isEmpty
-            ? '?'
-            : restaurant.name.characters.first.toUpperCase(),
-        style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          color: cover[1],
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        colorScheme: const ColorScheme.dark(
+          primary: AppTheme.discoveryAccent,
+          onPrimary: AppTheme.discoveryBackground,
+          surface: AppTheme.discoveryBackground,
+          onSurface: AppTheme.discoveryPaper,
+          onSurfaceVariant: AppTheme.discoveryMuted,
+          secondaryContainer: AppTheme.yellow,
+          onSecondaryContainer: AppTheme.discoveryBackground,
+        ),
+        textTheme: theme.textTheme.apply(
+          bodyColor: AppTheme.discoveryPaper,
+          displayColor: AppTheme.discoveryPaper,
         ),
       ),
-    ),
-  );
-}
-
-/// Un dato con icono, tipo "30 min" o "envío $2.00".
-class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: AppTheme.teal),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              style: text.labelMedium?.copyWith(
-                color: AppTheme.navy,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Una franja de aviso.
-class _Notice extends StatelessWidget {
-  const _Notice({required this.message, required this.background});
-
-  /// OJO con el nombre: es 'message' y no 'text' a proposito.
-  ///
-  /// Adentro de build hay un `TextTheme text`, y si el campo se llamara igual,
-  /// el local taparia al campo: el `Text()` terminaria recibiendo el tema en
-  /// vez del mensaje, y no compila.
-  final String message;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final Color foreground = background == AppTheme.yellow
-        ? AppTheme.navy
-        : Colors.white;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Text(
-        message,
-        style: text.bodySmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-/// El encabezado de una categoria del menu.
-class _CategoryHeader extends StatelessWidget {
-  const _CategoryHeader({required this.category});
-
-  final MenuCategory category;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 4,
-            height: 18,
-            decoration: BoxDecoration(
-              color: AppTheme.teal,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              category.name,
-              style: text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            category.productCount == 1
-                ? '1 plato'
-                : '${category.productCount} platos',
-            style: text.labelMedium?.copyWith(color: AppTheme.teal),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Un plato de la carta.
-///
-/// Se toca para ver el detalle y agregarlo. El toque NO agrega directo: la
-/// biblia pide el detalle del plato, y ademas agregar sin querer es la forma
-/// mas facil de armarle a alguien un pedido que no pidio.
-class _ProductRow extends StatelessWidget {
-  const _ProductRow({required this.product, required this.onTap});
-
-  final Product product;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.image),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.image),
-                  child: SizedBox(
-                    width: 72,
-                    height: 80,
-                    child: product.imageUrl?.isNotEmpty ?? false
-                        ? Image.network(
-                            product.imageUrl!,
-                            fit: BoxFit.cover,
-                            excludeFromSemantics: true,
-                            errorBuilder: (_, _, _) => _placeholder(),
-                          )
-                        : _placeholder(),
-                  ),
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        appBar: AppBar(
+          backgroundColor: AppTheme.discoveryBackground,
+          foregroundColor: AppTheme.discoveryPaper,
+          surfaceTintColor: Colors.transparent,
+          title: const Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'toro',
+                  style: TextStyle(color: AppTheme.discoveryPaper),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.navy,
-                        ),
-                      ),
-                      if (product.description != null &&
-                          product.description!.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(
-                          product.description!,
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            height: 1.35,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '\$${product.price}',
-                        style: text.titleSmall?.copyWith(
-                          color: AppTheme.coralDeep,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
+                TextSpan(
+                  text: 'go',
+                  style: TextStyle(color: AppTheme.yellow),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                IconButton.filled(
-                  tooltip: 'Ver ${product.name} y agregar',
-                  onPressed: onTap,
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.teal,
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const Icon(Icons.add_rounded),
+                TextSpan(
+                  text: '.',
+                  style: TextStyle(color: AppTheme.discoveryAccent),
                 ),
               ],
             ),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 25,
+              letterSpacing: -1.4,
+            ),
           ),
+          actions: [
+            IconButton(
+              tooltip: 'Información',
+              onPressed: () => _showInfo(widget.restaurant),
+              icon: const Icon(Icons.info_outline),
+            ),
+          ],
+        ),
+        bottomNavigationBar: ref.watch(cartProvider).isEmpty
+            ? const RestaurantEmptyCartBar()
+            : CartBar(
+          restaurantId: widget.restaurant.id,
+          discovery: true,
+        ),
+        body: FutureBuilder<RestaurantDetail>(
+          future: _future,
+          builder: (context, snapshot) {
+            final restaurant = snapshot.data?.restaurant ?? widget.restaurant;
+            final categories = snapshot.data?.categories ?? <MenuCategory>[];
+            String? coverUrl = restaurant.coverUrl;
+            for (final category in categories) {
+              if (coverUrl != null) {
+                break;
+              }
+              for (final product in category.products) {
+                if (product.imageUrl?.isNotEmpty ?? false) {
+                  coverUrl = product.imageUrl;
+                  break;
+                }
+              }
+              if (coverUrl != null) {
+                break;
+              }
+            }
+            final selected =
+                categories.any((category) => category.id == _categoryId)
+                ? _categoryId
+                : null;
+            return ListView(
+              children: [
+                RestaurantProfileCover(
+                  imageUrl: coverUrl,
+                  isOpen: restaurant.isOpen,
+                ),
+                RestaurantProfileHeader(
+                  restaurant: restaurant,
+                  onInfo: () => _showInfo(restaurant),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'HECHO CERCA.',
+                        style: TextStyle(
+                          color: AppTheme.yellow,
+                          fontSize: 11,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Tu próximo antojo\nempieza aquí.',
+                        style: TextStyle(
+                          color: AppTheme.discoveryPaper,
+                          fontSize: 23,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      const Text(
+                        '¿Qué vas a pedir?',
+                        style: TextStyle(
+                          color: AppTheme.discoveryPaper,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (categories.isNotEmpty)
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _categoryButton('Todo el menú', null, selected),
+                              for (final category in categories)
+                                _categoryButton(
+                                  category.name,
+                                  category.id,
+                                  selected,
+                                ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Center(child: CircularProgressIndicator())
+                      else if (snapshot.hasError)
+                        _ErrorBox(
+                          message: _errorMessage(snapshot.error),
+                          onRetry: _reload,
+                        )
+                      else if (!(snapshot.data?.hasMenu ?? false))
+                        const _EmptyMenu()
+                      else
+                        for (final category in categories.where(
+                          (category) =>
+                              selected == null || category.id == selected,
+                        )) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Text(
+                              category.name,
+                              style: const TextStyle(
+                                color: AppTheme.discoveryMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          RestaurantProductGrid(
+                            products: category.products,
+                            onOpen: _openProduct,
+                          ),
+                        ],
+                      const SizedBox(height: 12),
+                      const RestaurantMenuFooter(),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _placeholder() => const ColoredBox(
-    color: AppTheme.tealSoft,
-    child: Icon(Icons.restaurant_menu_rounded, color: AppTheme.tealDeep),
+  Widget _categoryButton(String label, int? id, int? selected) => Padding(
+    padding: const EdgeInsets.only(right: 18),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: id == selected
+                ? AppTheme.discoveryAccent
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: TextButton(
+        onPressed: () => setState(() => _categoryId = id),
+        style: TextButton.styleFrom(
+          foregroundColor: id == selected
+              ? AppTheme.discoveryAccent
+              : AppTheme.discoveryMuted,
+          shape: const RoundedRectangleBorder(),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Text(label),
+      ),
+    ),
   );
 }
 
@@ -734,7 +433,7 @@ class _EmptyMenu extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
+        color: const Color(0xFF204555),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
       child: Column(
@@ -742,7 +441,7 @@ class _EmptyMenu extends StatelessWidget {
           const Icon(
             Icons.restaurant_menu_rounded,
             size: 40,
-            color: AppTheme.tealDeep,
+            color: AppTheme.yellow,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -750,14 +449,14 @@ class _EmptyMenu extends StatelessWidget {
             textAlign: TextAlign.center,
             style: text.titleSmall?.copyWith(
               fontWeight: FontWeight.w800,
-              color: AppTheme.navy,
+              color: AppTheme.discoveryPaper,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'El restaurante no tiene nada cargado o se le agotó todo.',
             textAlign: TextAlign.center,
-            style: text.bodySmall?.copyWith(color: AppTheme.navy),
+            style: text.bodySmall?.copyWith(color: AppTheme.discoveryPaper),
           ),
         ],
       ),
@@ -779,7 +478,7 @@ class _ErrorBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
+        color: const Color(0xFF204555),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
       child: Column(
@@ -789,7 +488,7 @@ class _ErrorBox extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+            style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
           ),
           const SizedBox(height: AppSpacing.md),
           FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
@@ -827,7 +526,6 @@ class _ProductSheetState extends State<_ProductSheet> {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: Padding(
@@ -837,6 +535,19 @@ class _ProductSheetState extends State<_ProductSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              if (widget.product.imageUrl?.isNotEmpty ?? false) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    widget.product.imageUrl!,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Row(
                 children: <Widget>[
                   Expanded(
@@ -844,7 +555,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                       widget.product.name,
                       style: text.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.navy,
+                        color: AppTheme.discoveryPaper,
                       ),
                     ),
                   ),
@@ -852,7 +563,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                     tooltip: 'Cerrar detalle',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    color: AppTheme.navy,
+                    color: AppTheme.discoveryPaper,
                   ),
                 ],
               ),
@@ -862,7 +573,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                 Text(
                   widget.product.description!,
                   style: text.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
+                    color: AppTheme.discoveryMuted,
                     height: 1.4,
                   ),
                 ),
@@ -871,13 +582,13 @@ class _ProductSheetState extends State<_ProductSheet> {
               Text(
                 '\$${widget.product.price}',
                 style: text.headlineSmall?.copyWith(
-                  color: AppTheme.coral,
+                  color: AppTheme.discoveryAccent,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Text(
                 'por unidad',
-                style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                style: text.bodySmall?.copyWith(color: AppTheme.discoveryMuted),
               ),
               if (widget.quantityInCart > 0) ...<Widget>[
                 const SizedBox(height: AppSpacing.xs),
@@ -885,7 +596,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                   widget.quantityInCart == 1
                       ? 'Ya tenés 1 en el carrito.'
                       : 'Ya tenés ${widget.quantityInCart} en el carrito.',
-                  style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
+                  style: text.bodySmall?.copyWith(color: AppTheme.yellow),
                 ),
               ],
               const SizedBox(height: AppSpacing.lg),
@@ -896,7 +607,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                     child: Text(
                       'Cantidad',
                       style: text.titleSmall?.copyWith(
-                        color: AppTheme.navy,
+                        color: AppTheme.discoveryPaper,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -940,8 +651,8 @@ class _ProductSheetState extends State<_ProductSheet> {
                   onPressed: () => widget.onAdd(_quantity),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 54),
-                    backgroundColor: AppTheme.coral,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.discoveryAccent,
+                    foregroundColor: AppTheme.discoveryBackground,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.image),
                     ),
@@ -950,7 +661,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                   label: Text(
                     'Agregar al carrito · \$${Money.multiply(widget.product.price, _quantity)}',
                     style: text.labelLarge?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.discoveryBackground,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

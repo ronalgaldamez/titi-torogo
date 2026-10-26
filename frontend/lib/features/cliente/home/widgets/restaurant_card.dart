@@ -26,7 +26,7 @@ class RestaurantCard extends StatelessWidget {
         ),
       ),
     );
-    final url = restaurant.logoUrl;
+    final url = restaurant.coverUrl ?? restaurant.logoUrl;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -47,10 +47,13 @@ class RestaurantCard extends StatelessWidget {
                       if (url == null || url.isEmpty)
                         fallback
                       else
-                        Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => fallback,
+                        ColoredBox(
+                          color: Colors.white,
+                          child: Image.network(
+                            url,
+                            fit: restaurant.coverUrl != null ? BoxFit.cover : BoxFit.contain,
+                            errorBuilder: (_, _, _) => fallback,
+                          ),
                         ),
                       Positioned(
                         top: 8,
