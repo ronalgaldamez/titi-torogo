@@ -208,7 +208,7 @@ class RestaurantSeeder extends Seeder
             ],
             [
                 'email' => 'sombreron@torogo.local',
-                'name' => 'El Sombreron Guanaco',
+                'name' => 'Baruk the picnic house',
                 'description' => 'Comida guanaca y parrilladas.',
                 'address' => 'Tejutla, Chalatenango',
                 'phone' => '+503 2300 1011',

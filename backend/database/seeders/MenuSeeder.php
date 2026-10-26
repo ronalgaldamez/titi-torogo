@@ -28,7 +28,7 @@ class MenuSeeder extends Seeder
         'Los Tres Cerditos' => 'tipicos',
         'El Zocalo' => 'tipicos',
         'Restaurante Las Vegas' => 'tipicos',
-        'El Sombreron Guanaco' => 'tipicos',
+        'Baruk the picnic house' => 'tipicos',
         'Buena Vista Restaurante Cafe' => 'cafe',
         'The Coffee Cup' => 'cafe',
         'Subway' => 'sandwiches',

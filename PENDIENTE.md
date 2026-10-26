@@ -2,7 +2,20 @@
 
 Esta lista organiza trabajo por revisar y acordar. No autoriza implementar funcionalidades ni modificar reglas de negocio automáticamente.
 
-Actualizada el 18/10/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; no significan que se hayan vuelto a ejecutar las pruebas hoy.
+Actualizada el 24/10/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; no significan que se hayan vuelto a ejecutar las pruebas hoy.
+
+## Prioridades de la app acordadas con Ronald
+
+Trabajo actual: mejorar el perfil del restaurante que ve el cliente. La prueba de desconexión y recuperación del GPS se retoma después de completar esta pantalla.
+
+1. [ ] Aplicar el diseño aprobado del perfil del restaurante que ve el cliente:
+   - [ ] Portada y datos del restaurante.
+   - [ ] Categorías del menú.
+   - [ ] Productos en dos columnas.
+   - [ ] Detalle del producto y agregar al carrito, conservando el flujo de compra existente.
+2. [ ] Probar pérdida de conexión y recuperación del GPS durante una entrega: distinguir ubicación reciente de posición antigua, recuperar el seguimiento al volver la conexión y comprobar que se detiene al finalizar. No dar esta prueba por aprobada con las verificaciones anteriores.
+
+Validaciones manuales ya confirmadas por Ronald: pedido hasta entrega, GPS con pantalla bloqueada durante tres minutos, reasignación con pérdida de acceso del motorista anterior, visualización de la ubicación del nuevo motorista y detención del GPS al entregar. Estas confirmaciones no sustituyen la prueba pendiente de desconexión.
 
 ## Cliente: revisar y completar
 
@@ -57,7 +70,11 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 
 ## Restaurante: siguiente revisión
 
-- [ ] Logo del negocio en Mi local: revisar carga, edición y visualización; por ahora conservar la inicial del restaurante.
+- [ ] Validar rediseño de Mi local con la identidad del login y catálogo: fondo azul oscuro, encabezado editorial, dirección, categorías, disponibilidad y preparación. Conservar los controles y validaciones actuales.
+- [ ] Validar carga implementada de logo y portada; después agregar fotos de platos en Mi menú con S3 privado. Organizar por `negocios/{nombre-inicial-normalizado}-{id}/logo/`, `portada/` y `platos/{producto-id}/`, con nombres únicos para los archivos. Guardar las rutas; conservar el prefijo al renombrar el negocio. No mezclar archivos entre negocios ni perder imágenes al ejecutar seeders.
+- [x] Conectar Laravel al bucket `torogo-images` (Ohio): Ronald confirmó escritura y lectura de prueba y ejecutó la eliminación del archivo de prueba. Las credenciales permanecen en `.env`.
+
+- [ ] Validar en emulador carga y reemplazo de logo y portada desde Mi local (PNG/JPG/WebP, 5 MB), persistencia al volver a abrir y visualización en el cliente. Implementado con S3 privado y URLs firmadas de una hora; actualizar la pantalla renueva las URLs.
 
 - [x] Revisar y mejorar Pedidos y Mi menú del restaurante.
 - [x] Mostrar propuestas y aplicar los diseños aprobados para Pedidos, Mi menú, Mi local e Historial.
@@ -73,6 +90,7 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 
 - [ ] Pagos con tarjeta.
 - [ ] Chat vinculado a pedidos con permisos y privacidad.
-- [ ] Favoritos y reseñas.
+- [ ] Favoritos: permitir guardar y quitar restaurantes por cuenta, conservar la selección y mostrar la lista de favoritos. El corazón del cierre del menú solo anuncia «Favoritos · Próximamente»; todavía no guarda favoritos.
+- [ ] Reseñas.
 
 La prioridad sigue siendo terminar y validar el delivery de comida. Mantener la paleta, tipografía y tema actuales; discutir nuevas dependencias, cambios de backend y decisiones arquitectónicas antes de implementarlos.
