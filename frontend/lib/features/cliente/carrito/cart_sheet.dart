@@ -11,7 +11,9 @@ import 'cart_provider.dart';
 /// Aparece SOLA cuando hay algo adentro, y desaparece cuando no: no ocupa
 /// lugar en la pantalla si no hay nada que mostrar.
 class CartBar extends ConsumerWidget {
-  const CartBar({this.restaurantId, super.key});
+  const CartBar({this.restaurantId, this.discovery = false, super.key});
+
+  final bool discovery;
 
   /// El restaurante cuya carta se esta mirando. null = no se sabe (o no
   /// importa, porque la barrita no esta dentro de una carta).
@@ -31,6 +33,7 @@ class CartBar extends ConsumerWidget {
     }
 
     final TextTheme text = Theme.of(context).textTheme;
+    final foreground = discovery ? AppTheme.discoveryBackground : Colors.white;
 
     final bool fromAnother =
         restaurantId != null &&
@@ -46,7 +49,7 @@ class CartBar extends ConsumerWidget {
           AppSpacing.md,
         ),
         child: Material(
-          color: AppTheme.tealDeep,
+          color: discovery ? AppTheme.discoveryAccent : AppTheme.tealDeep,
           borderRadius: BorderRadius.circular(AppRadius.image),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -68,7 +71,7 @@ class CartBar extends ConsumerWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                  Icon(Icons.shopping_cart_outlined, color: foreground),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
@@ -80,7 +83,7 @@ class CartBar extends ConsumerWidget {
                             'Pedido de '
                             '${cart.restaurantName ?? 'otro restaurante'}',
                             style: text.labelSmall?.copyWith(
-                              color: Colors.white,
+                              color: foreground,
                               fontWeight: FontWeight.w700,
                             ),
                             maxLines: 1,
@@ -89,7 +92,7 @@ class CartBar extends ConsumerWidget {
                         Text(
                           'Ver pedido',
                           style: text.titleSmall?.copyWith(
-                            color: Colors.white,
+                            color: foreground,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -98,7 +101,7 @@ class CartBar extends ConsumerWidget {
                           cart.totalUnits == 1
                               ? '1 producto'
                               : '${cart.totalUnits} productos',
-                          style: text.bodySmall?.copyWith(color: Colors.white),
+                          style: text.bodySmall?.copyWith(color: foreground),
                         ),
                       ],
                     ),
@@ -110,19 +113,19 @@ class CartBar extends ConsumerWidget {
                     children: <Widget>[
                       Text(
                         'Subtotal',
-                        style: text.labelSmall?.copyWith(color: Colors.white),
+                        style: text.labelSmall?.copyWith(color: foreground),
                       ),
                       Text(
                         '\$${cart.subtotal}',
                         style: text.titleMedium?.copyWith(
-                          color: Colors.white,
+                          color: foreground,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                  Icon(Icons.chevron_right_rounded, color: foreground),
                 ],
               ),
             ),

@@ -6,6 +6,7 @@ import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/restaurant.dart';
 import 'restaurant_status_repository.dart';
+import 'restaurant_local_content.dart';
 import 'restaurant_categories_screen.dart';
 
 /// El dashboard del restaurante: el estado de su local.
@@ -27,7 +28,9 @@ import 'restaurant_categories_screen.dart';
 ///   No cierra nada. Alarga el tiempo de entrega un 50% (15 minutos pasan a 23)
 ///   para no prometer lo que la cocina no puede cumplir.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({this.onMenu, super.key});
+
+  final VoidCallback? onMenu;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -144,13 +147,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _editPreparation() async {
+  Future<void> _editPreparation(BuildContext dialogContext) async {
     final restaurant = _restaurant;
     if (restaurant == null || _saving) {
       return;
     }
     final range = await showDialog<(int, int)>(
-      context: context,
+      context: dialogContext,
       builder: (_) => _PreparationDialog(
         minimum: restaurant.preparationMinimum,
         maximum: restaurant.preparationMaximum,
@@ -178,35 +181,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Mi local',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        colorScheme: const ColorScheme.dark(
+          primary: AppTheme.discoveryAccent,
+          onPrimary: AppTheme.discoveryBackground,
+          secondary: AppTheme.yellow,
+          surface: AppTheme.discoveryBackground,
+          onSurface: AppTheme.discoveryPaper,
+          onSurfaceVariant: AppTheme.discoveryMuted,
+        ),
+        textTheme: theme.textTheme.apply(
+          bodyColor: AppTheme.discoveryPaper,
+          displayColor: AppTheme.discoveryPaper,
+        ),
+        dividerColor: Colors.white24,
+        switchTheme: SwitchThemeData(
+          trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+          trackColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppTheme.discoveryAccent
+                : const Color(0xFF47616C),
+          ),
+          thumbColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppTheme.discoveryBackground
+                : AppTheme.discoveryPaper,
           ),
         ),
-        actions: <Widget>[
-          IconButton(
-            onPressed: _saving ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.navy,
-            tooltip: 'Actualizar',
-          ),
-        ],
       ),
-      body: _body(),
+      child: Builder(builder: (context) => _buildLocal(context)),
     );
   }
 
-  Widget _body() {
+  Widget _buildLocal(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+
+    return Scaffold(
+      backgroundColor: AppTheme.discoveryBackground,
+      appBar: AppBar(
+        backgroundColor: AppTheme.discoveryBackground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 64,
+        titleSpacing: 24,
+        title: Text.rich(
+          const TextSpan(
+            children: [
+              TextSpan(text: 'toro'),
+              TextSpan(
+                text: 'go',
+                style: TextStyle(color: AppTheme.yellow),
+              ),
+              TextSpan(
+                text: '.',
+                style: TextStyle(color: AppTheme.discoveryAccent),
+              ),
+            ],
+          ),
+          style: text.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            color: AppTheme.discoveryPaper,
+            letterSpacing: -1.5,
+          ),
+        ),
+        actions: <Widget>[
+          const Padding(
+            padding: EdgeInsets.only(right: 24),
+            child: Center(
+              child: Text(
+                'MI NEGOCIO',
+                style: TextStyle(
+                  color: AppTheme.discoveryMuted,
+                  fontSize: 10,
+                  letterSpacing: 1.7,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: _body(context),
+    );
+  }
+
+  Widget _body(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -220,341 +280,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final TextTheme text = Theme.of(context).textTheme;
-
     return RefreshIndicator(
-      onRefresh: _load,
-      color: AppTheme.teal,
+      onRefresh: () async {
+        if (!_saving) {
+          await _load();
+        }
+      },
+      color: AppTheme.discoveryAccent,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.xl,
-        ),
+        padding: const EdgeInsets.only(bottom: 32),
         physics: const AlwaysScrollableScrollPhysics(),
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppTheme.coral,
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                  ),
-                  child: Text(
-                    restaurant.name.trim().isEmpty
-                        ? 'L'
-                        : restaurant.name.trim().characters.first.toUpperCase(),
-                    style: text.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        restaurant.name,
-                        style: text.titleMedium?.copyWith(
-                          color: AppTheme.navy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (restaurant.description?.isNotEmpty ?? false) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          restaurant.description!,
-                          style: text.bodySmall?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _StatusHeader(restaurant: restaurant),
-          const SizedBox(height: AppSpacing.md),
-          ListTile(
-            key: const ValueKey('local-categories'),
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(
-              Icons.category_outlined,
-              color: AppTheme.tealDeep,
-            ),
-            title: const Text('Categorías de mi local'),
-            subtitle: Text(
-              restaurant.foodCategories.isEmpty
-                  ? 'Elegí los tipos de comida que ofrecés'
-                  : restaurant.foodCategories.map((c) => c.name).join(' · '),
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: _saving
-                ? null
-                : () async {
-                    await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => const RestaurantCategoriesScreen(),
-                      ),
-                    );
-                    if (mounted) await _load();
-                  },
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Disponibilidad del local',
-            style: text.titleMedium?.copyWith(
-              color: AppTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-            ),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  key: const ValueKey('local-open'),
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTheme.tealSoft,
-                      borderRadius: BorderRadius.circular(AppRadius.image),
-                    ),
-                    child: const Icon(
-                      Icons.storefront_outlined,
-                      color: AppTheme.tealDeep,
-                    ),
-                  ),
-                  value: restaurant.isOpen,
-                  onChanged: _saving ? null : (value) => _save(isOpen: value),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.sm,
-                  ),
-                  title: Text(
-                    'Local abierto',
-                    style: text.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    'Permití que los clientes encuentren tu local y hagan pedidos.',
-                  ),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  key: const ValueKey('local-busy'),
-                  secondary: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTheme.tealSoft,
-                      borderRadius: BorderRadius.circular(AppRadius.image),
-                    ),
-                    child: const Icon(
-                      Icons.soup_kitchen_outlined,
-                      color: AppTheme.tealDeep,
-                    ),
-                  ),
-                  value: restaurant.isBusy,
-                  onChanged: _saving || !restaurant.isOpen
-                      ? null
-                      : (value) => _save(isBusy: value),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.sm,
-                  ),
-                  title: Text(
-                    'Muy ocupado',
-                    style: text.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  subtitle: Text(
-                    restaurant.isOpen
-                        ? 'Activá este modo si tu cocina necesita más tiempo.'
-                        : 'Abrí el local para activar este modo.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppRadius.card),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final heading = Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      color: AppTheme.tealDeep,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            restaurant.isOpen
-                                ? 'Tiempo de preparación'
-                                : 'Pedidos nuevos pausados',
-                            style: text.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            restaurant.isOpen
-                                ? 'Estimación que ve el cliente'
-                                : 'Tu local está cerrado',
-                            style: text.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-                final estimate = Text(
-                  restaurant.preparationTimeLabel,
-                  key: const ValueKey('local-delivery-time'),
-                  style: text.headlineSmall?.copyWith(
-                    color: AppTheme.tealDeep,
-                    fontWeight: FontWeight.w800,
-                  ),
-                );
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (restaurant.isOpen && constraints.maxWidth >= 300)
-                      Row(
-                        children: [
-                          Expanded(child: heading),
-                          const SizedBox(width: AppSpacing.sm),
-                          Flexible(child: estimate),
-                        ],
-                      )
-                    else ...[
-                      heading,
-                      if (restaurant.isOpen) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        estimate,
-                      ],
-                    ],
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      restaurant.isOpen
-                          ? '«Muy ocupado» aumenta un 50%, hasta un máximo de 45 minutos.'
-                          : 'Volvé a abrir cuando estés listo para recibir pedidos.',
-                      style: text.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          OutlinedButton.icon(
-            key: const ValueKey('edit-preparation'),
-            onPressed: _saving ? null : _editPreparation,
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Editar tiempo de preparación'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (_saving) const LinearProgressIndicator(),
-          Text(
-            'Al cerrar, tu local deja de aparecer en la app y no recibe pedidos nuevos.',
-            style: text.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.restaurant});
-  final Restaurant restaurant;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final title = !restaurant.isOpen
-        ? 'Local cerrado'
-        : restaurant.isBusy
-        ? 'Abierto y muy ocupado'
-        : 'Recibiendo pedidos';
-    final message = !restaurant.isOpen
-        ? 'No aparecés en la app ni recibís pedidos nuevos.'
-        : restaurant.isBusy
-        ? 'Seguís recibiendo pedidos con más tiempo para la cocina.'
-        : 'Tu local está abierto y visible para los clientes.';
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
-        borderRadius: BorderRadius.circular(AppRadius.image),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: !restaurant.isOpen
-                      ? AppTheme.coral
-                      : restaurant.isBusy
-                      ? AppTheme.yellow
-                      : AppTheme.mint,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 25),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.white12)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'MI LOCAL',
+                        style: TextStyle(
+                          color: AppTheme.discoveryMuted,
+                          fontSize: 11,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _saving ? null : _load,
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      color: AppTheme.discoveryPaper,
+                      tooltip: 'Actualizar',
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  title,
-                  style: text.titleSmall?.copyWith(
-                    color: AppTheme.tealDeep,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(message, style: text.bodySmall?.copyWith(color: AppTheme.navy)),
+          RestaurantLocalContent(
+            restaurant: restaurant,
+            saving: _saving,
+            onOpen: (value) => _save(isOpen: value),
+            onBusy: (value) => _save(isBusy: value),
+            onPreparation: () => _editPreparation(context),
+            onMenu: widget.onMenu,
+            onImagesSaving: (value) {
+              if (mounted) {
+                setState(() => _saving = value);
+              }
+            },
+            onImagesSaved: (value) {
+              if (mounted) {
+                setState(() => _restaurant = value);
+              }
+            },
+            onCategories: () async {
+              await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    const RestaurantCategoriesScreen(asDialog: true),
+              );
+              if (mounted) {
+                await _load();
+              }
+            },
+          ),
         ],
       ),
     );
@@ -583,7 +379,7 @@ class _ErrorBox extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
@@ -629,7 +425,39 @@ class _PreparationDialogState extends State<_PreparationDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Tiempo de preparación'),
+    backgroundColor: const Color(0xFF183744),
+    insetPadding: const EdgeInsets.all(16),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+      side: const BorderSide(color: Color(0xFF40606D)),
+    ),
+    titlePadding: const EdgeInsets.fromLTRB(25, 25, 25, 12),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 25),
+    actionsPadding: const EdgeInsets.fromLTRB(25, 20, 25, 12),
+    title: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'EL TIEMPO DE TU COCINA',
+          style: TextStyle(
+            fontSize: 10,
+            color: AppTheme.discoveryMuted,
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: 7),
+        Text(
+          'Sin correr.\nSin hacer esperar de más.',
+          style: TextStyle(
+            fontSize: 23,
+            height: 1.25,
+            letterSpacing: -.7,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
     content: SingleChildScrollView(
       child: Form(
         key: _form,
@@ -637,53 +465,103 @@ class _PreparationDialogState extends State<_PreparationDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Indicá cuánto necesita tu cocina. El recorrido de entrega no está incluido. Usá entre 10 y 45 minutos. «Muy ocupado» agrega un 50%, sin superar 45 minutos.',
+              'Entre 10 y 45 minutos. Muy ocupado agrega un 50%, sin superar 45 minutos.',
+              style: TextStyle(fontSize: 12, color: AppTheme.discoveryMuted),
             ),
             const SizedBox(height: AppSpacing.md),
-            TextFormField(
-              key: const ValueKey('prep-minimum'),
-              controller: _minimum,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Mínimo (minutos)'),
-              validator: _validate,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextFormField(
-              key: const ValueKey('prep-maximum'),
-              controller: _maximum,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Máximo (minutos)'),
-              validator: (value) {
-                final error = _validate(value);
-                if (error != null) {
-                  return error;
-                }
-                final minimum = int.tryParse(_minimum.text.trim());
-                if (minimum != null && int.parse(value!.trim()) < minimum) {
-                  return 'El máximo debe ser igual o mayor al mínimo.';
-                }
-                return null;
-              },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    key: const ValueKey('prep-minimum'),
+                    controller: _minimum,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Mínimo',
+                      errorMaxLines: 8,
+                      filled: true,
+                      fillColor: AppTheme.discoveryBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    validator: _validate,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: TextFormField(
+                    key: const ValueKey('prep-maximum'),
+                    controller: _maximum,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Máximo',
+                      errorMaxLines: 8,
+                      filled: true,
+                      fillColor: AppTheme.discoveryBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    validator: (value) {
+                      final error = _validate(value);
+                      if (error != null) {
+                        return error;
+                      }
+                      final minimum = int.tryParse(_minimum.text.trim());
+                      if (minimum != null &&
+                          int.parse(value!.trim()) < minimum) {
+                        return 'El máximo debe ser igual o mayor al mínimo.';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancelar'),
-      ),
-      FilledButton(
-        onPressed: () {
-          if (_form.currentState!.validate()) {
-            Navigator.of(context).pop((
-              int.parse(_minimum.text.trim()),
-              int.parse(_maximum.text.trim()),
-            ));
-          }
-        },
-        child: const Text('Guardar'),
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () {
+                if (_form.currentState!.validate()) {
+                  Navigator.of(context).pop((
+                    int.parse(_minimum.text.trim()),
+                    int.parse(_maximum.text.trim()),
+                  ));
+                }
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.discoveryAccent,
+                foregroundColor: AppTheme.discoveryBackground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(child: Text('Guardar tiempo')),
+                  Icon(Icons.arrow_forward, size: 20),
+                ],
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Volver',
+              style: TextStyle(color: AppTheme.discoveryMuted),
+            ),
+          ),
+        ],
       ),
     ],
   );

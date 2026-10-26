@@ -80,22 +80,33 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Elegí tu antojo.'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
           (widget) =>
               widget is Image &&
               widget.image is AssetImage &&
-              (widget.image as AssetImage).assetName == 'assets/login.jpg',
+              (widget.image as AssetImage).assetName ==
+                  'assets/home-pupusas.webp',
         ),
         findsOneWidget,
       );
-      await tester.tap(find.text('Información'));
+      await tester.tap(find.byTooltip('Información'));
       await tester.pumpAndSettle();
       expect(find.text('Centro de Tejutla'), findsWidgets);
       await tester.tap(find.text('Cerrar'));
       await tester.pumpAndSettle();
-      final drinks = find.widgetWithText(ChoiceChip, 'Bebidas');
+      final drinks = find.widgetWithText(TextButton, 'Bebidas');
+      final pageScroll = find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(drinks, 200, scrollable: pageScroll);
       await tester.ensureVisible(drinks);
+      await tester.pumpAndSettle();
+      expect(drinks.hitTestable(), findsOneWidget);
       await tester.tap(drinks);
       await tester.pumpAndSettle();
       expect(find.text('Pizza personal'), findsNothing);
@@ -129,6 +140,7 @@ void main() {
       await tester.tap(find.text(r'Agregar al carrito · $9.00'));
       await tester.pumpAndSettle();
       expect(container.read(cartProvider).quantityOf(2), 2);
+      expect(find.text('Elegí tu antojo.'), findsNothing);
       expect(find.text('Ver pedido').hitTestable(), findsOneWidget);
       expect(tester.getSize(find.byType(CartBar)).height, lessThan(160));
       expect(tester.takeException(), isNull);

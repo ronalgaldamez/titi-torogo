@@ -76,26 +76,61 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('local-categories')),
-          150,
-        );
-        await tester.tap(find.byKey(const ValueKey('local-categories')));
+        final categoriesEntry = find.byKey(const ValueKey('local-categories'));
+        for (
+          var attempt = 0;
+          attempt < 30 && categoriesEntry.hitTestable().evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -180),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(categoriesEntry.hitTestable(), findsOneWidget);
+        await tester.tap(categoriesEntry);
         await tester.pumpAndSettle();
         final first = find.byKey(const ValueKey('local-category-1'));
         final second = find.byKey(const ValueKey('local-category-2'));
-        expect(tester.widget<CheckboxListTile>(first).value, isTrue);
+        expect(tester.widget<Semantics>(first).properties.checked, isTrue);
+        expect(find.text('Una categoría seleccionada'), findsOneWidget);
+        final dialogScroll = find
+            .descendant(
+              of: find.byType(Dialog),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        for (
+          var attempt = 0;
+          attempt < 30 && second.hitTestable().evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.drag(dialogScroll, const Offset(0, -100));
+          await tester.pumpAndSettle();
+        }
+        expect(second.hitTestable(), findsOneWidget);
         await tester.tap(second);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Guardar categorías'));
+        expect(find.text('2 categorías seleccionadas'), findsOneWidget);
+        await tester.tap(find.text('Guardar selección'));
         await tester.pumpAndSettle();
         expect(find.text('No se pudo guardar'), findsOneWidget);
-        expect(tester.widget<CheckboxListTile>(second).value, isTrue);
+        expect(tester.widget<Semantics>(second).properties.checked, isTrue);
         fail = false;
-        await tester.tap(find.text('Guardar categorías'));
+        await tester.tap(find.text('Guardar selección'));
         await tester.pumpAndSettle();
-        expect(find.text('Categorías de mi local'), findsOneWidget);
-        expect(find.text('Pupusas · Mariscos'), findsOneWidget);
+        expect(find.text('Lo que se cocina aquí.'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('local-category-tag-1')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('local-category-tag-2')),
+          findsOneWidget,
+        );
+        expect(find.text('Pupusas'), findsOneWidget);
+        expect(find.text('Mariscos'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => client);

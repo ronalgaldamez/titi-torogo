@@ -30,9 +30,12 @@ class RestaurantResource extends JsonResource
             'address' => $this->address,
             'phone' => $this->phone,
 
-            // El logo vive en MinIO; la app recibe la URL lista para usar.
+            // URLs firmadas: S3 permanece privado. Se renuevan al consultar el local.
             'logo_url' => $this->logo_path
-                ? Storage::disk('s3')->url($this->logo_path)
+                ? Storage::disk('s3')->temporaryUrl($this->logo_path, now()->addHour())
+                : null,
+            'cover_url' => $this->cover_path
+                ? Storage::disk('s3')->temporaryUrl($this->cover_path, now()->addHour())
                 : null,
 
             'latitude' => $this->latitude,

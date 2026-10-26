@@ -23,6 +23,7 @@ class Restaurant {
     this.description,
     this.phone,
     this.logoUrl,
+    this.coverUrl,
     this.distanceKm,
     this.foodCategories = const [],
   });
@@ -34,8 +35,9 @@ class Restaurant {
   final String address;
   final String? phone;
 
-  /// Logo en MinIO. Llega null mientras el restaurante no suba uno.
+  /// URL firmada del logo. Llega null mientras el restaurante no suba uno.
   final String? logoUrl;
+  final String? coverUrl;
 
   final double latitude;
   final double longitude;
@@ -80,6 +82,7 @@ class Restaurant {
       address: json['address'] as String,
       phone: json['phone'] as String?,
       logoUrl: json['logo_url'] as String?,
+      coverUrl: json['cover_url'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       isOpen: json['is_open'] as bool,

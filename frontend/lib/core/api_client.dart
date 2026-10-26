@@ -54,6 +54,20 @@ class ApiClient {
     return _sendJson('POST', path, body);
   }
 
+  /// Sube archivos con el mismo token y manejo de errores que el resto de la API.
+  Future<Map<String, dynamic>> upload(
+    String path, {
+    required List<http.MultipartFile> files,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
+      ..headers.addAll(_jsonHeaders())
+      ..files.addAll(files);
+    return _decode(await _send(() async {
+      final response = await _client.send(request);
+      return http.Response.fromStream(response);
+    }));
+  }
+
   /// PUT con cuerpo JSON. Reemplaza el recurso completo: editar un plato.
   Future<Map<String, dynamic>> put(
     String path, {

@@ -49,10 +49,13 @@ class RestaurantDetailRepository {
         (json['categories'] as List<dynamic>?) ?? <dynamic>[];
 
     return RestaurantDetail(
-      restaurant:
-          Restaurant.fromJson(json['restaurant'] as Map<String, dynamic>),
-      categories:
-          raw.cast<Map<String, dynamic>>().map(MenuCategory.fromJson).toList(),
+      restaurant: Restaurant.fromJson(
+        json['restaurant'] as Map<String, dynamic>,
+      ),
+      categories: raw
+          .cast<Map<String, dynamic>>()
+          .map(MenuCategory.fromJson)
+          .toList(),
     );
   }
 }
