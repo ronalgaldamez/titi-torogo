@@ -27,7 +27,11 @@ class LandingPage extends Model
 
     public function texts(): array
     {
-        return array_replace(static::defaults(), $this->content ?? []);
+        $defaults = static::defaults();
+        $texts = array_replace($defaults, $this->content ?? []);
+        $texts['contact_email'] = $texts['contact_email'] ?: $defaults['contact_email'];
+
+        return $texts;
     }
 
     public function imageUrls(): array

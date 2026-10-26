@@ -96,9 +96,6 @@ return [
             'faq_4_answer' => ['Respuesta 4', 'Sí. Durante la entrega podrás consultar el seguimiento de tu pedido y la ubicación compartida por el motorista asignado.'],
         ],
         'Cierre y contacto' => [
-            'legal_privacy_notice' => ['Aviso provisional de privacidad', 'Estamos preparando la información sobre el tratamiento de cuentas, direcciones y ubicación durante las entregas, junto con los canales de contacto. La política de privacidad aún no está publicada.'],
-            'legal_terms_notice' => ['Aviso provisional de términos', 'Las condiciones para usar ToroGo y realizar pedidos están en preparación. Los términos definitivos aún no están publicados.'],
-            'legal_cookies_notice' => ['Aviso provisional de cookies', 'Estamos revisando las cookies y servicios que utiliza la web para documentar su finalidad y duración. La política de cookies aún no está publicada.'],
             'cookie_preferences_notice' => ['Aviso provisional de preferencias', 'Estamos preparando el inventario de cookies y las opciones que correspondan. Este panel todavía no permite cambiar preferencias ni registra consentimiento.'],
             'closing_eyebrow' => ['Texto superior', 'LO BUENO ESTÁ MÁS CERCA.'],
             'closing_title' => ['Título', 'Tu próximo antojo'],
@@ -107,7 +104,8 @@ return [
             'closing_description' => ['Frase final', 'Menos vueltas. Más de lo que te gusta.'],
             'footer_description' => ['Frase bajo la marca', 'Hecho para estar cerca.'],
             'footer_location' => ['Ubicación del pie de página', 'Chalatenango, El Salvador.'],
-            'contact_email' => ['Correo para recibir consultas de negocios y motoristas (opcional)', ''],
+            'footer_credit' => ['Crédito de desarrollo', 'Desarrollado por Yerba Digital'],
+            'contact_email' => ['Correo de contacto (vacío usa el correo predeterminado de ToroGo)', 'torogoappsv@gmail.com'],
         ],
     ],
     'images' => [
