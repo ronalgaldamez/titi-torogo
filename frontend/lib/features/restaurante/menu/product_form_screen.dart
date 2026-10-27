@@ -236,16 +236,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final TextTheme text = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.discoveryBackground,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        foregroundColor: AppTheme.discoveryPaper,
+        backgroundColor: AppTheme.discoveryBackground,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: Text(
           _isEditing ? 'Editar plato' : 'Nuevo plato',
           style: text.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+            color: AppTheme.discoveryPaper,
           ),
         ),
         actions: <Widget>[
@@ -253,7 +254,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             IconButton(
               onPressed: _saving ? null : _delete,
               icon: const Icon(Icons.delete_outline_rounded),
-              color: AppTheme.coral,
+              color: AppTheme.discoveryAccent,
               tooltip: 'Borrar plato',
             ),
         ],
@@ -315,10 +316,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               child: FilledButton(
                 onPressed: _saving ? null : _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.coral,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppTheme.discoveryAccent,
+                  foregroundColor: AppTheme.discoveryBackground,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
                 child: _saving
@@ -372,6 +373,7 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      style: const TextStyle(color: AppTheme.discoveryPaper),
       validator: validator,
       maxLines: maxLines,
       keyboardType: keyboardType,
@@ -386,7 +388,9 @@ class _Field extends StatelessWidget {
         // es de InputDecoration, no de TextFormField.
         prefixText: prefixText,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFF183744),
+        labelStyle: const TextStyle(color: AppTheme.discoveryMuted),
+        hintStyle: const TextStyle(color: AppTheme.discoveryMuted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.image),
           borderSide: BorderSide.none,
@@ -422,7 +426,7 @@ class _CategoryPicker extends StatelessWidget {
         Text(
           'Categoría',
           style: text.labelLarge?.copyWith(
-            color: AppTheme.navy,
+            color: AppTheme.discoveryPaper,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -432,12 +436,26 @@ class _CategoryPicker extends StatelessWidget {
           runSpacing: AppSpacing.sm,
           children: <Widget>[
             ChoiceChip(
+              backgroundColor: const Color(0xFF183744),
+              selectedColor: AppTheme.discoveryAccent,
+              labelStyle: TextStyle(
+                color: value == null
+                    ? AppTheme.discoveryBackground
+                    : AppTheme.discoveryPaper,
+              ),
               label: const Text('Sin categoría'),
               selected: value == null,
               onSelected: (_) => onChanged(null),
             ),
             for (final MenuCategory category in categories)
               ChoiceChip(
+                backgroundColor: const Color(0xFF183744),
+                selectedColor: AppTheme.discoveryAccent,
+                labelStyle: TextStyle(
+                  color: value == category.id
+                      ? AppTheme.discoveryBackground
+                      : AppTheme.discoveryPaper,
+                ),
                 label: Text(category.name),
                 selected: value == category.id,
                 onSelected: (_) => onChanged(category.id),
@@ -462,17 +480,20 @@ class _ErrorBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
+        color: const Color(0xFF204653),
         borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppTheme.coral),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppTheme.discoveryAccent,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
           ),
         ],

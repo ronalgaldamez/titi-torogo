@@ -39,44 +39,64 @@ class _RestauranteShellState extends State<RestauranteShell> {
       ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
-          iconTheme: WidgetStatePropertyAll(IconThemeData(color: _tab == 2 ? AppTheme.discoveryPaper : AppTheme.navy)),
-          labelTextStyle: WidgetStatePropertyAll(TextStyle(color: _tab == 2 ? AppTheme.discoveryPaper : AppTheme.navy, fontSize: 12)),
+          iconTheme: WidgetStatePropertyAll(
+            IconThemeData(
+              color: _tab != 0 ? AppTheme.discoveryPaper : AppTheme.navy,
+            ),
+          ),
+          labelTextStyle: WidgetStatePropertyAll(
+            TextStyle(
+              color: _tab != 0 ? AppTheme.discoveryPaper : AppTheme.navy,
+              fontSize: 12,
+            ),
+          ),
         ),
         child: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (int index) => setState(() => _tab = index),
-        backgroundColor: _tab == 2 ? AppTheme.discoveryBackground : Colors.white,
-        indicatorColor: _tab == 2 ? AppTheme.discoveryAccent : AppTheme.tealSoft,
-        destinations: <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(
-              Icons.receipt_long_rounded,
-              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
+          selectedIndex: _tab,
+          onDestinationSelected: (int index) => setState(() => _tab = index),
+          backgroundColor: _tab != 0
+              ? AppTheme.discoveryBackground
+              : Colors.white,
+          indicatorColor: _tab != 0
+              ? AppTheme.discoveryAccent
+              : AppTheme.tealSoft,
+          destinations: <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(
+                Icons.receipt_long_rounded,
+                color: _tab != 0
+                    ? AppTheme.discoveryBackground
+                    : AppTheme.tealDeep,
+              ),
+              label: 'Pedidos',
             ),
-            label: 'Pedidos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.restaurant_menu_outlined),
-            selectedIcon: Icon(
-              Icons.restaurant_menu_rounded,
-              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
+            NavigationDestination(
+              icon: Icon(Icons.restaurant_menu_outlined),
+              selectedIcon: Icon(
+                Icons.restaurant_menu_rounded,
+                color: _tab != 0
+                    ? AppTheme.discoveryBackground
+                    : AppTheme.tealDeep,
+              ),
+              label: 'Mi menú',
             ),
-            label: 'Mi menú',
-          ),
-          // El estado del local va ULTIMO y no primero: lo que el restaurante
-          // mira todo el dia son los pedidos. Esto se toca dos veces al dia
-          // (al abrir y al cerrar), no cada cinco minutos.
-          NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(
-              Icons.storefront_rounded,
-              color: _tab == 2 ? AppTheme.discoveryBackground : AppTheme.tealDeep,
+            // El estado del local va ULTIMO y no primero: lo que el restaurante
+            // mira todo el dia son los pedidos. Esto se toca dos veces al dia
+            // (al abrir y al cerrar), no cada cinco minutos.
+            NavigationDestination(
+              icon: Icon(Icons.storefront_outlined),
+              selectedIcon: Icon(
+                Icons.storefront_rounded,
+                color: _tab != 0
+                    ? AppTheme.discoveryBackground
+                    : AppTheme.tealDeep,
+              ),
+              label: 'Mi local',
             ),
-            label: 'Mi local',
-          ),
-        ],
-      )),
+          ],
+        ),
+      ),
     );
   }
 }
