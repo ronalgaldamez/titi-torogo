@@ -105,10 +105,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Future<void> _rename(MenuCategory category) async {
     final String? name = await showDialog<String>(
       context: context,
-      builder: (BuildContext context) => _NameDialog(
-        title: 'Renombrar categoría',
-        initial: category.name,
-      ),
+      builder: (BuildContext context) =>
+          _NameDialog(title: 'Renombrar categoría', initial: category.name),
     );
 
     // Si no cambio nada, no se molesta al servidor.
@@ -133,7 +131,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           category.productCount == 0
               ? 'La categoría está vacía: no se pierde ningún plato.'
               : 'Sus ${category.productCount} platos NO se borran: quedan sin '
-                  'categoría y los podés volver a acomodar.',
+                    'categoría y los podés volver a acomodar.',
         ),
         actions: <Widget>[
           TextButton(
@@ -159,9 +157,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -306,9 +304,7 @@ class _CategoryRow extends StatelessWidget {
                         category.productCount == 1
                             ? '1 plato'
                             : '${category.productCount} platos',
-                        style: text.labelMedium?.copyWith(
-                          color: AppTheme.teal,
-                        ),
+                        style: text.labelMedium?.copyWith(color: AppTheme.teal),
                       ),
                     ],
                   ),
@@ -345,8 +341,9 @@ class _NameDialog extends StatefulWidget {
 }
 
 class _NameDialogState extends State<_NameDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial ?? '');
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial ?? '',
+  );
 
   String? _error;
 
@@ -388,10 +385,7 @@ class _NameDialogState extends State<_NameDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
-        TextButton(
-          onPressed: _submit,
-          child: const Text('Guardar'),
-        ),
+        TextButton(onPressed: _submit, child: const Text('Guardar')),
       ],
     );
   }

@@ -4,7 +4,6 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
-import '../../../core/widgets/filter_tabs.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
 import 'categories_screen.dart';
@@ -228,60 +227,176 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Mi menú',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppTheme.discoveryAccent,
+          brightness: Brightness.dark,
+          surface: AppTheme.discoveryBackground,
+          primary: AppTheme.discoveryAccent,
+          onSurface: AppTheme.discoveryPaper,
+        ),
+        iconTheme: const IconThemeData(color: AppTheme.discoveryMuted),
+        textTheme: theme.textTheme.apply(
+          bodyColor: AppTheme.discoveryPaper,
+          displayColor: AppTheme.discoveryPaper,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: 'toro'),
+                              TextSpan(
+                                text: 'go',
+                                style: TextStyle(color: AppTheme.yellow),
+                              ),
+                              TextSpan(
+                                text: '.',
+                                style: TextStyle(
+                                  color: AppTheme.discoveryAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.6,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'MI NEGOCIO',
+                          style: TextStyle(
+                            fontSize: 9,
+                            letterSpacing: 2,
+                            color: AppTheme.discoveryMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(color: Color(0x334E6B77), height: 1),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: 'Mi menú'),
+                                TextSpan(
+                                  text: '.',
+                                  style: TextStyle(
+                                    color: AppTheme.discoveryAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.3,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _openCategories,
+                          icon: const Icon(Icons.category_outlined),
+                          color: AppTheme.discoveryMuted,
+                          tooltip: 'Categorías',
+                        ),
+                        if (widget.onLogout != null)
+                          IconButton(
+                            onPressed: _confirmLogout,
+                            icon: const Icon(Icons.logout_rounded),
+                            color: AppTheme.discoveryMuted,
+                            tooltip: 'Cerrar sesión',
+                          ),
+                      ],
+                    ),
+                    const Text(
+                      'Cada plato, listo para antojar.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.discoveryMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                  ],
+                ),
+              ),
+              Expanded(child: Builder(builder: _body)),
+            ],
           ),
         ),
-        actions: <Widget>[
-          IconButton(
-            onPressed: _openCategories,
-            icon: const Icon(Icons.category_outlined),
-            color: AppTheme.navy,
-            tooltip: 'Categorías',
-          ),
-          if (widget.onLogout != null)
-            IconButton(
-              onPressed: _confirmLogout,
-              icon: const Icon(Icons.logout_rounded),
-              color: AppTheme.navy,
-              tooltip: 'Cerrar sesión',
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+            child: FilledButton(
+              onPressed: _loading || _error != null
+                  ? null
+                  : () =>
+                        _openForm(categoryId: _category > 0 ? _category : null),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.discoveryAccent,
+                foregroundColor: AppTheme.discoveryBackground,
+                minimumSize: const Size.fromHeight(58),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.add_rounded, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Agregar plato',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.discoveryBackground,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.north_east_rounded,
+                      color: AppTheme.discoveryPaper,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
-      ),
-      body: _body(),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: FilledButton.icon(
-            onPressed: _loading || _error != null
-                ? null
-                : () => _openForm(categoryId: _category > 0 ? _category : null),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.coral,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-            ),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Agregar plato'),
           ),
         ),
       ),
     );
   }
 
-  Widget _body() {
+  Widget _body(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -335,7 +450,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
               TextField(
@@ -345,7 +460,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   hintText: 'Buscar un plato',
                   prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surface,
+                  fillColor: Colors.transparent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.image),
                   ),
@@ -357,82 +472,124 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.image),
-                    borderSide: const BorderSide(color: AppTheme.teal),
+                    borderSide: const BorderSide(
+                      color: AppTheme.discoveryAccent,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              FilterTabs(
-                labels: const ['Todos', 'Disponibles', 'Agotados'],
-                selectedIndex: _availability == -1
-                    ? 0
-                    : (_availability == 1 ? 1 : 2),
-                onSelected: (index) => setState(() {
-                  _availability = [-1, 1, 0][index];
-                  _page = 0;
-                }),
-                keyPrefix: 'menu-availability',
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  key: const ValueKey('menu-category-filter'),
-                  onPressed: _pickCategory,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.tealDeep,
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    minimumSize: const Size(0, 48),
-                    side: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      const Icon(Icons.tune_rounded, size: 18),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          _category == -1
-                              ? 'Todas las categorías'
-                              : _category == 0
-                              ? 'Sin categoría'
-                              : _categories
-                                    .firstWhere(
-                                      (category) => category.id == _category,
-                                    )
-                                    .name,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var index = 0; index < 3; index++)
+                      Semantics(
+                        key: ValueKey('menu-availability-$index'),
+                        selected: _availability == [-1, 1, 0][index],
+                        button: true,
+                        child: InkWell(
+                          onTap: () => setState(() {
+                            _availability = [-1, 1, 0][index];
+                            _page = 0;
+                          }),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: _availability == [-1, 1, 0][index]
+                                      ? AppTheme.discoveryAccent
+                                      : Colors.transparent,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              index == 0
+                                  ? 'Todos ${entries.length}'
+                                  : ['Todos', 'Disponibles', 'Agotados'][index],
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _availability == [-1, 1, 0][index]
+                                    ? AppTheme.discoveryPaper
+                                    : AppTheme.discoveryMuted,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.xs),
-                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-              Wrap(
-                spacing: AppSpacing.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              const SizedBox(height: AppSpacing.sm),
+              Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm,
-                    ),
-                    child: Text(
-                      '${filtered.length} de ${entries.length} platos',
-                      style: Theme.of(context).textTheme.bodySmall,
+                  Expanded(
+                    child: TextButton(
+                      key: const ValueKey('menu-category-filter'),
+                      onPressed: _pickCategory,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.discoveryMuted,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.centerLeft,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.tune_rounded,
+                            size: 14,
+                            color: AppTheme.discoveryAccent,
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              _category == -1
+                                  ? 'Todas las categorías'
+                                  : _category == 0
+                                  ? 'Sin categoría'
+                                  : _categories
+                                        .firstWhere(
+                                          (category) =>
+                                              category.id == _category,
+                                        )
+                                        .name,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 16,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  if (_category != -1 ||
-                      _availability != -1 ||
-                      _search.text.isNotEmpty)
-                    TextButton(
-                      onPressed: _resetFilters,
-                      child: const Text('Limpiar filtros'),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      '${filtered.length} de ${entries.length} platos',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.discoveryMuted,
+                      ),
                     ),
+                  ),
                 ],
               ),
+              if (_category != -1 ||
+                  _availability != -1 ||
+                  _search.text.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _resetFilters,
+                    child: const Text('Limpiar filtros'),
+                  ),
+                ),
             ],
           ),
         ),
@@ -441,7 +598,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             onRefresh: _load,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
                 if (filtered.isEmpty)
                   const Padding(
@@ -498,7 +655,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: AppTheme.background,
+      backgroundColor: const Color(0xFF183744),
       builder: (context) => SafeArea(
         top: false,
         child: ConstrainedBox(
@@ -512,7 +669,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Text(
                   'Filtrar por categoría',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: const TextStyle(
+                    color: AppTheme.discoveryPaper,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Flexible(
@@ -546,8 +707,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       ListTile(
                         key: ValueKey('menu-category-${entry.id}'),
                         selected: _category == entry.id,
-                        selectedColor: AppTheme.tealDeep,
-                        selectedTileColor: AppTheme.tealSoft,
+                        textColor: AppTheme.discoveryPaper,
+                        iconColor: AppTheme.discoveryMuted,
+                        selectedColor: AppTheme.discoveryAccent,
+                        selectedTileColor: const Color(0xFF204653),
                         leading: Icon(
                           _category == entry.id
                               ? Icons.check_circle_rounded
@@ -621,84 +784,139 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    final bool available = product.isAvailable;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: saving ? null : onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.sm,
-              AppSpacing.sm,
-            ),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        product.name,
-                        style: text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          // Agotado: tachado y en gris. Asi el restaurante ve
-                          // de un vistazo que sigue en el menu pero hoy no se
-                          // puede pedir.
-                          color: available
-                              ? AppTheme.navy
-                              : colors.onSurfaceVariant,
-                          decoration: available
-                              ? null
-                              : TextDecoration.lineThrough,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '$categoryName · ${available ? 'Disponible' : 'Agotado'} · Editar',
-                        style: text.bodySmall?.copyWith(
-                          color: AppTheme.tealDeep,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '\$${product.price}',
-                        style: text.titleSmall?.copyWith(
-                          color: AppTheme.coral,
-                          fontWeight: FontWeight.w800,
+    final available = product.isAvailable;
+    final photoWidth = MediaQuery.sizeOf(context).width <= 350 ? 65.0 : 80.0;
+    const placeholder = ColoredBox(
+      color: Color(0xFF204653),
+      child: Center(
+        child: Icon(
+          Icons.restaurant_menu_rounded,
+          color: AppTheme.discoveryMuted,
+        ),
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0x334E6B77))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: saving ? null : onTap,
+                child: Row(
+                  children: [
+                    Opacity(
+                      opacity: available ? 1 : .55,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: photoWidth,
+                          height: 94,
+                          child: product.imageUrl == null
+                              ? placeholder
+                              : Image.network(
+                                  product.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  semanticLabel: product.name,
+                                  errorBuilder: (_, error, stackTrace) =>
+                                      placeholder,
+                                ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                if (saving)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.discoveryPaper,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            categoryName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.discoveryMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '\$${product.price}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.discoveryAccent,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 12,
+                                color: AppTheme.discoveryMuted,
+                              ),
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Editar plato',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.discoveryMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 66,
+            child: Column(
+              children: [
+                if (saving)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else
-                  Switch(value: available, onChanged: onChanged),
+                  Switch(
+                    value: available,
+                    onChanged: onChanged,
+                    activeTrackColor: AppTheme.discoveryAccent,
+                    activeThumbColor: AppTheme.discoveryPaper,
+                    inactiveTrackColor: const Color(0xFF34505C),
+                    inactiveThumbColor: AppTheme.discoveryMuted,
+                  ),
+                Text(
+                  available ? 'Disponible' : 'Agotado',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: AppTheme.discoveryMuted,
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -730,21 +948,21 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 48, color: AppTheme.teal),
+            Icon(icon, size: 48, color: AppTheme.discoveryAccent),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
               textAlign: TextAlign.center,
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+                color: AppTheme.discoveryPaper,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),

@@ -14,6 +14,7 @@ Map<String, dynamic> product(int id) => {
   'price': '1.00',
   'is_available': id.isOdd,
   'sort_order': id,
+  if (id == 1) 'image_url': 'https://example.test/plato-1.jpg',
 };
 
 void main() {
@@ -63,6 +64,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'Carga inicial del menú');
       expect(find.text('50 de 50 platos'), findsOneWidget);
+      expect(find.text('Cada plato, listo para antojar.'), findsOneWidget);
+      final photo = tester.widget<Image>(find.byType(Image).first);
+      expect(
+        (photo.image as NetworkImage).url,
+        'https://example.test/plato-1.jpg',
+      );
+      expect(find.byIcon(Icons.restaurant_menu_rounded), findsWidgets);
+      await tester.tap(find.text('Editar plato').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Editar plato'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Pláto 1'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(find.text('Página 1 de 7'), findsOneWidget);
       await tester.tap(find.byTooltip('Página siguiente'));
       await tester.pumpAndSettle();
@@ -98,9 +112,10 @@ void main() {
       );
       expect(
         tester
-            .widget<ChoiceChip>(
+            .widget<Semantics>(
               find.byKey(const ValueKey('menu-availability-2')),
             )
+            .properties
             .selected,
         isTrue,
       );
