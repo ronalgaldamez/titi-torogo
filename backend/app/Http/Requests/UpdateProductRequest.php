@@ -47,6 +47,11 @@ class UpdateProductRequest extends FormRequest
             ],
 
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
+            'image' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:max_width=6000,max_height=6000'],
+            'offer_enabled' => ['sometimes', 'boolean'],
+            'sale_price' => ['exclude_unless:offer_enabled,true', 'required', 'numeric', 'decimal:0,2', 'min:0', 'lt:price'],
+            'offer_starts_at' => ['exclude_unless:offer_enabled,true', 'required', 'date'],
+            'offer_ends_at' => ['exclude_unless:offer_enabled,true', 'required', 'date', 'after:offer_starts_at'],
         ];
     }
 
@@ -58,6 +63,10 @@ class UpdateProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'image.*' => 'Usá una imagen JPG, PNG o WebP de hasta 5 MB y 6000 píxeles por lado.',
+            'sale_price.*' => 'La oferta debe ser menor que el precio normal, con hasta dos decimales.',
+            'offer_starts_at.*' => 'Elegí una fecha y hora de inicio válida.',
+            'offer_ends_at.*' => 'La oferta debe terminar después de empezar.',
             'name.required' => 'El producto necesita un nombre.',
             'name.max' => 'El nombre del producto es demasiado largo.',
             'description.max' => 'La descripcion es demasiado larga.',

@@ -13,6 +13,10 @@ use App\Http\Resources\ProductResource;
 use App\Models\MenuCategory;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -218,7 +222,7 @@ class MenuController extends Controller
         }
 
         $product->sort_order = $sortOrder;
-        $product->save();
+        $this->saveProduct($request, $product);
 
         return response()->json([
             'product' => new ProductResource($product),
@@ -288,7 +292,7 @@ class MenuController extends Controller
             $model->sort_order = $validated['sort_order'];
         }
 
-        $model->save();
+        $this->saveProduct($request, $model);
 
         return response()->json([
             'product' => new ProductResource($model),
@@ -322,4 +326,56 @@ class MenuController extends Controller
             'message' => 'Plato eliminado del menu.',
         ]);
     }
+    private function saveProduct(FormRequest $request, Product $product): void
+    {
+        $created = null;
+        $replaced = null;
+        try {
+            DB::transaction(function () use ($request, $product, &$created, &$replaced): void {
+                $restaurant = $request->user()->restaurant->newQuery()
+                    ->whereKey($request->user()->restaurant->id)->lockForUpdate()->firstOrFail();
+                if (array_key_exists('offer_enabled', $request->validated())) {
+                    $product->offer_enabled = $request->boolean('offer_enabled');
+                    $product->sale_price = $product->offer_enabled ? $request->validated('sale_price') : null;
+                    foreach (['offer_starts_at', 'offer_ends_at'] as $field) {
+                        $product->$field = $product->offer_enabled
+                            ? Carbon::parse($request->validated($field))->setTimezone(config('app.timezone')) : null;
+                    }
+                }
+                $product->save();
+                if ($request->hasFile('image')) {
+                    $restaurant->media_directory ??= 'negocios/'.Str::substr(Str::slug($restaurant->name) ?: 'local', 0, 80).'-'.$restaurant->id;
+                    $restaurant->save();
+                    $replaced = $product->newQuery()->whereKey($product->id)->value('image_path');
+                    $created = Storage::disk('s3')->putFile($restaurant->media_directory.'/platos/'.$product->id, $request->file('image'));
+                    if ($created === false) {
+                        throw new \RuntimeException('No se pudo guardar la foto del plato.');
+                    }
+                    $product->image_path = $created;
+                    $product->save();
+                }
+            });
+        } catch (\Throwable $error) {
+            if (is_string($created)) {
+                $this->cleanProductImage($created);
+            }
+            report($error);
+            abort(503, 'No pudimos guardar el plato. Se conservaron los datos anteriores. Intentá de nuevo.');
+        }
+        if ($replaced) {
+            $this->cleanProductImage($replaced);
+        }
+    }
+
+    private function cleanProductImage(string $path): void
+    {
+        try {
+            if (! Storage::disk('s3')->delete($path)) {
+                report(new \RuntimeException('No se pudo limpiar una foto de plato reemplazada.'));
+            }
+        } catch (\Throwable $error) {
+            report($error);
+        }
+    }
+
 }

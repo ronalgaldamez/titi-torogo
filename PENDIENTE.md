@@ -71,7 +71,7 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 ## Restaurante: siguiente revisión
 
 - [ ] Validar rediseño de Mi local con la identidad del login y catálogo: fondo azul oscuro, encabezado editorial, dirección, categorías, disponibilidad y preparación. Conservar los controles y validaciones actuales.
-- [ ] Validar carga implementada de logo y portada; después agregar fotos de platos en Mi menú con S3 privado. Organizar por `negocios/{nombre-inicial-normalizado}-{id}/logo/`, `portada/` y `platos/{producto-id}/`, con nombres únicos para los archivos. Guardar las rutas; conservar el prefijo al renombrar el negocio. No mezclar archivos entre negocios ni perder imágenes al ejecutar seeders.
+- [ ] Validar carga de logo/portada y el nuevo editor de platos con S3 privado (una foto, reemplazo y conservación al fallar). Organizar por `negocios/{nombre-inicial-normalizado}-{id}/logo/`, `portada/` y `platos/{producto-id}/`, con nombres únicos para los archivos. Guardar las rutas; conservar el prefijo al renombrar el negocio. No mezclar archivos entre negocios ni perder imágenes al ejecutar seeders.
 - [x] Conectar Laravel al bucket `torogo-images` (Ohio): Ronald confirmó escritura y lectura de prueba y ejecutó la eliminación del archivo de prueba. Las credenciales permanecen en `.env`.
 
 - [ ] Validar en emulador carga y reemplazo de logo y portada desde Mi local (PNG/JPG/WebP, 5 MB), persistencia al volver a abrir y visualización en el cliente. Implementado con S3 privado y URLs firmadas de una hora; actualizar la pantalla renueva las URLs.
@@ -94,3 +94,5 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 - [ ] Reseñas.
 
 La prioridad sigue siendo terminar y validar el delivery de comida. Mantener la paleta, tipografía y tema actuales; discutir nuevas dependencias, cambios de backend y decisiones arquitectónicas antes de implementarlos.
+
+- [ ] Validar ofertas de platos: programar en hora de El Salvador, activar/desactivar, comprobar precio del cliente y rechazo de una oferta vencida en el carrito; verificar que pedidos anteriores y reintentos mantengan sus importes.

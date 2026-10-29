@@ -357,6 +357,7 @@ class OrderController extends Controller
             ->keyBy('id');
 
         $lines = [];
+        $pricedAt = now();
 
         foreach ($items as $item) {
             $product = $products->get((int) $item['product_id']);
@@ -373,6 +374,12 @@ class OrderController extends Controller
                 ]);
             }
 
+            $unitPrice = $product->effectivePrice($pricedAt);
+            if (isset($item['expected_unit_price']) && bccomp($item['expected_unit_price'], $unitPrice, 2) !== 0) {
+                throw ValidationException::withMessages([
+                    'items' => 'Cambió el precio de un plato o terminó su oferta. Actualizá el menú y revisá tu carrito antes de confirmar.',
+                ]);
+            }
             $quantity = (int) $item['quantity'];
 
             $lines[] = [
@@ -381,10 +388,10 @@ class OrderController extends Controller
                 // LA COPIA. Si el restaurante cambia el precio manana, este
                 // pedido sigue diciendo lo que costaba hoy.
                 'name' => $product->name,
-                'unit_price' => $product->price,
+                'unit_price' => $unitPrice,
 
                 'quantity' => $quantity,
-                'subtotal' => Money::multiply($product->price, $quantity),
+                'subtotal' => Money::multiply($unitPrice, $quantity),
             ];
         }
 

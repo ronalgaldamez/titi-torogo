@@ -17,6 +17,31 @@ class OrderTipTest extends TestCase
 
     private array $payload;
 
+    public function test_offer_price_is_authoritative_expired_quotes_are_rejected_and_retries_keep_total(): void
+    {
+        $this->freezeTime();
+        $product = \App\Models\Product::findOrFail($this->payload['items'][0]['product_id']);
+        $product->offer_enabled = true;
+        $product->sale_price = '3.00';
+        $product->offer_starts_at = now();
+        $product->offer_ends_at = now()->addMinute();
+        $product->save();
+        $payload = $this->payload;
+        $payload['items'][0]['expected_unit_price'] = '0.01';
+        $this->postJson('/api/orders', $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('orders', 0);
+        $payload['items'][0]['expected_unit_price'] = '3.00';
+        $this->postJson('/api/orders', $payload)->assertCreated()
+            ->assertJsonPath('order.subtotal', '3.00')->assertJsonPath('order.total', '5.00');
+        $this->travel(1)->minutes();
+        $this->postJson('/api/orders', $payload)->assertOk()->assertJsonPath('order.total', '5.00');
+        $payload['idempotency_key'] = 'offer-after-expiration';
+        $this->postJson('/api/orders', $payload)->assertUnprocessable()->assertJsonValidationErrors('items');
+        $this->assertDatabaseCount('orders', 1);
+        $payload['items'][0]['expected_unit_price'] = '4.00';
+        $this->postJson('/api/orders', $payload)->assertCreated()->assertJsonPath('order.total', '6.00');
+    }
+
     public function test_new_order_has_five_minutes_and_retry_does_not_extend_deadline(): void
     {
         $this->freezeTime();

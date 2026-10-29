@@ -41,6 +41,8 @@ class StoreOrderRequest extends FormRequest
             'items' => ['required', 'array', 'min:1', 'max:50'],
 
             'items.*.product_id' => ['required', 'integer'],
+            // Solo detecta cambios; el importe cobrado siempre sale del catálogo.
+            'items.*.expected_unit_price' => ['sometimes', 'numeric', 'decimal:0,2', 'min:0', 'max:999999.99'],
 
             // min:1 para que nadie mande una linea de cero unidades: sumaria
             // 0.00 y ensuciaria la cuenta del pedido.
