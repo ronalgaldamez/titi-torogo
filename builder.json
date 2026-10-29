@@ -1,0 +1,25 @@
+{
+  "project": "ToroGo",
+  "platform": "ios",
+  "github": {
+    "owner": "ronalgaldamez",
+    "repo": "titi-torogo"
+  },
+  "provider": "github",
+  "codemagic": {},
+  "bitrise": {},
+  "ios": {
+    "path": "frontend/ios",
+    "bundleId": "com.ronalgaldamez.torogo",
+    "scheme": "Runner",
+    "configuration": "Debug",
+    "signing": false
+  },
+  "flutter": {
+    "watch": {},
+    "version": "3.41.7"
+  },
+  "reactNative": {},
+  "kmp": {},
+  "mobai": {}
+}
