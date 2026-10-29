@@ -8,8 +8,6 @@ import '../../../core/notifications.dart';
 import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
-import '../../../core/widgets/filter_tabs.dart';
-import '../../../core/widgets/live_chip.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
 import 'restaurant_order_repository.dart';
@@ -51,7 +49,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   List<Order> _orders = <Order>[];
   int _stage = 0;
-  static const _stages = ['Pendientes', 'Preparación', 'Entrega'];
+  static const _stages = ['Nuevos', 'En preparación', 'Listos'];
   static int _stageOf(Order order) => switch (order.status) {
     'pending' => 0,
     'accepted' || 'preparing' => 1,
@@ -270,7 +268,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// backend rechazaria el cambio igual.
   _Action? _actionFor(Order order) {
     if (order.canBeAccepted) {
-      return const _Action(status: 'accepted', label: 'Aceptar');
+      return const _Action(status: 'accepted', label: 'Aceptar pedido');
     }
 
     if (order.canBePreparing) {
@@ -325,6 +323,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
         await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) => AlertDialog(
+            backgroundColor: const Color(0xFF183B49),
+            titleTextStyle: const TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.discoveryPaper,
+            ),
+            contentTextStyle: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.discoveryMuted,
+            ),
             title: Text('¿Rechazar el pedido #${order.id}?'),
             content: const Text(
               'El cliente va a ver que no lo aceptaste, y no se puede '
@@ -334,7 +342,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancelar'),
+                child: const Text('Volver'),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -384,148 +392,296 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Pedidos',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
+    final base = Theme.of(context);
+    return Theme(
+      data: base.copyWith(
+        textTheme: base.textTheme.apply(
+          bodyColor: AppTheme.discoveryPaper,
+          displayColor: AppTheme.discoveryPaper,
+        ),
+        colorScheme: base.colorScheme.copyWith(
+          surface: AppTheme.discoveryBackground,
+          onSurface: AppTheme.discoveryPaper,
+          onSurfaceVariant: AppTheme.discoveryMuted,
+          primary: AppTheme.discoveryAccent,
+          outlineVariant: Colors.white.withValues(alpha: .13),
+        ),
+        dividerColor: Colors.white.withValues(alpha: .13),
+      ),
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text.rich(
+                          const TextSpan(
+                            text: 'toro',
+                            children: [
+                              TextSpan(
+                                text: 'go',
+                                style: TextStyle(color: AppTheme.yellow),
+                              ),
+                              TextSpan(
+                                text: '.',
+                                style: TextStyle(
+                                  color: AppTheme.discoveryAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: const TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.6,
+                            color: AppTheme.discoveryPaper,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'MI NEGOCIO',
+                      style: TextStyle(
+                        fontSize: 9,
+                        letterSpacing: 2,
+                        color: AppTheme.discoveryMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _body()),
+            ],
           ),
         ),
-        actions: <Widget>[
+      ),
+    );
+  }
+
+  Widget _heading() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Divider(height: 1, color: Color(0x334E6B77)),
+      const SizedBox(height: 18),
+      Row(
+        children: [
+          const Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: 'Pedidos',
+                children: [
+                  TextSpan(
+                    text: '.',
+                    style: TextStyle(color: AppTheme.discoveryAccent),
+                  ),
+                ],
+              ),
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.3,
+                color: AppTheme.discoveryPaper,
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Historial de pedidos',
-            icon: const Icon(Icons.history_rounded),
+            icon: const Icon(
+              Icons.history_rounded,
+              size: 18,
+              color: AppTheme.discoveryMuted,
+            ),
             onPressed: () => Navigator.of(context).push<void>(
               MaterialPageRoute<void>(
                 builder: (_) => const RestaurantHistoryScreen(),
               ),
             ),
           ),
-          if (_connected) const LiveChip(),
           IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.navy,
             tooltip: 'Actualizar',
+            icon: const Icon(
+              Icons.refresh_rounded,
+              size: 18,
+              color: AppTheme.discoveryMuted,
+            ),
+            onPressed: _load,
           ),
           if (widget.onLogout != null)
-            IconButton(
-              onPressed: _confirmLogout,
-              icon: const Icon(Icons.logout_rounded),
-              color: AppTheme.navy,
-              tooltip: 'Cerrar sesión',
+            PopupMenuButton<String>(
+              tooltip: 'Más opciones',
+              icon: const Icon(
+                Icons.more_vert,
+                size: 18,
+                color: AppTheme.discoveryMuted,
+              ),
+              onSelected: (_) => _confirmLogout(),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Text('Cerrar sesión'),
+                ),
+              ],
             ),
         ],
       ),
-      body: _body(),
-    );
-  }
-
-  Widget _body() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return _Message(
-        icon: Icons.cloud_off_rounded,
-        title: 'No pudimos cargar los pedidos',
-        message: _error!,
-        actionLabel: 'Reintentar',
-        onAction: _load,
-      );
-    }
-
-    if (_orders.isEmpty) {
-      return _Message(
-        icon: Icons.receipt_long_rounded,
-        title: 'No hay pedidos en curso',
-        message:
-            'Cuando entre uno, va a aparecer acá. Deslizá hacia abajo '
-            'para actualizar.',
-        actionLabel: 'Actualizar',
-        onAction: _load,
-      );
-    }
-
-    final visible = _orders
-        .where((order) => _stageOf(order) == _stage)
-        .toList();
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: FilterTabs(
-            labels: _stages,
-            icons: const [
-              Icons.schedule_rounded,
-              Icons.soup_kitchen_rounded,
-              Icons.delivery_dining_rounded,
-            ],
-            selectedIndex: _stage,
-            onSelected: (stage) => setState(() => _stage = stage),
-            keyPrefix: 'restaurant-stage',
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Expanded(
+            child: Text(
+              'Lo bueno ya viene en camino.',
+              style: TextStyle(fontSize: 12, color: AppTheme.discoveryMuted),
+            ),
           ),
+          if (_connected) ...[
+            const SizedBox(width: 12),
+            const Text(
+              '● En vivo',
+              key: ValueKey('orders-live-status'),
+              style: TextStyle(fontSize: 11, color: AppTheme.mint),
+            ),
+          ],
+        ],
+      ),
+      const SizedBox(height: 22),
+      Container(
+        key: const ValueKey('orders-filter-line'),
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0x22FFFFFF))),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            0,
-          ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              for (var stage = 0; stage < _stages.length; stage++)
-                Expanded(
-                  child: Text(
-                    '${_orders.where((order) => _stageOf(order) == stage).length} pedidos',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
+              for (var index = 0; index < 3; index++)
+                Semantics(
+                  key: ValueKey('restaurant-stage-$index'),
+                  selected: _stage == index,
+                  button: true,
+                  child: InkWell(
+                    onTap: () => setState(() => _stage = index),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      alignment: Alignment.center,
+                      margin: EdgeInsets.only(right: index == 2 ? 0 : 19),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: _stage == index
+                                ? AppTheme.discoveryAccent
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: _stages[index]),
+                            if (index == 0)
+                              TextSpan(
+                                text:
+                                    '  ${_orders.where((order) => _stageOf(order) == index).length}',
+                                style: const TextStyle(
+                                  color: AppTheme.discoveryAccent,
+                                ),
+                              ),
+                          ],
+                        ),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _stage == index
+                              ? AppTheme.discoveryPaper
+                              : AppTheme.discoveryMuted,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
           ),
         ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            color: AppTheme.teal,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: [
-                if (visible.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(AppSpacing.lg),
-                    child: Text(
-                      'No hay pedidos en esta etapa. Podés revisar las otras etapas o deslizar para actualizar.',
-                    ),
-                  ),
-                for (final order in visible)
-                  _OrderCard(
-                    key: ValueKey(order.id),
-                    order: order,
-                    action: _actionFor(order),
-                    savingStatus: _saving[order.id],
-                    onMove: (status) => _move(order, status),
-                    onReject: () => _reject(order),
-                  ),
-              ],
+      ),
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              const [
+                'NUEVOS ANTOJOS',
+                'MANOS A LA COCINA',
+                'RUMBO A LO RICO',
+              ][_stage],
+              style: const TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.4,
+                color: AppTheme.discoveryMuted,
+              ),
             ),
           ),
-        ),
+          Text(
+            '${_orders.where((o) => _stageOf(o) == _stage).length} ${const ['por aceptar', 'en cocina', 'para recoger'][_stage]}',
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppTheme.discoveryMuted,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+    ],
+  );
+
+  Widget _body() => RefreshIndicator(
+    onRefresh: _load,
+    child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 26),
+      children: [
+        _heading(),
+        if (_loading)
+          const Center(child: CircularProgressIndicator())
+        else if (_error != null)
+          _Message(
+            icon: Icons.cloud_off_rounded,
+            title: 'No pudimos cargar los pedidos',
+            message: _error!,
+            actionLabel: 'Reintentar',
+            onAction: _load,
+          )
+        else if (!_orders.any((o) => _stageOf(o) == _stage))
+          _Message(
+            icon: Icons.receipt_long_outlined,
+            title: _orders.isEmpty
+                ? 'Todo al día.'
+                : 'Sin pedidos en esta etapa.',
+            message: 'El próximo antojo aparecerá aquí.',
+            actionLabel: 'Actualizar',
+            onAction: _load,
+          )
+        else
+          for (final order in _orders.where((o) => _stageOf(o) == _stage))
+            _OrderCard(
+              key: ValueKey(order.id),
+              order: order,
+              action: _actionFor(order),
+              savingStatus: _saving[order.id],
+              onMove: (status) => _move(order, status),
+              onReject: () => _reject(order),
+            ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 /// Una tarjeta de pedido, con lo que el restaurante necesita para trabajarlo.
@@ -580,76 +736,124 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
     final String? notes = order.notes;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(vertical: 19),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+        color: AppTheme.discoveryBackground,
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: .13)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _StatusPill(order: order),
-          const SizedBox(height: AppSpacing.md),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  'Pedido #${order.id}',
-                  style: text.headlineSmall?.copyWith(
-                    color: AppTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total del pedido', style: text.labelSmall),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Pedido #${order.id}',
+                          style: const TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -.7,
+                            color: AppTheme.discoveryPaper,
+                          ),
+                        ),
+                        _StatusPill(order: order),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      '\$${order.total}',
-                      style: text.headlineSmall?.copyWith(
-                        color: AppTheme.navy,
-                        fontWeight: FontWeight.w800,
+                      _time,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.discoveryMuted,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'Total del pedido',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: AppTheme.discoveryMuted,
+                    ),
+                  ),
+                  Text(
+                    '\$${order.total}',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.discoveryAccent,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            _time,
-            style: text.labelMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            children: [
-              Text(
-                '${order.items.length} ${order.items.length == 1 ? 'producto' : 'productos'}',
-                style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '· ${order.totalUnits} ${order.totalUnits == 1 ? 'unidad en total' : 'unidades en total'}',
-                style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-              ),
-            ],
-          ),
-          if (order.acceptanceDeadlineLabel != null)
+          const SizedBox(height: 17),
+          if (order.canBeAccepted && order.acceptanceExpiresAt != null)
+            _AcceptanceClock(deadline: order.acceptanceExpiresAt!)
+          else if (!order.canBeAccepted)
+            Text(switch (order.status) {
+              'accepted' => 'Aceptado · pendiente de iniciar',
+              'preparing' => 'La cocina está en marcha',
+              'ready' => 'Preparado para salir',
+              _ => order.statusLabel,
+            }, style: const TextStyle(fontSize: 11, color: AppTheme.yellow)),
+          const SizedBox(height: 19),
+          for (final item in order.items)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Text(
-                order.acceptanceDeadlineLabel!,
-                style: text.bodySmall,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 25,
+                    child: Text(
+                      '${item.quantity}×',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.discoveryAccent,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.discoveryPaper,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '\$${item.subtotal}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.discoveryMuted,
+                    ),
+                  ),
+                ],
               ),
             ),
           // La nota del cliente, destacada: "sin cebolla" es lo que hace que
@@ -663,24 +867,40 @@ class _OrderCard extends StatelessWidget {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.yellow,
-                borderRadius: BorderRadius.circular(AppRadius.image),
+                color: const Color(0xFF183B49),
+                border: const Border(
+                  left: BorderSide(color: AppTheme.discoveryAccent, width: 2),
+                ),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: <Widget>[
                   const Icon(
-                    Icons.sticky_note_2_rounded,
+                    Icons.chat_bubble_outline,
                     size: 16,
-                    color: AppTheme.navy,
+                    color: AppTheme.discoveryPaper,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      notes,
-                      style: text.bodySmall?.copyWith(
-                        color: AppTheme.navy,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'NOTA DEL CLIENTE',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.discoveryMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          notes,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.discoveryPaper,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -696,9 +916,9 @@ class _OrderCard extends StatelessWidget {
             collapsedShape: const Border(),
             title: Text(
               'Ver detalle del pedido',
-              style: text.titleSmall?.copyWith(
-                color: AppTheme.tealDeep,
-                fontWeight: FontWeight.w700,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppTheme.discoveryMuted,
               ),
             ),
             children: [
@@ -707,7 +927,7 @@ class _OrderCard extends StatelessWidget {
                 child: Text(
                   'Productos',
                   style: text.labelLarge?.copyWith(
-                    color: AppTheme.tealDeep,
+                    color: AppTheme.discoveryMuted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -722,7 +942,7 @@ class _OrderCard extends StatelessWidget {
                       Text(
                         '${item.quantity}×',
                         style: text.bodyMedium?.copyWith(
-                          color: AppTheme.tealDeep,
+                          color: AppTheme.discoveryMuted,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -732,7 +952,7 @@ class _OrderCard extends StatelessWidget {
                       Text(
                         '\$${item.subtotal}',
                         style: text.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
+                          color: AppTheme.discoveryMuted,
                         ),
                       ),
                     ],
@@ -743,7 +963,9 @@ class _OrderCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: colors.outlineVariant)),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withValues(alpha: .13)),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,7 +975,7 @@ class _OrderCard extends StatelessWidget {
                         const Icon(
                           Icons.place_outlined,
                           size: 18,
-                          color: AppTheme.tealDeep,
+                          color: AppTheme.discoveryMuted,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
@@ -774,7 +996,7 @@ class _OrderCard extends StatelessWidget {
                       Text(
                         'Referencia: ${order.delivery!.reference}',
                         style: text.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
+                          color: AppTheme.discoveryMuted,
                         ),
                       ),
                     ],
@@ -785,7 +1007,9 @@ class _OrderCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: colors.outlineVariant)),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withValues(alpha: .13)),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -817,9 +1041,9 @@ class _OrderCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               order.isWaitingForCourier
-                  ? 'Esperando un motorizado.'
+                  ? 'Esperando motorista'
                   : 'El motorizado ya lo recogió.',
-              style: text.bodySmall?.copyWith(color: AppTheme.tealDeep),
+              style: text.bodySmall?.copyWith(color: AppTheme.discoveryMuted),
             ),
           ],
           if (action != null || order.canBeRejected || saving) ...<Widget>[
@@ -831,13 +1055,15 @@ class _OrderCard extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: saving ? null : onReject,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.coralDeep,
-                        minimumSize: const Size(0, 48),
+                        foregroundColor: AppTheme.discoveryMuted,
+                        minimumSize: const Size(0, 49),
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
                           vertical: AppSpacing.sm,
                         ),
-                        side: const BorderSide(color: AppTheme.coralDeep),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: .19),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppRadius.image),
                         ),
@@ -853,20 +1079,18 @@ class _OrderCard extends StatelessWidget {
                   Expanded(
                     flex: order.canBeRejected ? 2 : 1,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 48),
+                      constraints: const BoxConstraints(minHeight: 49),
                       child: FilledButton(
                         onPressed: saving ? null : () => onMove(action!.status),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.coralDeep,
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppTheme.discoveryAccent,
+                          foregroundColor: AppTheme.discoveryBackground,
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.sm,
                             vertical: AppSpacing.sm,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.image,
-                            ),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: saving
@@ -884,11 +1108,23 @@ class _OrderCard extends StatelessWidget {
                                   Flexible(child: Text(savingLabel)),
                                 ],
                               )
-                            : Text(
-                                action!.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      action!.label,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 16,
+                                  ),
+                                ],
                               ),
                       ),
                     ),
@@ -902,48 +1138,31 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-/// La etiqueta del estado, con su color.
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.order});
-
   final Order order;
-
   @override
-  Widget build(BuildContext context) {
-    final Color background;
-
-    switch (order.status) {
-      case 'pending':
-        background = AppTheme.tealDeep;
-      case 'accepted':
-      case 'preparing':
-        background = AppTheme.yellow;
-      case 'ready':
-        background = AppTheme.mint;
-      default:
-        background = AppTheme.navy;
-    }
-
-    final Color foreground =
-        background == AppTheme.tealDeep || background == AppTheme.navy
-        ? Colors.white
-        : AppTheme.navy;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: const Color(0xFF183B49),
+      borderRadius: BorderRadius.circular(5),
+    ),
+    child: Text(
+      switch (order.status) {
+        'pending' => 'Nuevo',
+        'accepted' => 'Aceptado',
+        'preparing' => 'Preparando',
+        'ready' => 'Listo',
+        _ => order.statusLabel,
+      },
+      style: const TextStyle(
+        fontSize: 9,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.discoveryMuted,
       ),
-      child: Text(
-        order.statusLabel,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 /// Pantalla de aviso: error de red o lista vacia.
@@ -972,26 +1191,94 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 48, color: AppTheme.teal),
+            Icon(icon, size: 48, color: AppTheme.discoveryAccent),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
               textAlign: TextAlign.center,
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+                color: AppTheme.discoveryPaper,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AcceptanceClock extends StatefulWidget {
+  const _AcceptanceClock({required this.deadline});
+  final DateTime deadline;
+  @override
+  State<_AcceptanceClock> createState() => _AcceptanceClockState();
+}
+
+class _AcceptanceClockState extends State<_AcceptanceClock> {
+  Timer? _timer;
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = widget.deadline
+        .difference(DateTime.now())
+        .inSeconds
+        .clamp(0, 86400);
+    final remaining =
+        '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTheme.yellow,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.timer_outlined,
+            size: 15,
+            color: AppTheme.discoveryBackground,
+          ),
+          const SizedBox(width: 7),
+          const Expanded(
+            child: Text(
+              'Tiempo para aceptar',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.discoveryBackground,
+              ),
+            ),
+          ),
+          Text(
+            remaining,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.discoveryBackground,
+            ),
+          ),
+        ],
       ),
     );
   }
