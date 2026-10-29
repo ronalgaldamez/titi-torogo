@@ -135,10 +135,11 @@ void main() {
                 isNot(originalBody!['idempotency_key']),
               );
             }
-            expect(body['items'], <Map<String, int>>[
-              <String, int>{
+            expect(body['items'], <Map<String, dynamic>>[
+              <String, dynamic>{
                 'product_id': submissions == 1 ? 3 : 4,
                 'quantity': 1,
+                'expected_unit_price': submissions == 1 ? '4.00' : '5.50',
               },
             ]);
             expect(body.containsKey('total'), isFalse);

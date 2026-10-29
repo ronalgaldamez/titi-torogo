@@ -256,29 +256,35 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   children: [
                     Row(
                       children: [
-                        const Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(text: 'toro'),
+                        const Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text.rich(
                               TextSpan(
-                                text: 'go',
-                                style: TextStyle(color: AppTheme.yellow),
+                                children: [
+                                  TextSpan(text: 'toro'),
+                                  TextSpan(
+                                    text: 'go',
+                                    style: TextStyle(color: AppTheme.yellow),
+                                  ),
+                                  TextSpan(
+                                    text: '.',
+                                    style: TextStyle(
+                                      color: AppTheme.discoveryAccent,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              TextSpan(
-                                text: '.',
-                                style: TextStyle(
-                                  color: AppTheme.discoveryAccent,
-                                ),
+                              style: TextStyle(
+                                fontSize: 27,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -1.6,
                               ),
-                            ],
-                          ),
-                          style: TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.6,
+                            ),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 16),
                         const Text(
                           'MI NEGOCIO',
                           style: TextStyle(
@@ -346,6 +352,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ),
         bottomNavigationBar: SafeArea(
           top: false,
+          bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
             child: FilledButton(
@@ -447,206 +454,254 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
     final page = _page.clamp(0, pages - 1);
     final visible = filtered.skip(page * _pageSize).take(_pageSize);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              TextField(
-                controller: _search,
-                onChanged: (_) => setState(() => _page = 0),
-                decoration: InputDecoration(
-                  hintText: 'Buscar un plato',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        key: const ValueKey('menu-scroll'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  TextField(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      letterSpacing: 0,
+                      color: AppTheme.discoveryPaper,
+                    ),
+                    controller: _search,
+                    onChanged: (_) => setState(() => _page = 0),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar un plato',
+                      isDense: true,
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        letterSpacing: 0,
+                        color: AppTheme.discoveryMuted,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        size: 18,
+                        color: AppTheme.discoveryMuted,
+                      ),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(13),
+                        borderSide: BorderSide(color: const Color(0x7078919C)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(13),
+                        borderSide: const BorderSide(
+                          color: AppTheme.discoveryAccent,
+                        ),
+                      ),
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                    borderSide: const BorderSide(
-                      color: AppTheme.discoveryAccent,
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    key: const ValueKey('menu-filter-line'),
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Color(0x22FFFFFF)),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (var index = 0; index < 3; index++)
-                      Semantics(
-                        key: ValueKey('menu-availability-$index'),
-                        selected: _availability == [-1, 1, 0][index],
-                        button: true,
-                        child: InkWell(
-                          onTap: () => setState(() {
-                            _availability = [-1, 1, 0][index];
-                            _page = 0;
-                          }),
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 48),
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: _availability == [-1, 1, 0][index]
-                                      ? AppTheme.discoveryAccent
-                                      : Colors.transparent,
-                                  width: 3,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (var index = 0; index < 3; index++)
+                            Semantics(
+                              key: ValueKey('menu-availability-$index'),
+                              selected: _availability == [-1, 1, 0][index],
+                              button: true,
+                              child: InkWell(
+                                onTap: () => setState(() {
+                                  _availability = [-1, 1, 0][index];
+                                  _page = 0;
+                                }),
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 48,
+                                  ),
+                                  alignment: Alignment.center,
+                                  margin: EdgeInsets.only(
+                                    right: index == 2 ? 0 : 19,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color:
+                                            _availability == [-1, 1, 0][index]
+                                            ? AppTheme.discoveryAccent
+                                            : Colors.transparent,
+                                        width: 3,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: [
+                                            'Todos',
+                                            'Disponibles',
+                                            'Agotados',
+                                          ][index],
+                                        ),
+                                        if (index == 0)
+                                          TextSpan(
+                                            text: '  ${entries.length}',
+                                            style: const TextStyle(
+                                              color: AppTheme.discoveryAccent,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _availability == [-1, 1, 0][index]
+                                          ? AppTheme.discoveryPaper
+                                          : AppTheme.discoveryMuted,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                            child: Text(
-                              index == 0
-                                  ? 'Todos ${entries.length}'
-                                  : ['Todos', 'Disponibles', 'Agotados'][index],
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _availability == [-1, 1, 0][index]
-                                    ? AppTheme.discoveryPaper
-                                    : AppTheme.discoveryMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      key: const ValueKey('menu-category-filter'),
-                      onPressed: _pickCategory,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.discoveryMuted,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        alignment: Alignment.centerLeft,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.tune_rounded,
-                            size: 14,
-                            color: AppTheme.discoveryAccent,
-                          ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              _category == -1
-                                  ? 'Todas las categorías'
-                                  : _category == 0
-                                  ? 'Sin categoría'
-                                  : _categories
-                                        .firstWhere(
-                                          (category) =>
-                                              category.id == _category,
-                                        )
-                                        .name,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 16,
-                          ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          key: const ValueKey('menu-category-filter'),
+                          onPressed: _pickCategory,
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.discoveryPaper,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            alignment: Alignment.centerLeft,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 14,
+                                color: AppTheme.discoveryAccent,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  _category == -1
+                                      ? 'Todas las categorías'
+                                      : _category == 0
+                                      ? 'Sin categoría'
+                                      : _categories
+                                            .firstWhere(
+                                              (category) =>
+                                                  category.id == _category,
+                                            )
+                                            .name,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${filtered.length} de ${entries.length} platos',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.discoveryMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_category != -1 ||
+                      _availability != -1 ||
+                      _search.text.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _resetFilters,
+                        child: const Text('Limpiar filtros'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (filtered.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  'No hay platos con estos filtros. Probá otra búsqueda o limpiá los filtros.',
+                ),
+              ),
+            for (final entry in visible)
+              _ProductTile(
+                key: ValueKey(entry.product.id),
+                product: entry.product,
+                categoryName: entry.categoryName,
+                saving: _saving.contains(entry.product.id),
+                onChanged: (value) => _toggle(entry.product, value),
+                onTap: () => _openForm(
+                  product: entry.product,
+                  categoryId: entry.categoryId == 0 ? null : entry.categoryId,
+                ),
+              ),
+            if (filtered.isNotEmpty)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: 'Página anterior',
+                    onPressed: page == 0
+                        ? null
+                        : () => setState(() => _page = page - 1),
+                    icon: const Icon(Icons.chevron_left_rounded, size: 16),
+                  ),
                   Flexible(
                     child: Text(
-                      '${filtered.length} de ${entries.length} platos',
+                      'Página ${page + 1} de $pages',
                       style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: AppTheme.discoveryMuted,
                       ),
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Página siguiente',
+                    onPressed: page + 1 >= pages
+                        ? null
+                        : () => setState(() => _page = page + 1),
+                    icon: const Icon(Icons.chevron_right_rounded, size: 16),
+                  ),
                 ],
               ),
-              if (_category != -1 ||
-                  _availability != -1 ||
-                  _search.text.isNotEmpty)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _resetFilters,
-                    child: const Text('Limpiar filtros'),
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              children: [
-                if (filtered.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(AppSpacing.lg),
-                    child: Text(
-                      'No hay platos con estos filtros. Probá otra búsqueda o limpiá los filtros.',
-                    ),
-                  ),
-                for (final entry in visible)
-                  _ProductTile(
-                    key: ValueKey(entry.product.id),
-                    product: entry.product,
-                    categoryName: entry.categoryName,
-                    saving: _saving.contains(entry.product.id),
-                    onChanged: (value) => _toggle(entry.product, value),
-                    onTap: () => _openForm(
-                      product: entry.product,
-                      categoryId: entry.categoryId == 0
-                          ? null
-                          : entry.categoryId,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        if (filtered.isNotEmpty)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                tooltip: 'Página anterior',
-                onPressed: page == 0
-                    ? null
-                    : () => setState(() => _page = page - 1),
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
-              Flexible(child: Text('Página ${page + 1} de $pages')),
-              IconButton(
-                tooltip: 'Página siguiente',
-                onPressed: page + 1 >= pages
-                    ? null
-                    : () => setState(() => _page = page + 1),
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-            ],
-          ),
-      ],
+      ),
     );
   }
 
@@ -850,6 +905,15 @@ class _ProductTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
+                          if (product.hasDiscount)
+                            Text(
+                              '\$${product.regularPrice}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.discoveryMuted,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
                           Text(
                             '\$${product.price}',
                             style: const TextStyle(
@@ -888,7 +952,7 @@ class _ProductTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 66,
+            width: 48,
             child: Column(
               children: [
                 if (saving)
@@ -898,18 +962,42 @@ class _ProductTile extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else
-                  Switch(
-                    value: available,
-                    onChanged: onChanged,
-                    activeTrackColor: AppTheme.discoveryAccent,
-                    activeThumbColor: AppTheme.discoveryPaper,
-                    inactiveTrackColor: const Color(0xFF34505C),
-                    inactiveThumbColor: AppTheme.discoveryMuted,
+                  Semantics(
+                    label: product.name,
+                    toggled: available,
+                    onTap: () => onChanged(!available),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      excludeFromSemantics: true,
+                      onTap: () => onChanged(!available),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: ExcludeSemantics(
+                          child: IgnorePointer(
+                            child: Transform.scale(
+                              scale: .82,
+                              child: Switch(
+                                value: available,
+                                onChanged: onChanged,
+                                activeTrackColor: AppTheme.discoveryAccent,
+                                activeThumbColor: AppTheme.discoveryBackground,
+                                inactiveTrackColor: const Color(0xFF47616C),
+                                inactiveThumbColor: AppTheme.discoveryPaper,
+                                trackOutlineColor: const WidgetStatePropertyAll(
+                                  Colors.transparent,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 Text(
                   available ? 'Disponible' : 'Agotado',
                   style: const TextStyle(
-                    fontSize: 9,
+                    fontSize: 8,
                     color: AppTheme.discoveryMuted,
                   ),
                 ),

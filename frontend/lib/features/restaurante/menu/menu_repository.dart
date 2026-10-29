@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import '../../../core/api_client.dart';
 import '../../../models/menu_category.dart';
 import '../../../models/product.dart';
@@ -118,14 +120,27 @@ class MenuRepository {
     required String price,
     String? description,
     int? categoryId,
+    bool? offerEnabled,
+    String? salePrice,
+    String? offerStartsAt,
+    String? offerEndsAt,
+    (Uint8List, String)? image,
   }) async {
-    final Map<String, dynamic> json = await _api.post(
+    final Map<String, dynamic> json = await _saveProduct(
       '/restaurant/menu/products',
+      image: image,
+      editing: false,
       body: <String, dynamic>{
         'name': name,
         'price': price,
         'description': description,
         'menu_category_id': categoryId,
+        if (offerEnabled != null) ...{
+          'offer_enabled': offerEnabled,
+          'sale_price': salePrice,
+          'offer_starts_at': offerStartsAt,
+          'offer_ends_at': offerEndsAt,
+        },
       },
     );
 
@@ -146,14 +161,27 @@ class MenuRepository {
     required String price,
     String? description,
     int? categoryId,
+    bool? offerEnabled,
+    String? salePrice,
+    String? offerStartsAt,
+    String? offerEndsAt,
+    (Uint8List, String)? image,
   }) async {
-    final Map<String, dynamic> json = await _api.put(
+    final Map<String, dynamic> json = await _saveProduct(
       '/restaurant/menu/products/$id',
+      image: image,
+      editing: true,
       body: <String, dynamic>{
         'name': name,
         'price': price,
         'description': description,
         'menu_category_id': categoryId,
+        if (offerEnabled != null) ...{
+          'offer_enabled': offerEnabled,
+          'sale_price': salePrice,
+          'offer_starts_at': offerStartsAt,
+          'offer_ends_at': offerEndsAt,
+        },
       },
     );
 
@@ -167,5 +195,31 @@ class MenuRepository {
   /// huecos.
   Future<void> deleteProduct(int id) async {
     await _api.delete('/restaurant/menu/products/$id');
+  }
+
+  Future<Map<String, dynamic>> _saveProduct(
+    String path, {
+    required Map<String, dynamic> body,
+    required bool editing,
+    (Uint8List, String)? image,
+  }) {
+    if (image == null) {
+      return editing ? _api.put(path, body: body) : _api.post(path, body: body);
+    }
+    return _api.upload(
+      path,
+      files: [
+        http.MultipartFile.fromBytes('image', image.$1, filename: image.$2),
+      ],
+      fields: {
+        if (editing) '_method': 'PUT',
+        for (final entry in body.entries)
+          entry.key: entry.value == null
+              ? ''
+              : entry.value is bool
+              ? (entry.value == true ? '1' : '0')
+              : entry.value.toString(),
+      },
+    );
   }
 }

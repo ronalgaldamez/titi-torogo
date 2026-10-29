@@ -264,10 +264,7 @@ class _RestaurantDetailScreenState
         ),
         bottomNavigationBar: ref.watch(cartProvider).isEmpty
             ? const RestaurantEmptyCartBar()
-            : CartBar(
-          restaurantId: widget.restaurant.id,
-          discovery: true,
-        ),
+            : CartBar(restaurantId: widget.restaurant.id, discovery: true),
         body: FutureBuilder<RestaurantDetail>(
           future: _future,
           builder: (context, snapshot) {
@@ -579,6 +576,15 @@ class _ProductSheetState extends State<_ProductSheet> {
                 ),
               ],
               const SizedBox(height: AppSpacing.md),
+              if (widget.product.hasDiscount)
+                Text(
+                  '\$${widget.product.regularPrice}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.discoveryMuted,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
               Text(
                 '\$${widget.product.price}',
                 style: text.headlineSmall?.copyWith(

@@ -11,7 +11,19 @@ class Product {
     required this.sortOrder,
     this.description,
     this.imageUrl,
+    this.regularPrice,
+    this.salePrice,
+    this.offerEnabled = false,
+    this.offerStartsAt,
+    this.offerEndsAt,
   });
+
+  final String? regularPrice;
+  final String? salePrice;
+  final bool offerEnabled;
+  final DateTime? offerStartsAt;
+  final DateTime? offerEndsAt;
+  bool get hasDiscount => regularPrice != null && regularPrice != price;
 
   final int id;
   final String name;
@@ -46,6 +58,11 @@ class Product {
       description: description,
       price: price,
       imageUrl: imageUrl,
+      regularPrice: regularPrice,
+      salePrice: salePrice,
+      offerEnabled: offerEnabled,
+      offerStartsAt: offerStartsAt,
+      offerEndsAt: offerEndsAt,
       isAvailable: isAvailable ?? this.isAvailable,
       sortOrder: sortOrder,
     );
@@ -64,6 +81,11 @@ class Product {
       'description': description,
       'price': price,
       'image_url': imageUrl,
+      'regular_price': regularPrice,
+      'sale_price': salePrice,
+      'offer_enabled': offerEnabled,
+      'offer_starts_at': offerStartsAt?.toIso8601String(),
+      'offer_ends_at': offerEndsAt?.toIso8601String(),
       'is_available': isAvailable,
       'sort_order': sortOrder,
     };
@@ -79,6 +101,13 @@ class Product {
       // de reventar en la cara del usuario.
       price: '${json['price']}',
       imageUrl: json['image_url'] as String?,
+      regularPrice: json['regular_price'] as String?,
+      salePrice: json['sale_price'] as String?,
+      offerEnabled: json['offer_enabled'] as bool? ?? false,
+      offerStartsAt: DateTime.tryParse(
+        json['offer_starts_at'] as String? ?? '',
+      ),
+      offerEndsAt: DateTime.tryParse(json['offer_ends_at'] as String? ?? ''),
       isAvailable: json['is_available'] as bool,
       sortOrder: json['sort_order'] as int,
     );

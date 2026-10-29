@@ -18,7 +18,7 @@ import 'package:http/http.dart' as http;
 /// Asi el mismo codigo sirve en los tres casos, sin comentar y descomentar.
 class ApiClient {
   ApiClient({http.Client? client, this.authToken})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -41,16 +41,13 @@ class ApiClient {
       queryParameters: query?.map((key, value) => MapEntry(key, '$value')),
     );
 
-    return _decode(await _send(
-      () => _client.get(uri, headers: _jsonHeaders()),
-    ));
+    return _decode(
+      await _send(() => _client.get(uri, headers: _jsonHeaders())),
+    );
   }
 
   /// POST con cuerpo JSON. Lo usa el login.
-  Future<Map<String, dynamic>> post(
-    String path, {
-    Map<String, dynamic>? body,
-  }) {
+  Future<Map<String, dynamic>> post(String path, {Map<String, dynamic>? body}) {
     return _sendJson('POST', path, body);
   }
 
@@ -58,21 +55,22 @@ class ApiClient {
   Future<Map<String, dynamic>> upload(
     String path, {
     required List<http.MultipartFile> files,
+    Map<String, String> fields = const {},
   }) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
       ..headers.addAll(_jsonHeaders())
-      ..files.addAll(files);
-    return _decode(await _send(() async {
-      final response = await _client.send(request);
-      return http.Response.fromStream(response);
-    }));
+      ..files.addAll(files)
+      ..fields.addAll(fields);
+    return _decode(
+      await _send(() async {
+        final response = await _client.send(request);
+        return http.Response.fromStream(response);
+      }),
+    );
   }
 
   /// PUT con cuerpo JSON. Reemplaza el recurso completo: editar un plato.
-  Future<Map<String, dynamic>> put(
-    String path, {
-    Map<String, dynamic>? body,
-  }) {
+  Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) {
     return _sendJson('PUT', path, body);
   }
 
@@ -108,10 +106,12 @@ class ApiClient {
           // que algunos servidores y proxies se comporten raro.
           ..body = jsonEncode(body ?? <String, dynamic>{});
 
-    return _decode(await _send(() async {
-      final http.StreamedResponse streamed = await _client.send(request);
-      return http.Response.fromStream(streamed);
-    }));
+    return _decode(
+      await _send(() async {
+        final http.StreamedResponse streamed = await _client.send(request);
+        return http.Response.fromStream(streamed);
+      }),
+    );
   }
 
   Map<String, String> _jsonHeaders({bool contentType = false}) {

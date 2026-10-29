@@ -261,11 +261,14 @@ class RestaurantProfileHeader extends StatelessWidget {
                   width: 60,
                   height: 60,
                   child: restaurant.logoUrl?.isNotEmpty ?? false
-                      ? ColoredBox(color: Colors.white, child: Image.network(
-                          restaurant.logoUrl!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => _initial(),
-                        ))
+                      ? ColoredBox(
+                          color: Colors.white,
+                          child: Image.network(
+                            restaurant.logoUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => _initial(),
+                          ),
+                        )
                       : _initial(),
                 ),
               ),
@@ -533,6 +536,15 @@ class _ProductTile extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 9),
+            if (product.hasDiscount)
+              Text(
+                '\$${product.regularPrice}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.discoveryMuted,
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
             Text(
               '\$${product.price}',
               style: const TextStyle(

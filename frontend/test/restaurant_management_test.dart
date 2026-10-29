@@ -71,16 +71,44 @@ void main() {
         'https://example.test/plato-1.jpg',
       );
       expect(find.byIcon(Icons.restaurant_menu_rounded), findsWidgets);
+      await tester.ensureVisible(find.text('Editar plato').first);
       await tester.tap(find.text('Editar plato').first);
       await tester.pumpAndSettle();
       expect(find.text('Editar plato'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, 'Pláto 1'), findsOneWidget);
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
+      final firstFilter = find.byKey(const ValueKey('menu-availability-0'));
+      expect(
+        tester.getTopLeft(firstFilter).dx,
+        tester.getTopLeft(find.byType(TextField)).dx,
+      );
+      expect(
+        tester.getTopRight(find.text('50 de 50 platos')).dx,
+        tester.getTopRight(find.byType(TextField)).dx,
+      );
+      final line = find.byKey(const ValueKey('menu-filter-line'));
+      expect(
+        tester.getSize(line).width,
+        tester.getSize(find.byType(TextField)).width,
+      );
+      final toggle = tester.widget<Switch>(find.byType(Switch).first);
+      expect(toggle.activeThumbColor, AppTheme.discoveryBackground);
+      await tester.scrollUntilVisible(
+        find.byTooltip('Página siguiente'),
+        250,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('menu-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('Página 1 de 7'), findsOneWidget);
       await tester.tap(find.byTooltip('Página siguiente'));
       await tester.pumpAndSettle();
       expect(find.text('Página 2 de 7'), findsOneWidget);
+      await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'plato 50');
       await tester.pumpAndSettle();
       expect(find.text('1 de 50 platos'), findsOneWidget);
@@ -90,8 +118,12 @@ void main() {
         reason: 'Búsqueda y selector de categoría',
       );
       expect(find.text('Pláto 50'), findsOneWidget);
+      await tester.ensureVisible(find.text('Limpiar filtros'));
       await tester.tap(find.text('Limpiar filtros'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('menu-category-filter')),
+      );
       await tester.tap(find.byKey(const ValueKey('menu-category-filter')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('menu-category-0')));
@@ -121,6 +153,7 @@ void main() {
       );
       expect(find.text('25 de 50 platos'), findsOneWidget);
       expect(requests, 1);
+      await tester.ensureVisible(find.byType(Switch).first);
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
       expect(find.text('No se pudo guardar'), findsOneWidget);

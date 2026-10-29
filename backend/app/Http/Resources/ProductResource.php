@@ -29,7 +29,12 @@ class ProductResource extends JsonResource
             // 'decimal:2' en el modelo -> viaja como TEXTO ("3.50"), nunca
             // como numero. Si viajara como numero, Flutter lo leeria double
             // y al sumar el carrito aparecerian centavos fantasma.
-            'price' => $this->price,
+            'price' => $this->resource->effectivePrice(),
+            'regular_price' => $this->price,
+            'offer_enabled' => (bool) $this->offer_enabled,
+            'sale_price' => $this->sale_price,
+            'offer_starts_at' => $this->offer_starts_at?->toIso8601String(),
+            'offer_ends_at' => $this->offer_ends_at?->toIso8601String(),
 
             'image_url' => $this->image_path
                 ? Storage::disk('s3')->temporaryUrl($this->image_path, now()->addHour())

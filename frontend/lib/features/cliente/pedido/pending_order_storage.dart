@@ -32,9 +32,10 @@ class PendingOrder {
     'tip_amount': tipAmount,
     'items': cart.items
         .map(
-          (CartItem item) => <String, int>{
+          (CartItem item) => <String, dynamic>{
             'product_id': item.product.id,
             'quantity': item.quantity,
+            'expected_unit_price': item.product.price,
           },
         )
         .toList(),
