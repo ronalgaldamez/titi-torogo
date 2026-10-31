@@ -153,8 +153,14 @@ void main() {
       );
       expect(find.text('25 de 50 platos'), findsOneWidget);
       expect(requests, 1);
-      await tester.ensureVisible(find.byType(Switch).first);
-      await tester.tap(find.byType(Switch).first);
+      final availabilityControl = find
+          .ancestor(
+            of: find.byType(Switch).first,
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      await tester.ensureVisible(availabilityControl);
+      await tester.tap(availabilityControl);
       await tester.pumpAndSettle();
       expect(find.text('No se pudo guardar'), findsOneWidget);
       expect(tester.widget<Switch>(find.byType(Switch).first).value, isFalse);
@@ -188,6 +194,11 @@ void main() {
               {
                 'id': entry.key,
                 'status': entry.value,
+                if (entry.value == 'pending')
+                  'acceptance_expires_at': DateTime.now()
+                      .add(const Duration(minutes: 5))
+                      .toUtc()
+                      .toIso8601String(),
                 'status_label': entry.value,
                 'is_active': true,
                 'restaurant': {
@@ -248,26 +259,89 @@ void main() {
       final positions = tabs.map(tester.getTopLeft).toList();
       expect(positions[0].dy, positions[1].dy);
       expect(positions[1].dy, positions[2].dy);
+      Future<void> revealTab(Finder tab) async {
+        await Scrollable.ensureVisible(tester.element(tab), alignment: 0.5);
+        await tester.pumpAndSettle();
+      }
+
       for (final tab in tabs) {
+        await revealTab(tab);
         expect(tab.hitTestable(), findsOneWidget);
         expect(tester.getSize(tab).height, greaterThanOrEqualTo(48));
       }
-      expect(find.byIcon(Icons.schedule_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.soup_kitchen_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.delivery_dining_rounded), findsOneWidget);
-      expect(find.text('Aceptar'), findsOneWidget);
+      expect(find.byKey(const ValueKey('orders-filter-line')), findsOneWidget);
+      expect(find.text('Nuevos  1', findRichText: true), findsOneWidget);
+      expect(find.text('En preparación', findRichText: true), findsOneWidget);
+      expect(find.text('Listos', findRichText: true), findsOneWidget);
+      expect(tester.widget<Semantics>(tabs[0]).properties.selected, isTrue);
+      expect(find.text('Aceptar pedido'), findsOneWidget);
+      expect(find.text('Tiempo para aceptar'), findsOneWidget);
+      expect(find.text('Pupusa'), findsOneWidget);
+      expect(find.text('NOTA DEL CLIENTE'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Tiempo para aceptar'), findsOneWidget);
       expect(find.text('Total del pedido'), findsOneWidget);
       expect(find.text(r'$4.00'), findsOneWidget);
       expect(find.text('Sin cebolla'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('restaurant-stage-1')));
+      await revealTab(tabs[1]);
+      await tester.tap(tabs[1]);
       await tester.pumpAndSettle();
       expect(find.text('Empezar a preparar'), findsOneWidget);
-      expect(find.text('Listo para recoger'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('restaurant-stage-2')));
+      final readyButton = find.widgetWithText(
+        FilledButton,
+        'Listo para recoger',
+      );
+      await tester.scrollUntilVisible(
+        readyButton,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
-      expect(find.text('Esperando un motorizado.'), findsOneWidget);
+      await Scrollable.ensureVisible(
+        tester.element(readyButton),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      expect(readyButton.hitTestable(), findsOneWidget);
+      expect(tester.widget<FilledButton>(readyButton).onPressed, isNotNull);
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      await revealTab(tabs[2]);
+      await tester.tap(tabs[2]);
+      await tester.pumpAndSettle();
+      expect(find.text('Esperando motorista'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('El motorizado ya lo recogió.'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('El motorizado ya lo recogió.'), findsOneWidget);
-      await tester.tap(find.text('Ver detalle del pedido').first);
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      final readyOrderDetail = find.descendant(
+        of: find.byKey(const PageStorageKey('restaurant-detail-4')),
+        matching: find.text('Ver detalle del pedido'),
+      );
+      await tester.scrollUntilVisible(
+        readyOrderDetail,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await Scrollable.ensureVisible(
+        tester.element(readyOrderDetail),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      expect(readyOrderDetail.hitTestable(), findsOneWidget);
+      await tester.tap(readyOrderDetail);
       await tester.pumpAndSettle();
       expect(find.text('Referencia: Portón azul'), findsOneWidget);
       expect(find.text('Propina al motorista'), findsOneWidget);
