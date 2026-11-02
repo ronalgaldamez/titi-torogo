@@ -104,7 +104,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// muestran el circulito ni el cartel de error. Si el aviso llega y el
   /// telefono justo se quedo sin datos, la pantalla se queda con lo que ya
   /// tenia: algo viejo a la vista es mejor que una pantalla vacia.
-  Future<void> _load({bool silent = false}) async {
+  Future<void> _load({bool silent = false, int? newOrderId}) async {
     if (!silent) {
       setState(() {
         _loading = true;
@@ -120,6 +120,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
         return;
       }
 
+      if (newOrderId != null) {
+        for (final order in data.orders.where(
+          (order) => order.id == newOrderId,
+        )) {
+          _ringIfNewOrder(order);
+        }
+      }
       setState(() {
         _orders = data.orders;
         _loading = false;
@@ -205,43 +212,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// Dos cosas, en este orden: primero se fija si es un PEDIDO NUEVO (para
   /// sonar) y despues recarga la lista.
   void _onLiveMessage(Map<String, dynamic> payload) {
-    _ringIfNewOrder(payload);
-
-    // No se usa el pedido que viene adentro para pintar la lista: esta lista
-    // esta ordenada y filtrada por 'en curso', asi que un pedido que se entrega
-    // tiene que DESAPARECER de aca. Se vuelve a preguntar, en silencio.
-    _load(silent: true);
+    final id = payload['order_id'];
+    _load(
+      silent: true,
+      newOrderId: payload['previous_status'] == null && id is int ? id : null,
+    );
   }
 
-  /// Suena SOLO cuando entra un pedido nuevo de verdad.
-  ///
-  /// Las condiciones, y por que cada una:
-  ///
-  ///   - 'previous_status' null: el backend lo manda asi cuando el pedido acaba
-  ///     de nacer. En un cambio de estado viene el estado anterior.
-  ///   - estado 'pending': es el estado con el que nace un pedido.
-  ///   - que NO este ya en la lista: si llegara dos veces el mismo aviso, no
-  ///     suena dos veces.
-  ///
-  /// Los cambios de estado de pedidos que el restaurante YA conoce (aceptado,
-  /// en preparacion, en camino) actualizan la lista SIN ruido: si no, el
-  /// telefono sonaria todo el dia por cosas que ya vio.
-  void _ringIfNewOrder(Map<String, dynamic> payload) {
-    final dynamic raw = payload['order'];
-
-    if (raw is! Map<String, dynamic> || payload['previous_status'] != null) {
-      return;
-    }
-
-    final Order order;
-    try {
-      order = Order.fromJson(raw);
-    } catch (_) {
-      // Si el aviso viniera con otra forma no se inventa nada: la lista se
-      // recarga igual (ver _onLiveMessage) y el pedido aparece ahi.
-      return;
-    }
-
+  // Solo se notifica después de recuperar el pedido con los permisos actuales.
+  void _ringIfNewOrder(Order order) {
     if (order.status != 'pending' ||
         _orders.any((Order other) => other.id == order.id)) {
       return;

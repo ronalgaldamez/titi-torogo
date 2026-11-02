@@ -144,6 +144,7 @@ void main() {
             ]);
             expect(body.containsKey('total'), isFalse);
             expect(body['tip_amount'], '1.00');
+            expect(body['expected_delivery_fee'], '2.00');
             if (submissions == 1 && status == -1) {
               return Completer<http.Response>().future;
             }

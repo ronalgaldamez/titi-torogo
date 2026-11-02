@@ -150,6 +150,11 @@ class OrderController extends Controller
         $lines = $this->buildLines($request->validated('items'), $restaurant);
 
         $prices = $this->prices($zone, $restaurant, $lines);
+        if (bccomp((string) $request->validated('expected_delivery_fee'), $prices['delivery_fee'], 2) !== 0) {
+            throw ValidationException::withMessages([
+                'expected_delivery_fee' => 'Cambió el costo del envío. Revisá el nuevo total antes de confirmar.',
+            ]);
+        }
 
         try {
             $order = DB::transaction(function () use (

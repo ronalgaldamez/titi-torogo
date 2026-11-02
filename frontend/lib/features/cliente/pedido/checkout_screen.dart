@@ -48,6 +48,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   ///   _feeReady == true   -> el backend dijo que NO se puede entregar ahi
   String? _deliveryFee;
   bool _feeReady = false;
+  int _feeVersion = 0;
 
   bool _loading = true;
   bool _sending = false;
@@ -169,6 +170,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// direccion queda FUERA de toda zona de reparto, y hay que decirlo antes
   /// de dejar confirmar.
   Future<void> _resolveFee(Address address) async {
+    final version = ++_feeVersion;
     final int? restaurantId = ref.read(cartProvider).restaurantId;
 
     if (restaurantId == null) {
@@ -188,7 +190,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             longitude: address.longitude,
           );
 
-      if (!mounted) {
+      if (!mounted || version != _feeVersion) {
         return;
       }
 
@@ -197,7 +199,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _feeReady = true;
       });
     } on ApiException catch (error) {
-      if (!mounted) {
+      if (!mounted || version != _feeVersion) {
         return;
       }
 
@@ -291,36 +293,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// No se usa _load() porque ese elige la predeterminada, y aca el cliente ya
   /// eligio: pisarle la eleccion seria peor que no recargar.
   Future<void> _reloadAddresses() async {
-    final Address? previous = _address;
-
+    final previousId = _address?.id;
+    _feeVersion++;
+    setState(() {
+      _deliveryFee = null;
+      _feeReady = false;
+    });
     try {
-      final ApiClient api = await _session.client();
-      final List<Address> addresses = await AddressRepository(api).load();
-
-      if (!mounted) {
-        return;
+      final api = await _session.client();
+      final addresses = await AddressRepository(api).load();
+      if (!mounted) return;
+      Address? selected;
+      for (final address in addresses) {
+        if (address.id == previousId) selected = address;
       }
-
+      selected ??= addresses.isEmpty ? null : addresses.first;
       setState(() {
         _addresses = addresses;
-
-        // Si la que tenia elegida ya no existe (la borro desde "Administrar"),
-        // se suelta y queda la primera.
-        if (previous != null &&
-            !addresses.any((Address item) => item.id == previous.id)) {
-          _address = addresses.isEmpty ? null : addresses.first;
-        }
+        _address = selected;
+        _feeReady = selected == null;
       });
-
-      // Y si cambio la elegida, el envio hay que recalcularlo para la nueva.
-      final Address? current = _address;
-
-      if (current != null && current.id != previous?.id) {
-        await _resolveFee(current);
-      }
-    } on ApiException catch (_) {
-      // Si falla, se deja la lista que ya teniamos: no vale la pena molestar al
-      // cliente con eso justo despues de que acaba de elegir.
+      if (selected != null) await _resolveFee(selected);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        _feeReady = true;
+      });
     }
   }
 
@@ -435,6 +434,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         }
         _error = message;
       });
+      if (pending == null &&
+          error is ApiException &&
+          error.statusCode == 422 &&
+          address != null) {
+        await _resolveFee(address);
+      }
     }
   }
 

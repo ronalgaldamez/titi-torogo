@@ -54,6 +54,28 @@ class OrderTipTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
     }
 
+    public function test_delivery_quote_must_match_and_retries_keep_the_original_charge(): void
+    {
+        $payload = $this->payload;
+        $payload['expected_delivery_fee'] = '0.01';
+        $this->postJson('/api/orders', $payload)->assertUnprocessable()
+            ->assertJsonValidationErrors('expected_delivery_fee');
+        $this->assertDatabaseCount('orders', 0);
+        unset($payload['expected_delivery_fee']);
+        $this->postJson('/api/orders', $payload)->assertUnprocessable();
+        $payload = $this->payload;
+        DB::table('restaurants')->where('id', $payload['restaurant_id'])->update(['delivery_fee' => '3.00']);
+        $this->postJson('/api/orders', $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('orders', 0);
+        $payload['expected_delivery_fee'] = '3.00';
+        $response = $this->postJson('/api/orders', $payload)->assertCreated()
+            ->assertJsonPath('order.delivery_fee', '3.00')->assertJsonPath('order.total', '7.00');
+        DB::table('restaurants')->where('id', $payload['restaurant_id'])->update(['delivery_fee' => '4.00']);
+        $this->postJson('/api/orders', $payload)->assertOk()
+            ->assertJsonPath('order.id', $response->json('order.id'))->assertJsonPath('order.total', '7.00');
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -80,6 +102,7 @@ class OrderTipTest extends TestCase
         ]);
         Sanctum::actingAs($client);
         $this->payload = [
+            'expected_delivery_fee' => '2.00',
             'restaurant_id' => $restaurant, 'address_id' => $address,
             'items' => [['product_id' => $product, 'quantity' => 1]],
             'idempotency_key' => 'tip-test-order',
