@@ -54,3 +54,4 @@ app.*.map.json
 # https://mixkit.co/free-sound-effects/notification/
 # y guardalo como android/app/src/main/res/raw/restaurante.wav
 /android/app/src/main/res/raw/*.wav
+emulador-log.txt
