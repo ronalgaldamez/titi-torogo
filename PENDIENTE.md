@@ -4,6 +4,29 @@ Esta lista organiza trabajo por revisar y acordar. No autoriza implementar funci
 
 Actualizada el 24/10/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; no significan que se hayan vuelto a ejecutar las pruebas hoy.
 
+## Prioridad: respaldos de producción desde el administrador
+
+Pendiente prioritario acordado con Ronald el 01/11/2026. Alcance: backend Laravel en `backend/` y su panel de administrador. Solo se registra el trabajo; no implementar ni cambiar la configuración de producción todavía.
+
+- [ ] Permitir al administrador generar un respaldo manual con «Respaldar ahora».
+- [ ] Programar respaldos automáticos desde el panel, con hora de El Salvador; el servidor debe ejecutarlos aunque el administrador esté desconectado.
+- [ ] Guardar los respaldos de PostgreSQL en un bucket privado de Amazon S3 separado de las imágenes, con permisos mínimos y credenciales fuera del código y de la interfaz.
+- [ ] Incluir los archivos locales necesarios (imágenes de Página web y categorías) y acordar la protección de las imágenes que ya están en S3. Proteger la configuración y los secretos en una copia segura aparte.
+- [ ] Mostrar historial, última copia correcta y errores; avisar cuando un respaldo falle.
+- [ ] Acordar frecuencia, retención, costos de S3 y recuperación antes de implementar. Evitar ejecuciones simultáneas y proteger los respaldos durante generación, transferencia y almacenamiento.
+- [ ] Restringir las operaciones al administrador y probar la restauración en un entorno aislado antes de dar el sistema por terminado. No restaurar ni sobrescribir producción automáticamente.
+
+## Prioridad: completar configuración y validación del servidor
+
+Pendientes prioritarios acordados con Ronald el 01/11/2026, además de los respaldos detallados arriba. Solo registrar y planificar; no autoriza implementar ni modificar el VPS automáticamente.
+
+- [ ] Configurar y probar correo de producción. Confirmar que Mailpit y los valores de desarrollo fueron sustituidos; evaluar costos antes de elegir un proveedor y mantener las credenciales privadas.
+- [ ] Configurar alertas por caída de la web y servicios, errores y espacio en disco; revisar actualizaciones de seguridad y mantenimiento del VPS, con opciones y costos acordados.
+- [ ] Completar la protección del origen del administrador: validar el token de Cloudflare Access en el servidor o usar un túnel con validación de Access. El firewall restringe los puertos web a las IP de Cloudflare, pero eso no verifica por sí solo la identidad ni la aplicación de Access. Comprobar que no se pueda evadir por IP, otros hosts o rutas y conservar SSH y el acceso público a la API.
+- [ ] Documentar la configuración y el procedimiento de despliegue y recuperación, incluida la recarga o reinicio de procesos persistentes al actualizar. Conservar en el repositorio la actualización de dependencias realizada en el VPS, sin subir secretos ni archivos de producción.
+- [ ] Probar Flutter contra producción: API HTTPS, WebSockets seguros, imágenes de restaurantes en S3, registro e inicio de sesión, notificaciones, pedido completo, aceptación, asignación, seguimiento GPS, entrega y vencimiento; verificar aislamiento entre cuentas y canales privados. Las pruebas locales previas no sustituyen esta validación.
+- [ ] Revisar la seguridad final antes de abrir a clientes. No considerar terminada la puesta en producción solo porque la web, el panel y los servicios responden.
+
 ## Prioridades de la app acordadas con Ronald
 
 Trabajo actual: mejorar el perfil del restaurante que ve el cliente. La prueba de desconexión y recuperación del GPS se retoma después de completar esta pantalla.
