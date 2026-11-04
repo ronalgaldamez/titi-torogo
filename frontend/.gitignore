@@ -55,3 +55,4 @@ app.*.map.json
 # y guardalo como android/app/src/main/res/raw/restaurante.wav
 /android/app/src/main/res/raw/*.wav
 emulador-log.txt
+emulador-log.txt
