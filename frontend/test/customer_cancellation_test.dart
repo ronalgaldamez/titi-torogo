@@ -95,13 +95,13 @@ void main() {
           await tester.pumpAndSettle();
           expect(requests, 1);
           if (outcome == 'success' || outcome == 'lost_response') {
-            expect(find.text('Cancelado'), findsOneWidget);
+            expect(find.textContaining('Cancelado'), findsOneWidget);
             expect(find.text('El cliente canceló el pedido.'), findsOneWidget);
             expect(find.textContaining('No tenés que pagar'), findsOneWidget);
             expect(find.text('Cancelar pedido'), findsNothing);
             expect(find.text(r'$3.00'), findsOneWidget);
           } else if (outcome == 'accepted') {
-            expect(find.text('Aceptado'), findsOneWidget);
+            expect(find.textContaining('Aceptado'), findsOneWidget);
             expect(find.text('Cancelar pedido'), findsNothing);
             expect(
               find.textContaining('Ya no podés cancelarlo'),

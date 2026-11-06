@@ -7,6 +7,31 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/cliente/pedido/my_orders_screen.dart';
+import 'package:torogo/features/cliente/pedido/my_orders_content.dart';
+import 'package:torogo/models/order.dart';
+
+Future<void> revealOrderControl(
+  WidgetTester tester,
+  Finder control, {
+  double delta = 180,
+}) async {
+  if (control.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      control,
+      delta,
+      maxScrolls: 150,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('customer-orders-list')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+  }
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  expect(control.hitTestable(), findsOneWidget);
+}
 
 Map<String, dynamic> order(int id, String status, String label) => {
   'id': id,
@@ -39,6 +64,116 @@ Map<String, dynamic> order(int id, String status, String label) => {
 };
 
 void main() {
+  testWidgets(
+    'Historial largo renderiza bajo demanda y conserva filtros y apertura',
+    (tester) async {
+      final history = [
+        for (var id = 1; id <= 300; id++)
+          Order.fromJson(
+            order(
+              id,
+              id == 300 ? 'cancelled' : 'delivered',
+              id == 300 ? 'Cancelado' : 'Entregado',
+            ),
+          ),
+      ];
+      var selected = 0;
+      int? opened;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => MyOrdersContent(
+                active: const [],
+                history: history,
+                filter: selected,
+                onFilter: (value) => setState(() => selected = value),
+                onOpen: (value) => opened = value.id,
+                onRefresh: () async {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Pedido #1'), findsOneWidget);
+      expect(find.text('Pedido #300'), findsNothing);
+      await revealOrderControl(tester, find.text('Pedido #300'), delta: 1000);
+      await tester.tap(find.text('Pedido #300'));
+      expect(opened, 300);
+      final canceled = find.byKey(const ValueKey('order-filter-3'));
+      await revealOrderControl(tester, canceled, delta: -1000);
+      await tester.tap(canceled);
+      await tester.pumpAndSettle();
+      await revealOrderControl(tester, find.text('Pedido #300'));
+      expect(find.text('Pedido #1'), findsNothing);
+      expect(find.text('Cancelado'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'El diseño abre seguimiento y permite volver desde la navegación',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
+      var destination = 1;
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/orders/1')) {
+          return http.Response(
+            jsonEncode({'order': order(1, 'preparing', 'En preparación')}),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'orders': request.url.queryParameters['scope'] == 'history'
+                ? []
+                : [order(1, 'preparing', 'En preparación')],
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: MyOrdersScreen(
+              onDestinationSelected: (index) => destination = index,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Lo que se viene. Lo que ya disfrutaste.'),
+          findsOneWidget,
+        );
+        final tracking = find.text('Ver seguimiento');
+        await revealOrderControl(tester, tracking);
+        await tester.tap(tracking);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Tu antojo,'), findsOneWidget);
+        expect(find.text('Dónde va tu pedido'), findsOneWidget);
+        await tester.tap(find.text('Perfil'));
+        await tester.pumpAndSettle();
+        expect(destination, 2);
+        await revealOrderControl(
+          tester,
+          find.text('Lo que se viene. Lo que ya disfrutaste.'),
+          delta: -180,
+        );
+        expect(
+          find.text('Lo que se viene. Lo que ya disfrutaste.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }, () => client);
+    },
+  );
+
   testWidgets(
     'Mis pedidos refleja vencimientos sin actualizar y conserva datos si falla la red',
     (tester) async {
@@ -151,9 +286,10 @@ void main() {
         expect(tester.getSize(control).width, greaterThanOrEqualTo(48));
         expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
       }
+      await revealOrderControl(tester, find.text('En preparación'));
       expect(find.text('En preparación'), findsOneWidget);
       expect(find.text(r'$5.00'), findsWidgets);
-      expect(find.text('3 productos'), findsWidgets);
+      expect(find.textContaining('3 productos'), findsWidgets);
       Future<void> filter(String label) async {
         final index = [
           'Todos',
@@ -162,27 +298,33 @@ void main() {
           'Cancelados',
         ].indexOf(label);
         final chip = find.byKey(ValueKey('order-filter-$index'));
-        await tester.ensureVisible(chip);
+        await revealOrderControl(tester, chip, delta: -180);
         await tester.tap(chip);
         await tester.pumpAndSettle();
       }
 
       await filter('Completados');
+      await revealOrderControl(tester, find.text('Entregado'));
       expect(find.text('Entregado'), findsOneWidget);
       expect(find.text('En preparación'), findsNothing);
       expect(find.text('Cancelado'), findsNothing);
       expect(find.text('09/10/2026 · 1:45 PM'), findsOneWidget);
       await filter('Cancelados');
+      await revealOrderControl(tester, find.text('Cancelado'));
       expect(find.text('Cancelado'), findsOneWidget);
+      await revealOrderControl(tester, find.text('Rechazado'));
       expect(find.text('Rechazado'), findsOneWidget);
       expect(find.text('Entregado'), findsNothing);
       await filter('En curso');
+      await revealOrderControl(tester, find.text('Ver seguimiento'));
       expect(find.text('Ver seguimiento'), findsOneWidget);
-      expect(find.text('Ver detalles'), findsNothing);
+      expect(find.text('Ver detalle'), findsNothing);
       expect(requests, 2);
       expect(tester.takeException(), isNull);
       fail = true;
-      await tester.tap(find.byTooltip('Actualizar'));
+      final refresh = find.byTooltip('Actualizar');
+      await revealOrderControl(tester, refresh, delta: -180);
+      await tester.tap(refresh);
       await tester.pumpAndSettle();
       expect(find.text('Sin conexión'), findsOneWidget);
       fail = false;

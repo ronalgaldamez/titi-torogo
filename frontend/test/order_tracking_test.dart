@@ -8,8 +8,137 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
 import 'package:torogo/core/widgets/torogo_map.dart';
 import 'package:torogo/features/cliente/pedido/order_tracking_screen.dart';
+import 'package:torogo/features/cliente/pedido/order_tracking_content.dart';
+import 'package:torogo/models/order.dart';
+
+Map<String, dynamic> timedOrder(String status) => {
+  'id': 50,
+  'status': status,
+  'status_label': {
+    'pending': 'Pendiente',
+    'accepted': 'Aceptado',
+    'preparing': 'En preparación',
+    'ready': 'Listo para recoger',
+    'picked_up': 'En camino',
+    'delivered': 'Entregado',
+    'cancelled': 'Cancelado',
+    'rejected': 'Rechazado',
+  }[status],
+  'is_active': !['delivered', 'cancelled', 'rejected'].contains(status),
+  'restaurant': {
+    'id': 1,
+    'name': 'Baruk',
+    'address': 'Centro',
+    'latitude': 14.1,
+    'longitude': -89.1,
+  },
+  'items': [],
+  'subtotal': '1.00',
+  'delivery_fee': '2.00',
+  'courier_fee': '1.50',
+  'platform_fee': '0.50',
+  'total': '3.00',
+  'payment_method': 'cash',
+  'created_at': '2026-10-31T07:00:00',
+  'accepted_at': '2026-10-31T07:05:00',
+  'ready_at': '2026-10-31T07:20:00',
+  'picked_up_at': '2026-10-31T07:30:00',
+  'delivered_at': '2026-10-31T08:00:00',
+  'cancelled_at': '2026-10-31T07:35:00',
+};
+
+Widget trackingContent(Map<String, dynamic> json) => MaterialApp(
+  theme: AppTheme.light(),
+  home: Scaffold(
+    body: OrderTrackingContent(
+      order: Order.fromJson(json),
+      connected: false,
+      cancelling: false,
+      onCancel: () {},
+      onRefresh: () {},
+      map: const SizedBox(),
+      location: null,
+      gpsError: false,
+    ),
+  ),
+);
+
+Future<void> openSection(WidgetTester tester, String label) async {
+  final control = find.text(label);
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  expect(control.hitTestable(), findsOneWidget);
+  await tester.tap(control);
+  await tester.pumpAndSettle();
+}
 
 void main() {
+  testWidgets('El estado usa su propia hora y no inventa una fecha faltante', (
+    tester,
+  ) async {
+    for (final entry in {
+      'pending': '7:00 AM',
+      'accepted': '7:05 AM',
+      'preparing': null,
+      'ready': '7:20 AM',
+      'picked_up': '7:30 AM',
+      'delivered': '8:00 AM',
+      'cancelled': '7:35 AM',
+      'rejected': '7:35 AM',
+    }.entries) {
+      final json = timedOrder(entry.key);
+      await tester.pumpWidget(trackingContent(json));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('order-current-status')))
+            .data,
+        '${json['status_label']}${entry.value == null ? '' : ' · 31/10/2026 · ${entry.value}'}',
+      );
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(
+      trackingContent({...timedOrder('picked_up'), 'picked_up_at': null}),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('order-current-status')))
+          .data,
+      'En camino',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Cancelar después de recoger conserva el recorrido realizado', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      trackingContent({...timedOrder('cancelled'), 'delivered_at': null}),
+    );
+    await tester.pumpAndSettle();
+    await openSection(tester, 'Recorrido del pedido');
+    final labels = [
+      'Pedido hecho',
+      'El restaurante lo aceptó',
+      'Listo para recoger',
+      'En camino',
+      'Cancelado',
+    ];
+    for (var i = 0; i < labels.length; i++) {
+      expect(
+        tester.widget<Text>(find.byKey(ValueKey('order-milestone-$i'))).data,
+        labels[i],
+      );
+    }
+    for (final hour in ['7:00', '7:05', '7:20', '7:30', '7:35']) {
+      expect(find.text('31/10/2026 · $hour AM'), findsOneWidget);
+    }
+    expect(find.text('Entregado'), findsNothing);
+    expect(find.textContaining('No tenés que pagar'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Cliente muestra GPS privado, oculta posiciones antiguas y detiene consultas al finalizar',
     (tester) async {
@@ -84,6 +213,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(find.byType(TorogoMap), findsNothing);
+        await openSection(tester, 'Dónde va tu pedido');
         expect(
           tester
               .widget<TorogoMap>(find.byType(TorogoMap))
@@ -108,7 +239,12 @@ void main() {
         finished = true;
         await tester.pump(const Duration(seconds: 10));
         await tester.pumpAndSettle();
-        expect(find.text('Entregado'), findsWidgets);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('order-current-status')))
+              .data,
+          startsWith('Entregado'),
+        );
         final stoppedAt = gpsRequests;
         await tester.pump(const Duration(seconds: 20));
         await tester.pumpAndSettle();
@@ -173,6 +309,15 @@ void main() {
             findsOneWidget,
           );
         }
+        await openSection(tester, 'Recorrido del pedido');
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('order-milestone-1')))
+              .data,
+          status == 'cancelled' ? 'Cancelado' : 'Rechazado',
+        );
+        expect(find.text('El restaurante lo aceptó'), findsNothing);
+        expect(find.text('Listo para recoger'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
@@ -257,26 +402,19 @@ void main() {
         expect(find.text('Pagás en efectivo al recibir'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('Propina'), 200);
         expect(find.text(r'$1.00'), findsOneWidget);
-        final mapControl = find.text('Ver ubicación en el mapa');
-        for (
-          int i = 0;
-          i < 10 && mapControl.hitTestable().evaluate().isEmpty;
-          i++
-        ) {
-          await tester.drag(find.byType(ListView), const Offset(0, -200));
-          await tester.pumpAndSettle();
-        }
-        expect(mapControl.hitTestable(), findsOneWidget);
-        expect(
-          find.text('flutter_map · © OpenStreetMap contributors'),
-          findsNothing,
-        );
-        await tester.tap(mapControl.hitTestable());
-        await tester.pumpAndSettle();
+        expect(find.text('Portón azul'), findsNothing);
+        await openSection(tester, 'Entrega');
+        expect(find.text('Portón azul'), findsOneWidget);
+        expect(find.byType(TorogoMap), findsNothing);
+        await openSection(tester, 'Ver ubicación en el mapa');
+        expect(find.byType(TorogoMap), findsOneWidget);
         expect(
           find.text('flutter_map · © OpenStreetMap contributors'),
           findsOneWidget,
         );
+        await openSection(tester, 'Recorrido del pedido');
+        expect(find.text('Pedido hecho'), findsOneWidget);
+        expect(find.text('El restaurante lo aceptó'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
