@@ -70,6 +70,20 @@ class OrderBroadcastPrivacyTest extends TestCase
         ));
     }
 
+    public function test_order_event_contains_no_private_data_even_for_an_old_subscription(): void
+    {
+        $order = new Order;
+        $order->id = 42;
+        $order->restaurant_id = 7;
+        $order->courier_id = 99;
+        $order->delivery_address = 'Dirección privada';
+        $order->delivery_reference = 'Portón azul';
+        $order->notes = 'Nota privada';
+        $order->total = '25.00';
+        $event = new OrderUpdated($order, 'ready');
+        $this->assertSame(['order_id' => 42, 'previous_status' => 'ready'], $event->broadcastWith());
+    }
+
     public function test_shared_notice_is_sent_when_entering_or_leaving_ready(): void
     {
         foreach ([
@@ -83,8 +97,6 @@ class OrderBroadcastPrivacyTest extends TestCase
             $order = Mockery::mock(Order::class)->makePartial();
             $order->id = 42;
             $order->status = $status;
-            $order->shouldReceive('load')->once()
-                ->with(['items', 'restaurant', 'courier'])->andReturnSelf();
 
             OrderUpdated::announce($order, $previous);
 

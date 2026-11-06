@@ -3,13 +3,11 @@
 namespace App\Events;
 
 use App\Enums\OrderStatus;
-use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Http\Request;
 use Illuminate\Queue\SerializesModels;
 
 /**
@@ -36,11 +34,7 @@ use Illuminate\Queue\SerializesModels;
  * aviso sale en el momento. El dia que montemos el worker, se cambia esta
  * interfaz por ShouldBroadcast y listo.
  *
- * POR QUE EL PAYLOAD ES EL MISMO OrderResource DE LA API
- *
- * Para que el telefono no tenga que aprender dos formatos. Lo que llega por
- * WebSocket se lee con el MISMO Order.fromJson que lo que llega por HTTP, asi
- * que no puede pasar que un dia digan cosas distintas.
+ * Los avisos solo identifican el pedido; la API valida el acceso actual al detalle.
  */
 class OrderUpdated implements ShouldBroadcastNow
 {
@@ -55,17 +49,9 @@ class OrderUpdated implements ShouldBroadcastNow
         public readonly ?string $previousStatus = null,
     ) {}
 
-    /**
-     * Avisa a los tres, cargando lo que el resource necesita.
-     *
-     * Existe para que los cuatro lugares que avisan (crear, aceptar/mover,
-     * tomar, recogido/entregado) NO tengan que acordarse de cargar los platos,
-     * el restaurante y el motorizado. Si un dia se agrega un quinto lugar, con
-     * llamar a esto ya sale completo.
-     */
     public static function announce(Order $order, ?string $previousStatus = null): void
     {
-        self::dispatch($order->load(['items', 'restaurant', 'courier']), $previousStatus);
+        self::dispatch($order, $previousStatus);
 
         if ($order->status === OrderStatus::Ready
             || $previousStatus === OrderStatus::Ready->value
@@ -118,21 +104,7 @@ class OrderUpdated implements ShouldBroadcastNow
      */
     public function broadcastWith(): array
     {
-        return [
-            // El pedido COMPLETO, con la misma forma que devuelve
-            // PATCH /api/orders/{id}. El telefono lo reemplaza entero y no
-            // tiene que ir a buscar nada.
-            //
-            // resolve() y no toArray(): resolve() es el MISMO camino que usa un
-            // controlador cuando devuelve el resource (resuelve los platos y
-            // saca los campos que no van). Con toArray() a mano, los platos
-            // viajarian como objetos y no como lista, y el telefono no los
-            // podria leer.
-            'order' => OrderResource::make($this->order)->resolve(new Request),
-
-            // Para que la app sepa si esto es "cambio de estado" (y suene el
-            // aviso) o solo "le asignaron motorizado" (que no suene).
-            'previous_status' => $this->previousStatus,
-        ];
+        // Una suscripción antigua no debe recibir datos privados tras una reasignación.
+        return ['order_id' => $this->order->id, 'previous_status' => $this->previousStatus];
     }
 }

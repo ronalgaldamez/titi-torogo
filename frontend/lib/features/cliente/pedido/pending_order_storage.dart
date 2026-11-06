@@ -27,6 +27,7 @@ class PendingOrder {
   Map<String, dynamic> get body => <String, dynamic>{
     'restaurant_id': cart.restaurantId,
     'address_id': address.id,
+    'expected_delivery_fee': deliveryFee,
     'idempotency_key': key,
     'notes': notes,
     'tip_amount': tipAmount,

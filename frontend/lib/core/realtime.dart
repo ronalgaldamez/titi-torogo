@@ -140,18 +140,17 @@ class Realtime {
     final PrivateChannel channel = client.privateChannel(
       channelName,
       authorizationDelegate:
-          EndpointAuthorizableChannelTokenAuthorizationDelegate
-              .forPrivateChannel(
-        authorizationEndpoint: Uri.parse(
-          '${ApiClient.baseUrl}/broadcasting/auth',
-        ),
-        // El token se lee en cada canal nuevo, no se guarda: si la sesion se
-        // renovo, la autorizacion tiene que ir con el token de ahora.
-        headers: <String, String>{
-          'Accept': 'application/json',
-          'Authorization': 'Bearer ${await _token()}',
-        },
-      ),
+          EndpointAuthorizableChannelTokenAuthorizationDelegate.forPrivateChannel(
+            authorizationEndpoint: Uri.parse(
+              '${ApiClient.baseUrl}/broadcasting/auth',
+            ),
+            // El token se lee en cada canal nuevo, no se guarda: si la sesion se
+            // renovo, la autorizacion tiene que ir con el token de ahora.
+            headers: <String, String>{
+              'Accept': 'application/json',
+              'Authorization': 'Bearer ${await _token()}',
+            },
+          ),
       // SIEMPRE una instancia nueva, aunque ya exista un canal con este nombre.
       //
       // Por que: el paquete guarda los canales por nombre y, si se lo pedimos
@@ -169,10 +168,10 @@ class Realtime {
     final StreamController<Map<String, dynamic>> messages =
         StreamController<Map<String, dynamic>>();
 
-    final StreamSubscription<ChannelReadEvent> events =
-        channel.bind(_orderEvent).listen((ChannelReadEvent event) {
+    final StreamSubscription<ChannelReadEvent>
+    events = channel.bind(_orderEvent).listen((ChannelReadEvent event) {
       // tryGetDataAsMap deserializa el 'data' del evento, que es el JSON que
-      // armo el backend: {order: {...}, previous_status: 'ready'}.
+      // armo el backend: {order_id: 7, previous_status: 'ready'}.
       final Map<String, dynamic>? payload = event.tryGetDataAsMap();
 
       if (payload != null) {
@@ -180,8 +179,10 @@ class Realtime {
       }
     });
 
-    final StreamSubscription<ChannelReadEvent> failures =
-        channel.bind(_subscriptionErrorEvent).listen((ChannelReadEvent event) {
+    final StreamSubscription<ChannelReadEvent>
+    failures = channel.bind(_subscriptionErrorEvent).listen((
+      ChannelReadEvent event,
+    ) {
       // Esto es lo que se ve cuando la autorizacion falla (401/403): el canal
       // NO se abre y los eventos no llegan NUNCA. Se deja escrito en la consola
       // porque, sin esto, el sintoma es "no pasa nada" y no hay por donde
@@ -284,13 +285,15 @@ class Realtime {
     });
 
     _lifecycle = client.lifecycleStream
-        .map((PusherChannelsClientLifeCycleState state) =>
-            state == PusherChannelsClientLifeCycleState.establishedConnection)
+        .map(
+          (PusherChannelsClientLifeCycleState state) =>
+              state == PusherChannelsClientLifeCycleState.establishedConnection,
+        )
         .distinct()
         .listen((bool connected) {
-      _isConnected = connected;
-      _connected.add(connected);
-    });
+          _isConnected = connected;
+          _connected.add(connected);
+        });
 
     _client = client;
 
@@ -338,7 +341,7 @@ class RealtimeWatch {
 
   /// Los avisos del backend para este pedido.
   ///
-  /// Los canales del pedido y restaurante reciben `order` y `previous_status`.
+  /// Los canales del pedido y restaurante reciben `order_id` y `previous_status`.
   /// El canal compartido de motorizados recibe solo `order_id`.
   Stream<Map<String, dynamic>> get messages => messagesController.stream;
 

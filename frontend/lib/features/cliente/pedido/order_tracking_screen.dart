@@ -145,32 +145,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     _liveSub = watch.messages.listen(_onLiveUpdate);
   }
 
-  /// Llego un aviso de que este pedido cambio.
-  ///
-  /// El aviso trae el pedido COMPLETO con la misma forma que devuelve la API
-  /// (es el mismo OrderResource en el backend), asi que se pinta directo y no
-  /// hace falta pedirlo otra vez.
-  ///
-  /// Si el aviso viniera con otra forma, se pide por HTTP: quedarse mostrando
-  /// datos viejos sin decir nada seria peor que una peticion de mas.
+  // Consultar por HTTP aplica los permisos actuales, aunque el canal siga abierto.
   void _onLiveUpdate(Map<String, dynamic> payload) {
-    final dynamic raw = payload['order'];
-
-    if (raw is! Map<String, dynamic>) {
-      _reload();
-
-      return;
-    }
-
-    try {
-      final Order order = Order.fromJson(raw);
-
-      if (mounted) {
-        _orderVersion++;
-        _syncLocation(order);
-        setState(() => _liveOrder = order);
-      }
-    } catch (_) {
+    if (payload['order_id'] == widget.orderId) {
       _reload();
     }
   }

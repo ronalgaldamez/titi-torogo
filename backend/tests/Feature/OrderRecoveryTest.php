@@ -26,6 +26,7 @@ class OrderRecoveryTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('abandoned_order_attempts', 1);
         $this->postJson('/api/orders', [
+            'expected_delivery_fee' => '2.00',
             'idempotency_key' => $key,
             'restaurant_id' => 1,
             'address_id' => 1,
