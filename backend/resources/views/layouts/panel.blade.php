@@ -9,6 +9,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Panel') · ToroGo</title>
+    @include('partials.favicon')
 
     {{--
         Vite: en desarrollo el contenedor "node" sirve el CSS al instante

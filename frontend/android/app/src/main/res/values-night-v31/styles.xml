@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lo mismo que values-v31, pero con el sistema en modo oscuro. Sin este
+         archivo, Android 12+ en oscuro muestra su splash por defecto y salta
+         al petroleo al abrir, que se ve como un parpadeo. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/torogo_icon_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_symbol</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>

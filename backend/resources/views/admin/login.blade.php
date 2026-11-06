@@ -10,6 +10,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Entrar · ToroGo</title>
+    @include('partials.favicon')
     @vite(['resources/css/app.css'])
 </head>
 <body class="flex min-h-screen items-center justify-center bg-background px-6 text-navy antialiased">
