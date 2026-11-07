@@ -7,9 +7,17 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../models/user.dart';
 import 'client_personal_info_sheet.dart';
+import 'client_profile_widgets.dart';
+import '../cliente/pedido/order_presentation.dart';
 
 class AccountProfile extends StatefulWidget {
-  const AccountProfile({required this.onLogout, super.key});
+  const AccountProfile({
+    required this.onLogout,
+    this.clientDesign = true,
+    super.key,
+  });
+
+  final bool clientDesign;
 
   final VoidCallback? onLogout;
 
@@ -42,86 +50,104 @@ class _AccountProfileState extends State<AccountProfile> {
     final selected = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                'Elegí tu avatar',
-                style: Theme.of(context).textTheme.titleLarge,
+      backgroundColor: widget.clientDesign ? OrderPresentation.surface : null,
+      showDragHandle: !widget.clientDesign,
+      shape: widget.clientDesign
+          ? const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            )
+          : null,
+      builder: (sheetContext) => widget.clientDesign
+          ? Theme(
+              data: OrderPresentation.theme(context),
+              child: ClientAvatarSheet(
+                selected: _avatar,
+                avatarBuilder: (index, size) =>
+                    _profileAvatar(initials, index, size: size),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              const Text('Se guarda en este dispositivo.'),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: List.generate(
-                  7,
-                  (index) => SizedBox(
-                    width: 96,
-                    child: Semantics(
-                      selected: index == _avatar,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(AppSpacing.sm),
-                          side: BorderSide(
-                            color: index == _avatar
-                                ? AppTheme.tealDeep
-                                : Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                          backgroundColor: index == _avatar
-                              ? AppTheme.tealSoft
-                              : null,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.image,
+            )
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      'Elegí tu avatar',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    const Text('Se guarda en este dispositivo.'),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: List.generate(
+                        7,
+                        (index) => SizedBox(
+                          width: 96,
+                          child: Semantics(
+                            selected: index == _avatar,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.all(AppSpacing.sm),
+                                side: BorderSide(
+                                  color: index == _avatar
+                                      ? AppTheme.tealDeep
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.outlineVariant,
+                                ),
+                                backgroundColor: index == _avatar
+                                    ? AppTheme.tealSoft
+                                    : null,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.image,
+                                  ),
+                                ),
+                              ),
+                              onPressed: () =>
+                                  Navigator.pop(sheetContext, index),
+                              child: Column(
+                                children: <Widget>[
+                                  ExcludeSemantics(
+                                    child: _profileAvatar(initials, index),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  Text(
+                                    index == 0 ? 'Iniciales' : 'Avatar $index',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  SizedBox(
+                                    height: 16,
+                                    child: index == _avatar
+                                        ? const ExcludeSemantics(
+                                            child: Icon(
+                                              Icons.check_rounded,
+                                              size: 16,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        onPressed: () => Navigator.pop(sheetContext, index),
-                        child: Column(
-                          children: <Widget>[
-                            ExcludeSemantics(
-                              child: _profileAvatar(initials, index),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              index == 0 ? 'Iniciales' : 'Avatar $index',
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(
-                              height: 16,
-                              child: index == _avatar
-                                  ? const ExcludeSemantics(
-                                      child: Icon(
-                                        Icons.check_rounded,
-                                        size: 16,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ],
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Cancelar'),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton(
-                onPressed: () => Navigator.pop(sheetContext),
-                child: const Text('Cancelar'),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
     if (!mounted || selected == null || selected == _avatar) {
       return;
@@ -142,6 +168,9 @@ class _AccountProfileState extends State<AccountProfile> {
         setState(() {
           _avatar = selected;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tu avatar se actualizó.')),
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -160,7 +189,7 @@ class _AccountProfileState extends State<AccountProfile> {
     }
   }
 
-  Widget _profileAvatar(String initials, int index) => ClipOval(
+  Widget _legacyAvatar(String initials, int index) => ClipOval(
     child: ColoredBox(
       color: AppTheme.tealSoft,
       child: SizedBox(
@@ -184,6 +213,36 @@ class _AccountProfileState extends State<AccountProfile> {
     ),
   );
 
+  Widget _profileAvatar(String initials, int index, {double size = 84}) =>
+      widget.clientDesign
+      ? ClipRRect(
+          borderRadius: BorderRadius.circular(size == 84 ? 26 : 18),
+          child: ColoredBox(
+            color: OrderPresentation.ink,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: index == 0
+                  ? Center(
+                      child: Text(
+                        initials,
+                        style: TextStyle(
+                          color: OrderPresentation.background,
+                          fontSize: size == 84 ? 26 : 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                    )
+                  : Image.asset(
+                      'assets/avatars/avatar_$index.png',
+                      fit: BoxFit.cover,
+                    ),
+            ),
+          ),
+        )
+      : _legacyAvatar(initials, index);
+
   Future<void> _showPersonalInfo(User user) async {
     if (user.role == 'client') {
       final updated = await showModalBottomSheet<User>(
@@ -191,8 +250,14 @@ class _AccountProfileState extends State<AccountProfile> {
         isScrollControlled: true,
         isDismissible: false,
         enableDrag: false,
-        showDragHandle: true,
-        builder: (_) => ClientPersonalInfoSheet(user: user),
+        backgroundColor: OrderPresentation.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (_) => Theme(
+          data: OrderPresentation.theme(context),
+          child: ClientPersonalInfoSheet(user: user),
+        ),
       );
       if (mounted && updated != null) {
         setState(() {
@@ -251,7 +316,93 @@ class _AccountProfileState extends State<AccountProfile> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.clientDesign
+      ? Theme(
+          data: OrderPresentation.theme(context),
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(color: OrderPresentation.ink),
+            child: ColoredBox(
+              color: OrderPresentation.background,
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    const OrderBrandHeader(),
+                    Expanded(
+                      child: FutureBuilder<User>(
+                        future: _user,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                              ConnectionState.done) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            final error = snapshot.error;
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                children: [
+                                  Semantics(
+                                    liveRegion: true,
+                                    child: Text(
+                                      error is ApiException
+                                          ? error.message
+                                          : 'No pudimos cargar tu perfil.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      final pending = _load();
+                                      setState(() {
+                                        _user = pending;
+                                      });
+                                    },
+                                    child: const Text('Reintentar'),
+                                  ),
+                                  if (widget.onLogout != null)
+                                    TextButton(
+                                      onPressed: widget.onLogout,
+                                      child: const Text('Cerrar sesión'),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }
+                          final user = snapshot.data!;
+                          final names = user.name
+                              .trim()
+                              .split(RegExp(r'\s+'))
+                              .where((name) => name.isNotEmpty);
+                          final initials = names.isEmpty
+                              ? '?'
+                              : names
+                                    .take(2)
+                                    .map((name) => name.characters.first)
+                                    .join()
+                                    .toUpperCase();
+                          return ClientProfileContent(
+                            user: user,
+                            avatar: _profileAvatar(initials, _avatar),
+                            savingAvatar: _savingAvatar,
+                            onAvatar: () => _chooseAvatar(user, initials),
+                            onPersonalInfo: () => _showPersonalInfo(user),
+                            onLogout: widget.onLogout,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        )
+      : _legacyBuild(context);
+
+  Widget _legacyBuild(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return SafeArea(
       top: false,

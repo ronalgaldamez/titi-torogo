@@ -132,7 +132,12 @@ class OrderLiveLabel extends StatelessWidget {
 }
 
 class OrderBottomNavigation extends StatelessWidget {
-  const OrderBottomNavigation({required this.onSelected, super.key});
+  const OrderBottomNavigation({
+    required this.onSelected,
+    this.selectedIndex = 1,
+    super.key,
+  });
+  final int selectedIndex;
   final ValueChanged<int> onSelected;
 
   @override
@@ -161,7 +166,7 @@ class OrderBottomNavigation extends StatelessWidget {
         ),
       ),
       child: NavigationBar(
-        selectedIndex: 1,
+        selectedIndex: selectedIndex,
         onDestinationSelected: onSelected,
         backgroundColor: OrderPresentation.background,
         surfaceTintColor: Colors.transparent,
