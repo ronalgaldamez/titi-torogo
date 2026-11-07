@@ -9,6 +9,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/shared/account_profile.dart';
 
+Future<void> revealProfileControl(WidgetTester tester, Finder control) async {
+  if (control.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      control,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+  }
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  expect(control.hitTestable(), findsOneWidget);
+}
+
 void main() {
   testWidgets(
     'Perfil valida, conserva los datos tras un error y guarda al reintentar',
@@ -53,10 +71,17 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.3)),
+              child: child!,
+            ),
             home: Scaffold(body: AccountProfile(onLogout: () {})),
           ),
         );
         await tester.pumpAndSettle();
+        await revealProfileControl(tester, find.text('Información personal'));
         await tester.tap(find.text('Información personal'));
         await tester.pumpAndSettle();
         final fields = find.byType(TextFormField);
@@ -97,7 +122,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(saves, 2);
         expect(find.text('Tus datos se guardaron.'), findsOneWidget);
-        expect(find.text('Ronald Galdámez'), findsOneWidget);
+        expect(find.text('Ronald\nGaldámez.'), findsOneWidget);
+        await revealProfileControl(tester, find.text('Información personal'));
         await tester.tap(find.text('Información personal'));
         await tester.pumpAndSettle();
         expect(
@@ -140,6 +166,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await revealProfileControl(tester, find.text('Información personal'));
       await tester.tap(find.text('Información personal'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Guardar cambios'));
@@ -153,7 +180,9 @@ void main() {
       );
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'Cerrar'))
+            .widget<TextButton>(
+              find.widgetWithText(TextButton, 'Volver al perfil'),
+            )
             .onPressed,
         isNull,
       );
@@ -191,11 +220,17 @@ void main() {
       }
 
       await openProfile();
-      await tester.tap(find.text('Cambiar avatar'));
+      await revealProfileControl(tester, find.text('Elegí tu avatar'));
+      await tester.tap(find.text('Elegí tu avatar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Avatar 2'));
       await tester.pumpAndSettle();
       final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getInt('torogo_client_avatar_1'), isNull);
+      await tester.ensureVisible(find.text('Usar este avatar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Usar este avatar'));
+      await tester.pumpAndSettle();
       expect(preferences.getInt('torogo_client_avatar_1'), 2);
       await openProfile();
       expect(find.text('CD'), findsNothing);
@@ -204,21 +239,26 @@ void main() {
             .assetName,
         'assets/avatars/avatar_2.png',
       );
+      await revealProfileControl(tester, find.text('Información personal'));
       await tester.tap(find.text('Información personal'));
       await tester.pumpAndSettle();
-      expect(find.text('Correo electrónico'), findsOneWidget);
+      expect(find.text('CORREO ELECTRÓNICO'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(3));
       final email = tester.widget<TextField>(find.byType(TextField).last);
       expect(email.readOnly, isTrue);
-      await tester.ensureVisible(find.text('Cerrar'));
+      await tester.ensureVisible(find.text('Volver al perfil'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cerrar'));
+      await tester.tap(find.text('Volver al perfil'));
       await tester.pumpAndSettle();
       userId = 2;
       await openProfile();
       expect(find.text('CD'), findsOneWidget);
-      await tester.tap(find.text('Cambiar avatar'));
+      await revealProfileControl(tester, find.text('Elegí tu avatar'));
+      await tester.tap(find.text('Elegí tu avatar'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Avatar 1'));
+      await tester.pumpAndSettle();
+      await revealProfileControl(tester, find.text('Cancelar'));
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
       expect(preferences.getInt('torogo_client_avatar_2'), isNull);
@@ -258,7 +298,7 @@ void main() {
       fail = false;
       await tester.tap(find.text('Reintentar'));
       await tester.pumpAndSettle();
-      expect(find.text('Cliente Demo'), findsOneWidget);
+      expect(find.text('Cliente\nDemo.'), findsOneWidget);
       expect(find.text('CD'), findsOneWidget);
       expect(find.text('cliente@torogo.local'), findsOneWidget);
       expect(find.text('Sin conexión'), findsNothing);

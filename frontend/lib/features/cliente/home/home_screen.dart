@@ -11,6 +11,7 @@ import '../../../models/food_category.dart';
 import '../pedido/my_orders_screen.dart';
 import '../pedido/order_presentation.dart';
 import '../../shared/account_profile.dart';
+import '../../shared/client_profile_widgets.dart';
 import '../restaurante/restaurant_detail_screen.dart';
 import 'home_repository.dart';
 import 'widgets/restaurant_card.dart';
@@ -156,36 +157,21 @@ class _HomeScreenState extends State<HomeScreen> {
   /// significa volver a escribir la contrasena. Un dialogo de por medio
   /// evita ese enojo.
   Future<void> _confirmLogout() async {
-    final bool confirmed =
-        await showDialog<bool>(
+    final confirmed =
+        await showModalBottomSheet<bool>(
           context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('¿Cerrar sesion?'),
-            content: const Text(
-              'Vas a salir de tu cuenta en este dispositivo. '
-              'Tus pedidos y direcciones quedan guardados.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.coral,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Cerrar sesion'),
-              ),
-            ],
+          isScrollControlled: true,
+          backgroundColor: OrderPresentation.surface,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          builder: (_) => Theme(
+            data: OrderPresentation.theme(context),
+            child: const ClientLogoutSheet(),
           ),
         ) ??
         false;
-
-    if (confirmed) {
-      await widget.onLogout?.call();
-    }
+    if (confirmed && mounted) await widget.onLogout?.call();
   }
 
   void _comingSoon(String feature) {
@@ -279,8 +265,10 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         backgroundColor: _tab == 0
             ? AppTheme.discoveryBackground
+            : widget.onLogout != null
+            ? OrderPresentation.background
             : AppTheme.background,
-        appBar: _tab == 1 && widget.onLogout != null
+        appBar: (_tab == 1 || _tab == 2) && widget.onLogout != null
             ? null
             : AppBar(
                 elevation: 0,
@@ -310,8 +298,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ]
                     : null,
               ),
-        bottomNavigationBar: _tab == 1
+        bottomNavigationBar: (_tab == 1 || _tab == 2) && widget.onLogout != null
             ? OrderBottomNavigation(
+                selectedIndex: _tab,
                 onSelected: (index) => setState(() => _tab = index),
               )
             : NavigationBarTheme(

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/auth_storage.dart';
 import '../../core/session.dart';
-import '../../core/theme.dart';
+import '../cliente/pedido/order_presentation.dart';
+import 'client_profile_widgets.dart';
 import '../../models/user.dart';
 import '../auth/auth_repository.dart';
 
@@ -62,103 +63,146 @@ class _ClientPersonalInfoSheetState extends State<ClientPersonalInfoSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_saving,
-    child: SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.md + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Form(
-          key: _form,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Información personal',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _name,
-                enabled: !_saving,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-                autofillHints: const [AutofillHints.name],
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
-                maxLength: 255,
-                validator: (value) {
-                  final name = value?.trim() ?? '';
-                  if (name.isEmpty) {
-                    return 'Escribí tu nombre.';
-                  }
-                  if (name.runes.length < 2) {
-                    return 'El nombre debe tener al menos 2 caracteres.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextFormField(
-                controller: _phone,
-                enabled: !_saving,
-                decoration: const InputDecoration(
-                  labelText: 'Teléfono',
-                  helperText: 'Opcional · El Salvador, 8 dígitos o +503',
-                ),
-                autofillHints: const [AutofillHints.telephoneNumber],
-                keyboardType: TextInputType.phone,
-                textInputAction: TextInputAction.done,
-                maxLength: 30,
-                onFieldSubmitted: (_) => _save(),
-                validator: (value) {
-                  final phone = (value ?? '').replaceAll(RegExp(r'[\s-]+'), '');
-                  if (phone.isNotEmpty &&
-                      !RegExp(r'^(?:\+503)?[267][0-9]{7}$').hasMatch(phone)) {
-                    return 'Usá 8 dígitos que comiencen con 2, 6 o 7.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                initialValue: widget.user.email,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                  helperText: 'El correo no se puede cambiar desde el perfil.',
-                  suffixIcon: Icon(Icons.lock_outline_rounded),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: Text(_saving ? 'Guardando…' : 'Guardar cambios'),
-              ),
-              TextButton(
-                onPressed: _saving ? null : () => Navigator.pop(context),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) {
+    final decoration = InputDecoration(
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: const TextStyle(
+        color: OrderPresentation.muted,
+        fontSize: 9,
+        letterSpacing: 1.3,
+        fontWeight: FontWeight.w700,
+      ),
+      helperStyle: const TextStyle(
+        color: OrderPresentation.muted,
+        fontSize: 11,
+        height: 1.6,
+      ),
+      helperMaxLines: 3,
+      errorMaxLines: 3,
+      counterText: '',
+      contentPadding: const EdgeInsets.only(top: 10, bottom: 14),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(
+          color: OrderPresentation.muted.withValues(alpha: .47),
         ),
       ),
-    ),
-  );
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: OrderPresentation.coral),
+      ),
+      disabledBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: OrderPresentation.line),
+      ),
+    );
+    return PopScope(
+      canPop: !_saving,
+      child: Form(
+        key: _form,
+        child: ProfileSheet(
+          title: 'Lo tuyo',
+          onClose: _saving ? null : () => Navigator.pop(context),
+          children: [
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _name,
+              enabled: !_saving,
+              style: const TextStyle(
+                fontSize: 16,
+                color: OrderPresentation.ink,
+              ),
+              decoration: decoration.copyWith(labelText: 'NOMBRE'),
+              autofillHints: const [AutofillHints.name],
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              maxLength: 255,
+              validator: (value) {
+                final name = value?.trim() ?? '';
+                if (name.isEmpty) {
+                  return 'Escribí tu nombre.';
+                }
+                if (name.runes.length < 2) {
+                  return 'El nombre debe tener al menos 2 caracteres.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 23),
+            TextFormField(
+              controller: _phone,
+              enabled: !_saving,
+              style: const TextStyle(
+                fontSize: 16,
+                color: OrderPresentation.ink,
+              ),
+              decoration: decoration.copyWith(
+                labelText: 'TELÉFONO · OPCIONAL',
+                hintText: 'Ej. 7123 4567',
+                hintStyle: const TextStyle(
+                  color: OrderPresentation.muted,
+                  fontSize: 16,
+                ),
+                helperText: 'El Salvador · 8 dígitos o +503.',
+              ),
+              autofillHints: const [AutofillHints.telephoneNumber],
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              maxLength: 30,
+              onFieldSubmitted: (_) => _save(),
+              validator: (value) {
+                final phone = (value ?? '').replaceAll(RegExp(r'[\s-]+'), '');
+                if (phone.isNotEmpty &&
+                    !RegExp(r'^(?:\+503)?[267][0-9]{7}$').hasMatch(phone)) {
+                  return 'Usá 8 dígitos que comiencen con 2, 6 o 7.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 23),
+            TextFormField(
+              initialValue: widget.user.email,
+              readOnly: true,
+              style: const TextStyle(
+                fontSize: 13,
+                color: OrderPresentation.muted,
+              ),
+              decoration: decoration.copyWith(
+                labelText: 'CORREO ELECTRÓNICO',
+                helperText: 'El correo no se puede cambiar desde el perfil.',
+                suffixIcon: const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 18,
+                  color: OrderPresentation.muted,
+                ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: OrderPresentation.coral,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 29),
+            ProfilePrimaryButton(
+              label: _saving ? 'Guardando…' : 'Guardar cambios',
+              onPressed: _saving ? null : _save,
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _saving ? null : () => Navigator.pop(context),
+              child: const Text(
+                'Volver al perfil',
+                style: TextStyle(fontSize: 12, color: OrderPresentation.muted),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

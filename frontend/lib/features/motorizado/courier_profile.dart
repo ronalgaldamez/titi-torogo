@@ -1,3 +1,6 @@
 import '../shared/account_profile.dart';
 
-typedef CourierProfile = AccountProfile;
+class CourierProfile extends AccountProfile {
+  const CourierProfile({required super.onLogout, super.key})
+    : super(clientDesign: false);
+}
