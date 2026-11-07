@@ -6,7 +6,8 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
-import '../../../core/widgets/filter_tabs.dart';
+import 'my_orders_content.dart';
+import 'order_presentation.dart';
 import '../../../models/order.dart';
 import 'order_repository.dart';
 import 'order_tracking_screen.dart';
@@ -18,7 +19,9 @@ import 'order_tracking_screen.dart';
 /// entra a ver como va lo suyo. Por eso van en una sola pantalla, con lo que
 /// esta vivo primero.
 class MyOrdersScreen extends StatefulWidget {
-  const MyOrdersScreen({super.key});
+  const MyOrdersScreen({this.onDestinationSelected, super.key});
+
+  final ValueChanged<int>? onDestinationSelected;
 
   @override
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
@@ -114,8 +117,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen>
   Future<void> _openTracking(Order order) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) =>
-            OrderTrackingScreen(orderId: order.id),
+        builder: (BuildContext context) => OrderTrackingScreen(
+          orderId: order.id,
+          onDestinationSelected: widget.onDestinationSelected,
+        ),
       ),
     );
 
@@ -127,426 +132,59 @@ class _MyOrdersScreenState extends State<MyOrdersScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Mis pedidos',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
+  Widget build(BuildContext context) => Theme(
+    data: OrderPresentation.theme(context),
+    child: Scaffold(
+      backgroundColor: OrderPresentation.background,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const OrderBrandHeader(),
+            Expanded(child: _body()),
+          ],
         ),
-        actions: <Widget>[
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.navy,
-            tooltip: 'Actualizar',
-          ),
-        ],
       ),
-      body: _body(),
-    );
-  }
+    ),
+  );
 
   Widget _body() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
-      return _Message(
-        icon: Icons.cloud_off_rounded,
-        title: 'No pudimos cargar tus pedidos',
-        message: _error!,
-        actionLabel: 'Reintentar',
-        onAction: _load,
-      );
-    }
-
-    final active = _filter == 0 || _filter == 1 ? _active : <Order>[];
-    final history = _filter == 1
-        ? <Order>[]
-        : _history
-              .where(
-                (order) => switch (_filter) {
-                  2 => order.status == 'delivered',
-                  3 =>
-                    order.status == 'cancelled' || order.status == 'rejected',
-                  _ => true,
-                },
-              )
-              .toList();
-    final noOrders = _active.isEmpty && _history.isEmpty;
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppTheme.teal,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.xl,
-        ),
-        children: <Widget>[
-          FilterTabs(
-            labels: const ['Todos', 'En curso', 'Completados', 'Cancelados'],
-            icons: const [
-              Icons.schedule_rounded,
-              Icons.delivery_dining_rounded,
-              Icons.check_circle_outline_rounded,
-              Icons.cancel_outlined,
-            ],
-            selectedIndex: _filter,
-            onSelected: (index) => setState(() => _filter = index),
-            keyPrefix: 'order-filter',
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (active.isEmpty && history.isEmpty)
-            _Message(
-              icon: Icons.receipt_long_rounded,
-              title: noOrders
-                  ? 'Todavía no pediste nada'
-                  : 'No hay pedidos en este filtro',
-              message: noOrders
-                  ? 'Tus pedidos aparecerán acá cuando hagás el primero.'
-                  : 'Probá otra opción para consultar tus pedidos.',
-              actionLabel: noOrders ? 'Actualizar' : 'Ver todos',
-              onAction: noOrders ? _load : () => setState(() => _filter = 0),
-            ),
-          if (active.isNotEmpty) ...<Widget>[
-            const _SectionTitle('En curso'),
-            for (final Order order in active)
-              _OrderCard(
-                order: order,
-                live: true,
-                onTap: () => _openTracking(order),
-              ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-          if (history.isNotEmpty) ...<Widget>[
-            _SectionTitle(switch (_filter) {
-              2 => 'Completados',
-              3 => 'Cancelados',
-              _ => 'Historial',
-            }),
-            for (final Order order in history)
-              _OrderCard(
-                order: order,
-                live: false,
-                onTap: () => _openTracking(order),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Una tarjeta de pedido en la lista.
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({
-    required this.order,
-    required this.live,
-    required this.onTap,
-  });
-
-  final Order order;
-
-  /// true = todavia esta en curso.
-  final bool live;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    final date = order.deliveredAt ?? order.cancelledAt ?? order.createdAt;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.image),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                ExcludeSemantics(
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppTheme.tealSoft,
-                      borderRadius: BorderRadius.circular(AppRadius.image),
-                    ),
-                    child: Text(
-                      order.restaurant.name.isEmpty
-                          ? '?'
-                          : order.restaurant.name.characters.first
-                                .toUpperCase(),
-                      style: text.titleMedium?.copyWith(
-                        color: AppTheme.tealDeep,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  order.restaurant.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: text.titleSmall?.copyWith(
-                                    color: AppTheme.navy,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: AppSpacing.xs),
-                                Text(
-                                  'Pedido #${order.id}',
-                                  style: text.labelSmall?.copyWith(
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            '\$${order.total}',
-                            style: text.titleMedium?.copyWith(
-                              color: AppTheme.coralDeep,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '${order.totalUnits} ${order.totalUnits == 1 ? 'producto' : 'productos'}',
-                        style: text.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                      if (!live && date != null) ...<Widget>[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          _dateLabel(date),
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          _StatusPill(order: order),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Flexible(
-                                child: Text(
-                                  live ? 'Ver seguimiento' : 'Ver detalles',
-                                  style: text.labelSmall?.copyWith(
-                                    color: AppTheme.tealDeep,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                size: 16,
-                                color: AppTheme.tealDeep,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _dateLabel(DateTime date) {
-    String two(int value) => value.toString().padLeft(2, '0');
-    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-    return '${two(date.day)}/${two(date.month)}/${date.year} · '
-        '$hour:${two(date.minute)} ${date.hour < 12 ? 'AM' : 'PM'}';
-  }
-}
-
-/// La etiqueta del estado, con su color.
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.order});
-
-  final Order order;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color background;
-
-    switch (order.status) {
-      case 'pending':
-        background = AppTheme.yellow;
-      case 'accepted':
-      case 'preparing':
-        background = AppTheme.teal;
-      case 'ready':
-        background = AppTheme.mint;
-      case 'picked_up':
-        background = AppTheme.tealDeep;
-      case 'delivered':
-        background = AppTheme.mint;
-      default:
-        background = AppTheme.coral;
-    }
-
-    final Color foreground =
-        background == AppTheme.yellow || background == AppTheme.mint
-        ? AppTheme.navy
-        : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppSpacing.sm),
-      ),
-      child: Text(
-        order.statusLabel,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-/// El titulo de una seccion.
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 4,
-            height: 24,
-            decoration: BoxDecoration(
-              color: AppTheme.teal,
-              borderRadius: BorderRadius.circular(AppSpacing.xs),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              title,
-              style: text.titleMedium?.copyWith(
-                color: AppTheme.navy,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pantalla de aviso: error de red o lista vacia.
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Center(
-      child: SingleChildScrollView(
+      return Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icon, size: 48, color: AppTheme.teal),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.navy,
-                ),
+            children: [
+              const Icon(
+                Icons.cloud_off_rounded,
+                color: OrderPresentation.coral,
+                size: 40,
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              const SizedBox(height: 16),
+              const Text(
+                'No pudimos cargar tus pedidos',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(onPressed: onAction, child: Text(actionLabel)),
+              const SizedBox(height: 8),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: _load, child: const Text('Reintentar')),
             ],
           ),
         ),
-      ),
+      );
+    }
+    return MyOrdersContent(
+      active: _active,
+      history: _history,
+      filter: _filter,
+      onFilter: (index) => setState(() => _filter = index),
+      onOpen: _openTracking,
+      onRefresh: _load,
     );
   }
 }

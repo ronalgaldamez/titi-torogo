@@ -209,7 +209,7 @@ void main() {
         expect(find.byTooltip('Actualizar'), findsOneWidget);
         await tester.tap(find.text('Pedidos'));
         await tester.pumpAndSettle();
-        expect(find.text('Mis pedidos'), findsOneWidget);
+        expect(find.text('Mis pedidos.'), findsOneWidget);
         await tester.tap(find.text('Inicio'));
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Notificaciones · Próximamente'));

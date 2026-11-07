@@ -9,6 +9,7 @@ import '../../../models/delivery_zone.dart';
 import '../../../models/restaurant.dart';
 import '../../../models/food_category.dart';
 import '../pedido/my_orders_screen.dart';
+import '../pedido/order_presentation.dart';
 import '../../shared/account_profile.dart';
 import '../restaurante/restaurant_detail_screen.dart';
 import 'home_repository.dart';
@@ -309,74 +310,82 @@ class _HomeScreenState extends State<HomeScreen> {
                       ]
                     : null,
               ),
-        bottomNavigationBar: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            iconTheme: WidgetStateProperty.resolveWith(
-              (states) => IconThemeData(
-                color: _tab == 0
-                    ? states.contains(WidgetState.selected)
-                          ? AppTheme.discoveryBackground
-                          : AppTheme.discoveryMuted
-                    : AppTheme.navy,
-              ),
-            ),
-            labelTextStyle: WidgetStatePropertyAll(
-              TextStyle(
-                color: _tab == 0 ? AppTheme.discoveryPaper : AppTheme.navy,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          child: NavigationBar(
-            backgroundColor: _tab == 0
-                ? AppTheme.discoveryBackground
-                : Theme.of(context).colorScheme.surface,
-            indicatorColor: _tab == 0
-                ? AppTheme.discoveryAccent
-                : AppTheme.tealSoft,
-            selectedIndex: _tab,
-            onDestinationSelected: (index) {
-              if (index == 1 && widget.onLogout == null) {
-                showDialog<void>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Tus pedidos'),
-                    content: const Text(
-                      'Iniciá sesión para consultar tus pedidos.',
+        bottomNavigationBar: _tab == 1
+            ? OrderBottomNavigation(
+                onSelected: (index) => setState(() => _tab = index),
+              )
+            : NavigationBarTheme(
+                data: NavigationBarThemeData(
+                  iconTheme: WidgetStateProperty.resolveWith(
+                    (states) => IconThemeData(
+                      color: _tab == 0
+                          ? states.contains(WidgetState.selected)
+                                ? AppTheme.discoveryBackground
+                                : AppTheme.discoveryMuted
+                          : AppTheme.navy,
                     ),
-                    actions: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Entendido'),
-                      ),
-                    ],
                   ),
-                );
-                return;
-              }
-              setState(() => _tab = index);
-            },
-            destinations: const <NavigationDestination>[
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: 'Inicio',
+                  labelTextStyle: WidgetStatePropertyAll(
+                    TextStyle(
+                      color: _tab == 0
+                          ? AppTheme.discoveryPaper
+                          : AppTheme.navy,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                child: NavigationBar(
+                  backgroundColor: _tab == 0
+                      ? AppTheme.discoveryBackground
+                      : Theme.of(context).colorScheme.surface,
+                  indicatorColor: _tab == 0
+                      ? AppTheme.discoveryAccent
+                      : AppTheme.tealSoft,
+                  selectedIndex: _tab,
+                  onDestinationSelected: (index) {
+                    if (index == 1 && widget.onLogout == null) {
+                      showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Tus pedidos'),
+                          content: const Text(
+                            'Iniciá sesión para consultar tus pedidos.',
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Entendido'),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _tab = index);
+                  },
+                  destinations: const <NavigationDestination>[
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home_rounded),
+                      label: 'Inicio',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long_rounded),
+                      label: 'Pedidos',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline_rounded),
+                      selectedIcon: Icon(Icons.person_rounded),
+                      label: 'Perfil',
+                    ),
+                  ],
+                ),
               ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long_rounded),
-                label: 'Pedidos',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-                label: 'Perfil',
-              ),
-            ],
-          ),
-        ),
         body: _tab == 1
-            ? const MyOrdersScreen()
+            ? MyOrdersScreen(
+                onDestinationSelected: (index) => setState(() => _tab = index),
+              )
             : _tab == 2
             ? _profile()
             : _home(),

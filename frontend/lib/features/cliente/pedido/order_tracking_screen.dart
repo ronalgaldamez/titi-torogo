@@ -9,12 +9,12 @@ import '../../../core/auth_storage.dart';
 import '../../../core/realtime.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
-import '../../../core/widgets/live_chip.dart';
 import '../../../core/widgets/torogo_map.dart';
 import '../../../models/order.dart';
 import '../../../models/courier_location.dart';
-import '../../../models/order_item.dart';
 import 'order_repository.dart';
+import 'order_presentation.dart';
+import 'order_tracking_content.dart';
 
 /// El seguimiento de UN pedido.
 ///
@@ -23,22 +23,18 @@ import 'order_repository.dart';
 /// en el backend), asi que esto es el historial de lo que paso de verdad, no
 /// una estimacion.
 class OrderTrackingScreen extends StatefulWidget {
-  const OrderTrackingScreen({required this.orderId, super.key});
+  const OrderTrackingScreen({
+    required this.orderId,
+    this.onDestinationSelected,
+    super.key,
+  });
+
+  final ValueChanged<int>? onDestinationSelected;
 
   final int orderId;
 
   @override
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
-}
-
-/// Un paso del recorrido. Sin hora = todavia no paso por ahi.
-class _Milestone {
-  const _Milestone({required this.label, required this.at});
-
-  final String label;
-  final DateTime? at;
-
-  bool get done => at != null;
 }
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen>
@@ -305,315 +301,79 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     }
   }
 
-  String _format(DateTime date) {
-    final String day = date.day.toString().padLeft(2, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-    final String hour = (date.hour % 12 == 0 ? 12 : date.hour % 12).toString();
-    final String minute = date.minute.toString().padLeft(2, '0');
-
-    return '$day/$month/${date.year} · $hour:$minute ${date.hour < 12 ? 'AM' : 'PM'}';
-  }
-
-  List<_Milestone> _milestones(Order order) {
-    return <_Milestone>[
-      _Milestone(label: 'Pedido hecho', at: order.createdAt),
-      _Milestone(label: 'El restaurante lo aceptó', at: order.acceptedAt),
-      _Milestone(label: 'Listo para recoger', at: order.readyAt),
-      _Milestone(label: 'En camino', at: order.pickedUpAt),
-      _Milestone(label: 'Entregado', at: order.deliveredAt),
-    ];
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Pedido #${widget.orderId}',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
-        ),
-        actions: <Widget>[
-          if (_connected) const LiveChip(),
-          IconButton(
-            onPressed: _reload,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppTheme.navy,
-            tooltip: 'Actualizar',
-          ),
-        ],
-      ),
-      body: FutureBuilder<Order>(
-        future: _future,
-        builder: (BuildContext context, AsyncSnapshot<Order> snapshot) {
-          // El pedido del tiempo real tiene prioridad sobre el de la peticion:
-          // si ya nos avisaron como esta, no tiene sentido tapar la pantalla
-          // con el circulito de carga.
-          final Order? order = _liveOrder ?? snapshot.data;
-
-          if (order == null &&
-              snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (order == null) {
-            final Object? error = snapshot.error;
-
-            return _ErrorBox(
-              message: error is ApiException
-                  ? error.message
-                  : 'No pudimos cargar el pedido.',
-              onRetry: _reload,
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            color: AppTheme.teal,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.xl + MediaQuery.paddingOf(context).bottom,
-              ),
-              children: <Widget>[
-                _Header(
-                  order: order,
-                  date:
-                      order.deliveredAt ?? order.cancelledAt ?? order.createdAt,
-                  format: _format,
-                ),
-                if (order.acceptanceDeadlineLabel != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm,
-                    ),
-                    child: Text(order.acceptanceDeadlineLabel!),
-                  ),
-                if (order.status == 'pending' && order.acceptedAt == null)
-                  OutlinedButton.icon(
-                    onPressed: _cancelling ? null : _cancel,
-                    icon: const Icon(Icons.close_rounded),
-                    label: Text(
-                      _cancelling ? 'Procesando…' : 'Cancelar pedido',
-                    ),
-                  )
-                else if (order.isActive)
-                  const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.sm),
-                    child: Text(
-                      'El restaurante ya aceptó tu pedido. Ya no podés cancelarlo desde la app.',
-                    ),
-                  ),
-                if (order.status == 'rejected')
-                  const _Notice(
-                    message: 'El restaurante no pudo con este pedido.',
-                    color: AppTheme.coral,
-                  ),
-                if (order.status == 'cancelled')
-                  _Notice(
-                    message:
-                        order.cancellationReason ?? 'Este pedido se canceló.',
-                    color: AppTheme.coral,
-                  ),
-                if (order.status == 'ready')
-                  const _Notice(
-                    message: 'Está listo. Falta que un motorizado lo recoja.',
-                    color: AppTheme.yellow,
-                  ),
-                if (order.status == 'picked_up')
-                  const _Notice(
-                    message: 'Va en camino hacia tu dirección.',
-                    color: AppTheme.mint,
-                  ),
-                const SizedBox(height: AppSpacing.md),
-                _DetailCard(
-                  children: <Widget>[
-                    _SummaryRow(
-                      label: 'Total del pedido',
-                      value: '\$${order.total}',
-                      strong: true,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: AppTheme.tealSoft,
-                        borderRadius: BorderRadius.circular(AppRadius.image),
-                      ),
-                      child: Text(
-                        order.paymentMethod == 'cash'
-                            ? switch (order.status) {
-                                'cancelled' =>
-                                  'Pedido cancelado · No tenés que pagar',
-                                'rejected' =>
-                                  'Pedido rechazado · No tenés que pagar',
-                                _ => 'Pagás en efectivo al recibir',
-                              }
-                            : 'Pago: ${order.paymentMethod}',
-                        style: text.bodySmall?.copyWith(color: AppTheme.navy),
-                      ),
-                    ),
-                  ],
-                ),
-                if (order.isActive) ...<Widget>[
-                  const SizedBox(height: AppSpacing.md),
-                  _DetailCard(
-                    children: <Widget>[
-                      const _SectionTitle('Dónde va tu pedido'),
-                      _OrderMap(order: order, location: _location),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                _DetailCard(
-                  children: <Widget>[
-                    const _SectionTitle('Tu pedido'),
-                    for (final OrderItem item in order.items)
-                      _ItemLine(item: item),
-                    const Divider(height: AppSpacing.lg),
-                    _SummaryRow(
-                      label: 'Productos',
-                      value: '\$${order.subtotal}',
-                    ),
-                    _SummaryRow(
-                      label: 'Envío',
-                      value: '\$${order.deliveryFee}',
-                    ),
-                    _SummaryRow(
-                      label: 'Propina',
-                      value: '\$${order.tipAmount}',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _DetailCard(
-                  children: <Widget>[
-                    const _SectionTitle('Entrega'),
-                    if (order.delivery != null) ...<Widget>[
-                      Text(
-                        order.delivery!.address,
-                        style: text.bodyMedium?.copyWith(
-                          color: AppTheme.navy,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (order.delivery!.reference?.isNotEmpty ??
-                          false) ...<Widget>[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          order.delivery!.reference!,
-                          style: text.bodySmall?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                    if (order.courier != null) ...<Widget>[
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        children: <Widget>[
-                          const Icon(
-                            Icons.delivery_dining_rounded,
-                            size: 20,
-                            color: AppTheme.teal,
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text(
-                              'Tu motorizado: ${order.courier!.name}',
-                              style: text.bodyMedium?.copyWith(
-                                color: AppTheme.navy,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (order.isActive && order.courier != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _location?.isFresh == true
-                            ? _gpsError
-                                  ? 'Última ubicación recibida · Sin conexión GPS actualizada'
-                                  : 'GPS actualizado · Precisión ±${_location!.accuracy.round()} m'
-                            : 'Esperando una ubicación reciente del motorista.',
-                        key: const ValueKey('courier-gps-status'),
-                        style: text.bodySmall,
-                      ),
-                    ],
-                    if (!order.isActive)
-                      ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        childrenPadding: const EdgeInsets.only(
-                          bottom: AppSpacing.sm,
-                        ),
-                        shape: const Border(),
-                        collapsedShape: const Border(),
-                        title: Text(
-                          'Ver ubicación en el mapa',
-                          style: text.bodyMedium?.copyWith(
-                            color: AppTheme.tealDeep,
-                          ),
-                        ),
-                        children: <Widget>[_OrderMap(order: order)],
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _DetailCard(
-                  children: <Widget>[
-                    const _SectionTitle('Recorrido del pedido'),
-                    for (int i = 0; i < _milestones(order).length; i++)
-                      _TimelineRow(
-                        milestone: _milestones(order)[i],
-                        isLast: i == _milestones(order).length - 1,
-                        format: _format,
-                      ),
-                  ],
-                ),
-              ],
+  Widget build(BuildContext context) => Theme(
+    data: OrderPresentation.theme(context),
+    child: Scaffold(
+      backgroundColor: OrderPresentation.background,
+      bottomNavigationBar: widget.onDestinationSelected == null
+          ? null
+          : OrderBottomNavigation(
+              onSelected: (index) {
+                Navigator.of(context).pop();
+                widget.onDestinationSelected!(index);
+              },
             ),
-          );
-        },
+      body: SafeArea(
+        bottom: widget.onDestinationSelected == null,
+        child: Column(
+          children: [
+            const OrderBrandHeader(),
+            Expanded(
+              child: FutureBuilder<Order>(
+                future: _future,
+                builder: (context, snapshot) {
+                  final order = _liveOrder ?? snapshot.data;
+                  if (order == null &&
+                      snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (order == null) {
+                    final error = snapshot.error;
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.cloud_off_rounded,
+                              size: 40,
+                              color: OrderPresentation.coral,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              error is ApiException
+                                  ? error.message
+                                  : 'No pudimos cargar el pedido.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: _reload,
+                              child: const Text('Reintentar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return OrderTrackingContent(
+                    order: order,
+                    connected: _connected,
+                    cancelling: _cancelling,
+                    onCancel: _cancel,
+                    onRefresh: _reload,
+                    map: _OrderMap(order: order, location: _location),
+                    location: _location,
+                    gpsError: _gpsError,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-    );
-  }
-}
-
-/// Una entrada de la leyenda del mapa: el color y que significa.
-///
-/// Va abajo del mapa porque un globito de color, sin la leyenda, no dice nada:
-/// el cliente ve dos circulos y tiene que adivinar cual es su casa.
-class _DetailCard extends StatelessWidget {
-  const _DetailCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppRadius.card),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: children,
     ),
   );
 }
@@ -648,20 +408,20 @@ class _OrderMapState extends State<_OrderMap> {
               latitude: location!.latitude,
               longitude: location!.longitude,
               icon: Icons.delivery_dining_rounded,
-              color: AppTheme.navy,
+              color: OrderPresentation.yellow,
             ),
           MapPoint(
             latitude: order.restaurant.latitude,
             longitude: order.restaurant.longitude,
             icon: Icons.storefront_rounded,
-            color: AppTheme.teal,
+            color: OrderPresentation.yellow,
           ),
           if (order.delivery != null)
             MapPoint(
               latitude: order.delivery!.latitude,
               longitude: order.delivery!.longitude,
               icon: Icons.home_rounded,
-              color: AppTheme.coral,
+              color: OrderPresentation.coral,
             ),
         ],
       ),
@@ -679,7 +439,7 @@ class _OrderMapState extends State<_OrderMap> {
         children: <Widget>[
           Expanded(
             child: _MapLegend(
-              color: AppTheme.teal,
+              color: OrderPresentation.yellow,
               icon: Icons.storefront_rounded,
               label: order.restaurant.name,
             ),
@@ -687,7 +447,7 @@ class _OrderMapState extends State<_OrderMap> {
           if (order.delivery != null)
             const Expanded(
               child: _MapLegend(
-                color: AppTheme.coral,
+                color: OrderPresentation.coral,
                 icon: Icons.home_rounded,
                 label: 'Tu dirección',
               ),
@@ -719,7 +479,7 @@ class _MapLegend extends StatelessWidget {
           width: 18,
           height: 18,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          child: Icon(icon, size: 12, color: Colors.white),
+          child: Icon(icon, size: 12, color: OrderPresentation.background),
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -727,343 +487,13 @@ class _MapLegend extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: text.bodySmall?.copyWith(color: AppTheme.navy),
+            style: text.bodySmall?.copyWith(
+              color: OrderPresentation.muted,
+              fontSize: 11,
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// El encabezado: el estado grande y de que restaurante es.
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.order,
-    required this.date,
-    required this.format,
-  });
-
-  final Order order;
-  final DateTime? date;
-  final String Function(DateTime) format;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          CircleAvatar(
-            backgroundColor: AppTheme.tealSoft,
-            foregroundColor: AppTheme.tealDeep,
-            child: Icon(
-              order.status == 'delivered'
-                  ? Icons.check_rounded
-                  : order.status == 'cancelled' || order.status == 'rejected'
-                  ? Icons.close_rounded
-                  : Icons.receipt_long_rounded,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  order.statusLabel,
-                  style: text.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.tealDeep,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  order.restaurant.name,
-                  style: text.titleSmall?.copyWith(color: AppTheme.navy),
-                ),
-                if (date != null)
-                  Text(
-                    format(date!),
-                    style: text.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Una franja de aviso.
-class _Notice extends StatelessWidget {
-  const _Notice({required this.message, required this.color});
-
-  final String message;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final Color foreground = color == AppTheme.yellow || color == AppTheme.mint
-        ? AppTheme.navy
-        : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(AppRadius.image),
-        ),
-        child: Text(
-          message,
-          style: text.bodySmall?.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Una fila del recorrido: el punto, la linea, el paso y su hora.
-class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({
-    required this.milestone,
-    required this.isLast,
-    required this.format,
-  });
-
-  final _Milestone milestone;
-  final bool isLast;
-  final String Function(DateTime) format;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final bool done = milestone.done;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Column(
-            children: <Widget>[
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: done ? AppTheme.teal : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: done ? AppTheme.teal : colors.outlineVariant,
-                  ),
-                ),
-                child: done
-                    ? const Icon(
-                        Icons.check_rounded,
-                        size: 14,
-                        color: Colors.white,
-                      )
-                    : null,
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: done ? AppTheme.tealSoft : colors.outlineVariant,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    milestone.label,
-                    style: text.bodyMedium?.copyWith(
-                      fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                      color: done ? AppTheme.navy : colors.onSurfaceVariant,
-                    ),
-                  ),
-                  if (milestone.at != null)
-                    Text(
-                      format(milestone.at!),
-                      style: text.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Una linea del pedido, sin botones: aca solo se mira.
-class _ItemLine extends StatelessWidget {
-  const _ItemLine({required this.item});
-
-  final OrderItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          Text(
-            '${item.quantity}×',
-            style: text.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppTheme.teal,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              item.name,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            '\$${item.subtotal}',
-            style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Una fila del resumen.
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.strong = false,
-  });
-
-  final String label;
-  final String value;
-  final bool strong;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              label,
-              style: strong
-                  ? text.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.navy,
-                    )
-                  : text.bodyMedium?.copyWith(color: AppTheme.navy),
-            ),
-          ),
-          Text(
-            value,
-            style: strong
-                ? text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.coral,
-                  )
-                : text.bodyMedium?.copyWith(color: AppTheme.navy),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// El titulo de una seccion.
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(
-        title,
-        style: text.titleSmall?.copyWith(
-          color: AppTheme.navy,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-/// El aviso de error, con boton para reintentar.
-class _ErrorBox extends StatelessWidget {
-  const _ErrorBox({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppTheme.teal),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
-          ],
-        ),
-      ),
     );
   }
 }
