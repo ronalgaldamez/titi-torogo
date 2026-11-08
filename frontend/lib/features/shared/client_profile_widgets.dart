@@ -287,9 +287,11 @@ class ProfileSheet extends StatelessWidget {
     required this.onClose,
     required this.children,
     this.punctuation = '.',
+    this.eyebrow = 'TU PERFIL TOROGO',
     super.key,
   });
   final String title;
+  final String eyebrow;
   final String punctuation;
   final VoidCallback? onClose;
   final List<Widget> children;
@@ -328,7 +330,7 @@ class ProfileSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _Eyebrow('TU PERFIL TOROGO'),
+                      _Eyebrow(eyebrow),
                       const SizedBox(height: 8),
                       Text.rich(
                         TextSpan(

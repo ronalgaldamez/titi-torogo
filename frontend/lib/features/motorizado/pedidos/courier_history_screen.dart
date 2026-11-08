@@ -4,6 +4,9 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../../cliente/pedido/order_presentation.dart';
+import '../courier_presentation.dart';
+import 'courier_history_header.dart';
 import '../../../models/order.dart';
 import 'courier_order_repository.dart';
 
@@ -86,276 +89,173 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Theme(
+    data: OrderPresentation.theme(context),
+    child: Builder(builder: _buildHistory),
+  );
+
+  Widget _buildHistory(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.embedded,
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          'Historial de entregas',
-          style: text.titleLarge?.copyWith(
-            color: AppTheme.navy,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
+      backgroundColor: OrderPresentation.background,
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              backgroundColor: OrderPresentation.background,
+              foregroundColor: OrderPresentation.ink,
+              surfaceTintColor: Colors.transparent,
+            ),
       body: SafeArea(
-        top: false,
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: ListView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: _orders.length + 2,
-            itemBuilder: (BuildContext context, int index) {
-              if (index == 0) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _HistoryCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          DropdownButton<String>(
-                            value: _period,
-                            underline: const SizedBox.shrink(),
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.image,
+        top: !widget.embedded,
+        child: Column(
+          children: [
+            if (!widget.embedded) const CourierBrandHeader(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 25),
+                  itemCount: _orders.length + 2,
+                  itemBuilder: (BuildContext context, int index) {
+                    if (index == 0) {
+                      return CourierHistoryHeader(
+                        period: _period,
+                        status: _status,
+                        summary: _summary,
+                        range: _range,
+                        onPeriod: (value) {
+                          setState(() => _period = value);
+                          _load();
+                        },
+                        onStatus: (value) {
+                          setState(() => _status = value);
+                          _load();
+                        },
+                      );
+                    }
+                    if (index == _orders.length + 1) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Column(
+                          children: <Widget>[
+                            if (_loading)
+                              const CircularProgressIndicator()
+                            else if (_error != null) ...<Widget>[
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    _load(more: _orders.isNotEmpty),
+                                child: const Text('Reintentar'),
+                              ),
+                            ] else if (_orders.isEmpty)
+                              CourierEmpty(
+                                icon: Icons.route_outlined,
+                                title: 'Acá queda tu recorrido.',
+                                message: _status == 'cancelled'
+                                    ? 'No tenés pedidos cancelados en este período.'
+                                    : _status == 'delivered'
+                                    ? 'No completaste entregas en este período.'
+                                    : 'Todavía no tenés pedidos cerrados en este período.',
+                              )
+                            else if (_next != null)
+                              OutlinedButton(
+                                onPressed: () => _load(more: true),
+                                child: const Text('Ver más'),
+                              ),
+                          ],
+                        ),
+                      );
+                    }
+                    final Order order = _orders[index - 1];
+                    final DateTime? date =
+                        order.deliveredAt ?? order.cancelledAt;
+                    final DateTime? previous = index > 1
+                        ? (_orders[index - 2].deliveredAt ??
+                              _orders[index - 2].cancelledAt)
+                        : null;
+                    final bool group =
+                        date != null &&
+                        (previous == null ||
+                            historyDate(previous) != historyDate(date));
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (group)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.sm,
                             ),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                            style: text.titleMedium?.copyWith(
-                              color: AppTheme.navy,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            items: const <DropdownMenuItem<String>>[
-                              DropdownMenuItem(
-                                value: 'today',
-                                child: Text('Hoy'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'week',
-                                child: Text('Últimos 7 días'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'month',
-                                child: Text('Este mes'),
-                              ),
-                            ],
-                            onChanged: (String? value) {
-                              if (value == null || value == _period) {
-                                return;
-                              }
-                              setState(() => _period = value);
-                              _load();
-                            },
-                          ),
-                          if (_summary != null) ...<Widget>[
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              'Tus ganancias del período',
+                            child: Text(
+                              historyDate(date),
                               style: text.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              '\$${_summary!['earnings']}',
-                              style: text.headlineLarge?.copyWith(
-                                color: AppTheme.tealDeep,
-                                fontWeight: FontWeight.w800,
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: _HistoryCard(
+                            padded: false,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xs,
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Row(
-                              children: <Widget>[
-                                const Icon(
-                                  Icons.check_rounded,
-                                  size: 20,
-                                  color: AppTheme.tealDeep,
+                              title: Text(
+                                order.restaurant.name,
+                                style: text.titleSmall?.copyWith(
+                                  color: OrderPresentation.ink,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    _summary!['deliveries'] == 1
-                                        ? '1 entrega completada'
-                                        : '${_summary!['deliveries']} entregas completadas',
-                                    style: text.bodyMedium,
+                              ),
+                              subtitle: Text(
+                                '#${order.id} · ${order.statusLabel} · '
+                                '${date == null ? 'Sin hora registrada' : TimeOfDay.fromDateTime(date).format(context)}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    order.status == 'delivered'
+                                        ? '\$${order.courierEarnings}'
+                                        : 'Sin comisión',
+                                    style: text.bodyMedium?.copyWith(
+                                      color: OrderPresentation.mint,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 20,
+                                    color: OrderPresentation.ink,
+                                  ),
+                                ],
+                              ),
+                              onTap: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => _HistoryDetail(order: order),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              'Entregas y propinas, no el efectivo cobrado.',
-                              style: text.bodySmall,
-                            ),
-                            if (_period != 'today') ...<Widget>[
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(_range!, style: text.bodySmall),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.sm,
-                      children: <Widget>[
-                        for (final MapEntry<String, String> filter
-                            in const <String, String>{
-                              'all': 'Todos',
-                              'delivered': 'Entregados',
-                              'cancelled': 'Cancelados',
-                            }.entries)
-                          ChoiceChip(
-                            label: Text(filter.value),
-                            selected: _status == filter.key,
-                            showCheckmark: false,
-                            selectedColor: AppTheme.tealSoft,
-                            backgroundColor: Colors.transparent,
-                            side: BorderSide.none,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.sm,
                               ),
                             ),
-                            labelStyle: text.labelLarge?.copyWith(
-                              color: _status == filter.key
-                                  ? AppTheme.tealDeep
-                                  : AppTheme.navy,
-                              fontWeight: _status == filter.key
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                            materialTapTargetSize: MaterialTapTargetSize.padded,
-                            onSelected: (bool selected) {
-                              if (!selected || _status == filter.key) {
-                                return;
-                              }
-                              setState(() => _status = filter.key);
-                              _load();
-                            },
                           ),
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                );
-              }
-              if (index == _orders.length + 1) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                  child: Column(
-                    children: <Widget>[
-                      if (_loading)
-                        const CircularProgressIndicator()
-                      else if (_error != null) ...<Widget>[
-                        Semantics(
-                          liveRegion: true,
-                          child: Text(_error!, textAlign: TextAlign.center),
-                        ),
-                        TextButton(
-                          onPressed: () => _load(more: _orders.isNotEmpty),
-                          child: const Text('Reintentar'),
-                        ),
-                      ] else if (_orders.isEmpty)
-                        Text(
-                          _status == 'cancelled'
-                              ? 'No tenés pedidos cancelados en este período.'
-                              : _status == 'delivered'
-                              ? 'No completaste entregas en este período.'
-                              : 'Todavía no tenés pedidos cerrados en este período.',
-                          textAlign: TextAlign.center,
-                        )
-                      else if (_next != null)
-                        OutlinedButton(
-                          onPressed: () => _load(more: true),
-                          child: const Text('Ver más'),
-                        ),
-                    ],
-                  ),
-                );
-              }
-              final Order order = _orders[index - 1];
-              final DateTime? date = order.deliveredAt ?? order.cancelledAt;
-              final DateTime? previous = index > 1
-                  ? (_orders[index - 2].deliveredAt ??
-                        _orders[index - 2].cancelledAt)
-                  : null;
-              final bool group =
-                  date != null &&
-                  (previous == null ||
-                      historyDate(previous) != historyDate(date));
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (group)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.sm,
-                      ),
-                      child: Text(
-                        historyDate(date),
-                        style: text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: _HistoryCard(
-                      padded: false,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.xs,
-                        ),
-                        title: Text(
-                          order.restaurant.name,
-                          style: text.titleSmall?.copyWith(
-                            color: AppTheme.navy,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '#${order.id} · ${order.statusLabel} · '
-                          '${date == null ? 'Sin hora registrada' : TimeOfDay.fromDateTime(date).format(context)}',
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
-                              order.status == 'delivered'
-                                  ? '\$${order.courierEarnings}'
-                                  : 'Sin comisión',
-                              style: text.bodyMedium?.copyWith(
-                                color: AppTheme.tealDeep,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              size: 20,
-                              color: AppTheme.navy,
-                            ),
-                          ],
-                        ),
-                        onTap: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => _HistoryDetail(order: order),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -367,7 +267,12 @@ class _HistoryDetail extends StatelessWidget {
   final Order order;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Theme(
+    data: OrderPresentation.theme(context),
+    child: Builder(builder: _buildDetail),
+  );
+
+  Widget _buildDetail(BuildContext context) {
     final Map<String, DateTime?> times = <String, DateTime?>{
       'Pedido creado': order.createdAt,
       'Aceptado por el restaurante': order.acceptedAt,
@@ -380,7 +285,7 @@ class _HistoryDetail extends StatelessWidget {
     final events = times.entries.where((entry) => entry.value != null).toList();
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: OrderPresentation.background,
         surfaceTintColor: Colors.transparent,
         title: Text(
           'Pedido #${order.id}',
@@ -401,8 +306,8 @@ class _HistoryDetail extends StatelessWidget {
               order.statusLabel,
               style: text.bodyMedium?.copyWith(
                 color: order.status == 'cancelled'
-                    ? AppTheme.coralDeep
-                    : AppTheme.tealDeep,
+                    ? OrderPresentation.coral
+                    : OrderPresentation.mint,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -427,7 +332,7 @@ class _HistoryDetail extends StatelessWidget {
                                 ? text.headlineLarge
                                 : text.titleMedium)
                             ?.copyWith(
-                              color: AppTheme.tealDeep,
+                              color: OrderPresentation.mint,
                               fontWeight: FontWeight.w800,
                             ),
                   ),
@@ -510,8 +415,8 @@ class _HistoryDetail extends StatelessWidget {
                                   Icons.circle,
                                   size: AppSpacing.sm,
                                   color: events[index].key == 'Cancelado'
-                                      ? AppTheme.coralDeep
-                                      : AppTheme.tealDeep,
+                                      ? OrderPresentation.coral
+                                      : OrderPresentation.mint,
                                 ),
                                 if (index < events.length - 1)
                                   Expanded(
