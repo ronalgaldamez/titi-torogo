@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
+import '../restaurant_sheets.dart';
 import '../../../models/restaurant.dart';
 import 'restaurant_status_repository.dart';
 import 'restaurant_local_content.dart';
@@ -28,9 +29,10 @@ import 'restaurant_categories_screen.dart';
 ///   No cierra nada. Alarga el tiempo de entrega un 50% (15 minutos pasan a 23)
 ///   para no prometer lo que la cocina no puede cumplir.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({this.onMenu, super.key});
+  const DashboardScreen({this.onMenu, this.onLogout, super.key});
 
   final VoidCallback? onMenu;
+  final VoidCallback? onLogout;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -163,6 +165,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     await _save(preparationMinimum: range.$1, preparationMaximum: range.$2);
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showRestaurantLogout(context);
+    if (confirmed && mounted) {
+      widget.onLogout?.call();
+    }
   }
 
   /// Lo que se le dice al dueno despues de guardar.
@@ -351,6 +360,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             },
           ),
+          if (widget.onLogout != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TU CUENTA',
+                    style: TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 1.8,
+                      color: AppTheme.discoveryMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DecoratedBox(
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.white12)),
+                    ),
+                    child: TextButton(
+                      key: const ValueKey('restaurant-local-logout'),
+                      onPressed: _saving ? null : _confirmLogout,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.discoveryAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 19),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout_rounded, size: 18),
+                          SizedBox(width: 13),
+                          Expanded(
+                            child: Text(
+                              'Cerrar sesión',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.north_east_rounded, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

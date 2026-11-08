@@ -34,7 +34,10 @@ class _RestauranteShellState extends State<RestauranteShell> {
         children: <Widget>[
           OrdersScreen(onLogout: widget.onLogout),
           RestaurantMenuScreen(onLogout: widget.onLogout),
-          DashboardScreen(onMenu: () => setState(() => _tab = 1)),
+          DashboardScreen(
+            onMenu: () => setState(() => _tab = 1),
+            onLogout: widget.onLogout,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBarTheme(

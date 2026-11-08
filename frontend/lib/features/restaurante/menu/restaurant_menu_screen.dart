@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../restaurant_sheets.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_storage.dart';
@@ -793,25 +794,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Future<void> _confirmLogout() async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('¿Cerrar sesión?'),
-        content: const Text('Vas a tener que volver a entrar con tu correo.'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Salir'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed ?? false) {
+    final confirmed = await showRestaurantLogout(context);
+    if (confirmed && mounted) {
       widget.onLogout?.call();
     }
   }
