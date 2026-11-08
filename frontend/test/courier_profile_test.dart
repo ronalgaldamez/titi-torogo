@@ -7,6 +7,21 @@ import 'package:torogo/core/theme.dart';
 import 'package:torogo/features/motorizado/courier_profile.dart';
 
 void main() {
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        finder,
+        150,
+        scrollable: find.byType(Scrollable).last,
+      );
+    }
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    expect(finder.hitTestable(), findsOneWidget);
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('El avatar se conserva por cuenta y los datos son de consulta', (
     tester,
   ) async {
@@ -32,11 +47,13 @@ void main() {
       }
 
       await openProfile();
-      await tester.tap(find.text('Cambiar avatar'));
+      await tapVisible(tester, find.text('Elegí tu avatar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Avatar 2'));
       await tester.pumpAndSettle();
       final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getInt('torogo_courier_avatar_1'), isNull);
+      await tapVisible(tester, find.text('Usar este avatar'));
       expect(preferences.getInt('torogo_courier_avatar_1'), 2);
       await openProfile();
       expect(find.text('MD'), findsNothing);
@@ -45,18 +62,18 @@ void main() {
             .assetName,
         'assets/avatars/avatar_2.png',
       );
-      await tester.tap(find.text('Información personal'));
+      await tapVisible(tester, find.text('Información personal'));
       await tester.pumpAndSettle();
-      expect(find.text('Correo electrónico'), findsOneWidget);
+      expect(find.text('CORREO ELECTRÓNICO'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
-      await tester.tap(find.text('Cerrar'));
+      await tapVisible(tester, find.text('Volver al perfil'));
       await tester.pumpAndSettle();
       userId = 2;
       await openProfile();
       expect(find.text('MD'), findsOneWidget);
-      await tester.tap(find.text('Cambiar avatar'));
+      await tapVisible(tester, find.text('Elegí tu avatar'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancelar'));
+      await tapVisible(tester, find.text('Cancelar'));
       await tester.pumpAndSettle();
       expect(preferences.getInt('torogo_courier_avatar_2'), isNull);
       expect(preferences.getInt('torogo_courier_avatar_1'), 2);
@@ -95,7 +112,7 @@ void main() {
       fail = false;
       await tester.tap(find.text('Reintentar'));
       await tester.pumpAndSettle();
-      expect(find.text('Motorizado Demo'), findsOneWidget);
+      expect(find.text('Motorizado\nDemo.'), findsOneWidget);
       expect(find.text('MD'), findsOneWidget);
       expect(find.text('moto@torogo.local'), findsOneWidget);
       expect(find.text('Sin conexión'), findsNothing);

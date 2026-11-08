@@ -65,6 +65,21 @@ void main() {
         );
       });
       addTearDown(client.close);
+      Future<void> tapVisible(Finder finder) async {
+        if (finder.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(
+            finder,
+            180,
+            scrollable: find.byType(Scrollable).first,
+          );
+        }
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        expect(finder.hitTestable(), findsOneWidget);
+        await tester.tap(finder);
+        await tester.pumpAndSettle();
+      }
+
       await http.runWithClient(() async {
         await tester.pumpWidget(
           MaterialApp(
@@ -74,7 +89,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text(r'$2.50').first, findsOneWidget);
-        await tester.tap(find.text('Restaurante'));
+        await tapVisible(find.text('Restaurante'));
         await tester.pumpAndSettle();
         expect(find.text('Tu ganancia'), findsOneWidget);
         expect(find.text(r'Entrega: $1.50 · Propina: $1.00'), findsOneWidget);
@@ -86,7 +101,7 @@ void main() {
         expect(find.text('Aceptado por el restaurante'), findsNothing);
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Cancelados'));
+        await tapVisible(find.text('Cancelados'));
         await tester.pumpAndSettle();
         expect(
           find.text('No tenés pedidos cancelados en este período.'),
@@ -94,12 +109,17 @@ void main() {
         );
         expect(find.text(r'$2.50').first, findsOneWidget);
         fail = true;
-        await tester.tap(find.text('Todos'));
+        await tapVisible(find.text('Todos'));
         await tester.pumpAndSettle();
         expect(find.text('Sin conexión'), findsOneWidget);
         fail = false;
-        await tester.tap(find.text('Reintentar'));
+        await tapVisible(find.text('Reintentar'));
         await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Restaurante'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('Restaurante'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }, () => client);

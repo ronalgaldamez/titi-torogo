@@ -476,6 +476,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (widget.onLogout != null)
             PopupMenuButton<String>(
               tooltip: 'Más opciones',
+              color: AppTheme.discoveryBackground,
+              surfaceTintColor: Colors.transparent,
               icon: const Icon(
                 Icons.more_vert,
                 size: 18,
@@ -485,7 +487,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
               itemBuilder: (_) => [
                 const PopupMenuItem(
                   value: 'logout',
-                  child: Text('Cerrar sesión'),
+                  child: Text(
+                    'Cerrar sesión',
+                    style: TextStyle(color: AppTheme.discoveryPaper),
+                  ),
                 ),
               ],
             ),

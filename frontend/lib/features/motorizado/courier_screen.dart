@@ -10,7 +10,9 @@ import '../../core/notifications.dart';
 import '../../core/realtime.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/live_chip.dart';
+import '../cliente/pedido/order_presentation.dart';
+import 'courier_presentation.dart';
+import 'courier_profile_content.dart';
 import '../../core/widgets/torogo_map.dart';
 import '../../models/order.dart';
 import 'courier_profile.dart';
@@ -526,29 +528,8 @@ class _CourierScreenState extends State<CourierScreen>
   }
 
   Future<void> _confirmLogout() async {
-    final bool confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (BuildContext dialogContext) => AlertDialog(
-            title: const Text('¿Cerrar sesión?'),
-            content: const Text(
-              'Vas a tener que volver a entrar con tu correo.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Salir'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (confirmed) {
+    final confirmed = await showCourierLogout(context);
+    if (confirmed && mounted) {
       _gps.setOrders({});
       widget.onLogout?.call();
     }
@@ -564,112 +545,116 @@ class _CourierScreenState extends State<CourierScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final String? date = _summary?['date'] as String?;
-    return PopScope(
-      canPop: _tab == 0,
-      onPopInvokedWithResult: (bool didPop, Object? result) {
-        if (!didPop) {
-          _selectTab(0);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: AppTheme.background,
-        appBar: _tab == 1
-            ? null
-            : AppBar(
-                backgroundColor: AppTheme.background,
-                surfaceTintColor: Colors.transparent,
-                elevation: 0,
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      _tab == 0 ? 'Mi día' : 'Perfil',
-                      style: text.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.navy,
-                      ),
-                    ),
-                    if (_tab == 0 && date != null)
-                      Text(
-                        historyDate(DateTime.parse(date)),
-                        style: text.bodySmall,
-                      ),
-                  ],
+  Widget build(BuildContext context) => Theme(
+    data: OrderPresentation.theme(context),
+    child: Builder(
+      builder: (context) => PopScope(
+        canPop: _tab == 0,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            _selectTab(0);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: OrderPresentation.background,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                if (_tab != 2) const CourierBrandHeader(),
+                Expanded(
+                  child: IndexedStack(
+                    index: _tab,
+                    children: [
+                      _body(),
+                      _tab == 1
+                          ? const CourierHistoryScreen(embedded: true)
+                          : const SizedBox.shrink(),
+                      _tab == 2
+                          ? CourierProfile(
+                              onLogout: widget.onLogout != null && !_busy
+                                  ? _confirmLogout
+                                  : null,
+                            )
+                          : const SizedBox.shrink(),
+                    ],
+                  ),
                 ),
-                actions: _tab == 0
-                    ? <Widget>[
-                        if (_connected) const LiveChip(),
-                        IconButton(
-                          onPressed: _busy ? null : _load,
-                          icon: const Icon(Icons.refresh_rounded),
-                          color: AppTheme.navy,
-                          tooltip: 'Actualizar',
-                        ),
-                      ]
-                    : null,
+                if (_tab == 0 && !_loading && _error == null) _orderActions(),
+              ],
+            ),
+          ),
+          bottomNavigationBar: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 76,
+              iconTheme: WidgetStateProperty.resolveWith(
+                (states) => IconThemeData(
+                  size: 20,
+                  color: states.contains(WidgetState.selected)
+                      ? OrderPresentation.background
+                      : OrderPresentation.muted,
+                ),
               ),
-        body: Column(
-          children: <Widget>[
-            Expanded(
-              child: IndexedStack(
-                index: _tab,
-                children: <Widget>[
-                  _body(),
-                  _tab == 1
-                      ? const CourierHistoryScreen(embedded: true)
-                      : const SizedBox.shrink(),
-                  _tab == 2
-                      ? CourierProfile(
-                          onLogout: widget.onLogout != null && !_busy
-                              ? _confirmLogout
-                              : null,
-                        )
-                      : const SizedBox.shrink(),
-                ],
+              labelTextStyle: WidgetStateProperty.resolveWith(
+                (states) => TextStyle(
+                  fontSize: 11,
+                  color: states.contains(WidgetState.selected)
+                      ? OrderPresentation.ink
+                      : OrderPresentation.muted,
+                ),
               ),
             ),
-            if (_tab == 0 && !_loading && _error == null) _orderActions(),
-          ],
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: _selectTab,
-          backgroundColor: Colors.white,
-          indicatorColor: AppTheme.tealSoft,
-          destinations: const <NavigationDestination>[
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded, color: AppTheme.tealDeep),
-              label: 'Inicio',
+            child: NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: _selectTab,
+              backgroundColor: OrderPresentation.background,
+              surfaceTintColor: Colors.transparent,
+              indicatorColor: OrderPresentation.coral,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  label: 'Inicio',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.history_outlined),
+                  label: 'Historial',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  label: 'Perfil',
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(
-                Icons.history_rounded,
-                color: AppTheme.tealDeep,
-              ),
-              label: 'Historial',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(
-                Icons.person_rounded,
-                color: AppTheme.tealDeep,
-              ),
-              label: 'Perfil',
-            ),
-          ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+
+  Widget _dayHeading() => CourierHeading(
+    eyebrow: 'CADA ENTREGA CUENTA',
+    title: 'Mi día',
+    subtitle: _summary?['date'] == null
+        ? 'Cada recorrido suma.'
+        : historyDate(DateTime.parse(_summary!['date'] as String)),
+    action: IconButton(
+      onPressed: _busy ? null : _load,
+      tooltip: 'Actualizar',
+      icon: const Icon(Icons.refresh_rounded, color: OrderPresentation.muted),
+    ),
+  );
 
   Widget _body() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 16),
+            child: _dayHeading(),
+          ),
+          const Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      );
     }
 
     if (_error != null) {
@@ -684,15 +669,12 @@ class _CourierScreenState extends State<CourierScreen>
 
     return RefreshIndicator(
       onRefresh: _load,
-      color: AppTheme.teal,
+      color: OrderPresentation.mint,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.xl,
-        ),
+        padding: const EdgeInsets.fromLTRB(24, 30, 24, 25),
         children: <Widget>[
+          _dayHeading(),
+          const SizedBox(height: 16),
           _AvailabilityCard(
             available: _available,
             busy: _busy,
@@ -711,7 +693,7 @@ class _CourierScreenState extends State<CourierScreen>
               contentPadding: EdgeInsets.zero,
               leading: const Icon(
                 Icons.gps_fixed_rounded,
-                color: AppTheme.tealDeep,
+                color: OrderPresentation.mint,
               ),
               title: Text(_gps.message),
               subtitle: const Text(
@@ -734,12 +716,25 @@ class _CourierScreenState extends State<CourierScreen>
             const SizedBox(height: AppSpacing.lg),
           ],
 
-          const _SectionTitle('PEDIDOS CERCA'),
+          Row(
+            children: [
+              const Expanded(child: CourierEyebrow('PEDIDOS CERCA')),
+              if (_connected) const OrderLiveLabel(),
+            ],
+          ),
+          const SizedBox(height: 23),
           if (!_available)
-            const _Hint('Ponete disponible para ver los pedidos que hay cerca.')
+            const CourierEmpty(
+              icon: Icons.two_wheeler_outlined,
+              title: 'Tu próxima ruta empieza aquí.',
+              message: 'Ponete disponible para ver los pedidos que hay cerca.',
+            )
           else if (_nearby.isEmpty)
-            const _Hint(
-              'No hay pedidos cerca por ahora. Deslizá para actualizar.',
+            const CourierEmpty(
+              icon: Icons.two_wheeler_outlined,
+              title: 'Todo listo para salir.',
+              message:
+                  'No hay pedidos cerca por ahora. Deslizá para actualizar.',
             )
           else
             for (final Order order in _nearby)
@@ -759,7 +754,7 @@ class _CourierScreenState extends State<CourierScreen>
       return const SizedBox.shrink();
     }
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: OrderPresentation.surface,
       child: SafeArea(
         top: false,
         bottom: false,
@@ -783,7 +778,7 @@ class _CourierScreenState extends State<CourierScreen>
                           ? null
                           : () => _advance(order, _stepFor(order)!),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.tealDeep,
+                        backgroundColor: OrderPresentation.mint,
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(48),
                         padding: const EdgeInsets.symmetric(
@@ -815,7 +810,6 @@ class _CourierScreenState extends State<CourierScreen>
   }
 }
 
-/// Ganancias del día, incluidas propinas; no representa todo el efectivo cobrado.
 class _DaySummary extends StatelessWidget {
   const _DaySummary({
     required this.summary,
@@ -825,157 +819,125 @@ class _DaySummary extends StatelessWidget {
   final Map<String, dynamic>? summary;
   final String? error;
   final VoidCallback onHistory;
-
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppRadius.image),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Tus ganancias de hoy',
-                  style: text.titleSmall?.copyWith(
-                    color: AppTheme.navy,
-                    fontWeight: FontWeight.w700,
-                  ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (error != null)
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            error!,
+            style: const TextStyle(color: OrderPresentation.ink),
+          ),
+        )
+      else
+        CourierEarnings(
+          eyebrow: 'LO QUE TE GANASTE HOY',
+          earnings: summary?['earnings']?.toString() ?? '0.00',
+          deliveries: summary?['deliveries'] as int? ?? 0,
+        ),
+      const SizedBox(height: 23),
+      DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: OrderPresentation.line),
+            bottom: BorderSide(color: OrderPresentation.line),
+          ),
+        ),
+        child: TextButton(
+          onPressed: onHistory,
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 19),
+            foregroundColor: OrderPresentation.coral,
+          ),
+          child: const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ver historial de entregas',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                if (error != null)
-                  Text(
-                    error!,
-                    style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-                  )
-                else ...<Widget>[
-                  Text(
-                    '\$${summary?['earnings'] ?? '0.00'}',
-                    style: text.headlineLarge?.copyWith(
-                      color: AppTheme.tealDeep,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.check_rounded,
-                        color: AppTheme.tealDeep,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          summary?['deliveries'] == 1
-                              ? '1 entrega completada'
-                              : '${summary?['deliveries'] ?? 0} entregas completadas',
-                          style: text.bodyMedium?.copyWith(
-                            color: AppTheme.navy,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Entregas y propinas, no el efectivo cobrado.',
-                    style: text.bodySmall,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          InkWell(
-            onTap: onHistory,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Ver historial de entregas',
-                      style: text.labelLarge?.copyWith(
-                        color: AppTheme.tealDeep,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 20,
-                    color: AppTheme.tealDeep,
-                  ),
-                ],
               ),
-            ),
+              Icon(Icons.arrow_forward_rounded, size: 18),
+            ],
           ),
-        ],
+        ),
       ),
-    );
-  }
+    ],
+  );
 }
 
-/// El interruptor de Disponible / No disponible.
 class _AvailabilityCard extends StatelessWidget {
   const _AvailabilityCard({
     required this.available,
     required this.busy,
     required this.onChanged,
   });
-
   final bool available;
   final bool busy;
   final ValueChanged<bool> onChanged;
-
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: available ? AppTheme.mint : colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.image),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  available ? 'Estás disponible' : 'No estás disponible',
-                  style: text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.navy,
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 25),
+    decoration: const BoxDecoration(
+      border: Border(bottom: BorderSide(color: OrderPresentation.line)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.circle,
+                    size: 6,
+                    color: available
+                        ? OrderPresentation.mint
+                        : OrderPresentation.muted,
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  available
-                      ? 'Recibiendo pedidos cercanos'
-                      : 'Ponete disponible cuando salgas a repartir.',
-                  style: text.bodySmall?.copyWith(
-                    color: available ? AppTheme.navy : colors.onSurfaceVariant,
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      available ? 'Disponible para repartir' : 'Fuera de ruta',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: OrderPresentation.ink,
+                      ),
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Text(
+                available
+                    ? 'Ya podés ver los pedidos disponibles.'
+                    : 'Activá tu disponibilidad al salir a repartir.',
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.65,
+                  color: OrderPresentation.muted,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Switch(value: available, onChanged: busy ? null : onChanged),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(width: 17),
+        Switch(
+          value: available,
+          onChanged: busy ? null : onChanged,
+          activeTrackColor: OrderPresentation.coral,
+          activeThumbColor: OrderPresentation.background,
+          inactiveTrackColor: const Color(0xFF496570),
+          inactiveThumbColor: OrderPresentation.ink,
+          trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Un pedido disponible: donde se recoge, a donde va y cuanto se gana.
@@ -1014,7 +976,7 @@ class _AvailableCard extends StatelessWidget {
                 '#${order.id}',
                 style: text.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.navy,
+                  color: OrderPresentation.ink,
                 ),
               ),
               if (order.distanceKm != null)
@@ -1024,13 +986,13 @@ class _AvailableCard extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.tealSoft,
+                    color: OrderPresentation.surface,
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
                     '${order.distanceKm!.toStringAsFixed(1)} km al restaurante',
                     style: text.labelSmall?.copyWith(
-                      color: AppTheme.tealDeep,
+                      color: OrderPresentation.mint,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1042,7 +1004,7 @@ class _AvailableCard extends StatelessWidget {
                   Text(
                     '\$${order.courierEarnings}',
                     style: text.titleLarge?.copyWith(
-                      color: AppTheme.tealDeep,
+                      color: OrderPresentation.mint,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1130,7 +1092,7 @@ class _MyOrderCard extends StatelessWidget {
                 '#${order.id}',
                 style: text.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.navy,
+                  color: OrderPresentation.ink,
                 ),
               ),
               Container(
@@ -1139,7 +1101,7 @@ class _MyOrderCard extends StatelessWidget {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.tealDeep,
+                  color: OrderPresentation.mint,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
@@ -1158,7 +1120,7 @@ class _MyOrderCard extends StatelessWidget {
                 ? 'Llevá el pedido al cliente'
                 : 'Andá al restaurante a recoger',
             style: text.titleMedium?.copyWith(
-              color: AppTheme.navy,
+              color: OrderPresentation.ink,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1188,7 +1150,7 @@ class _MyOrderCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppTheme.tealSoft,
+              color: OrderPresentation.surface,
               borderRadius: BorderRadius.circular(AppRadius.image),
             ),
             child: Column(
@@ -1198,7 +1160,7 @@ class _MyOrderCard extends StatelessWidget {
                 Text(
                   '\$${order.total}',
                   style: text.titleLarge?.copyWith(
-                    color: AppTheme.navy,
+                    color: OrderPresentation.ink,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1206,7 +1168,7 @@ class _MyOrderCard extends StatelessWidget {
                 Text(
                   'Tu ganancia: \$${order.courierEarnings}',
                   style: text.titleSmall?.copyWith(
-                    color: AppTheme.tealDeep,
+                    color: OrderPresentation.mint,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1229,7 +1191,7 @@ class _MyOrderCard extends StatelessWidget {
                 latitude: order.restaurant.latitude,
                 longitude: order.restaurant.longitude,
                 icon: Icons.storefront_rounded,
-                color: AppTheme.teal,
+                color: OrderPresentation.mint,
               ),
               MapPoint(
                 latitude: order.delivery!.latitude,
@@ -1246,7 +1208,7 @@ class _MyOrderCard extends StatelessWidget {
                   ? order.delivery!.longitude
                   : order.restaurant.longitude,
               icon: delivering ? Icons.place_rounded : Icons.storefront_rounded,
-              color: AppTheme.tealDeep,
+              color: OrderPresentation.mint,
             ),
             key: ValueKey('${order.id}-${order.status}'),
             height: 160,
@@ -1263,7 +1225,7 @@ class _MyOrderCard extends StatelessWidget {
                     : 'Cómo llegar al restaurante',
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.tealDeep,
+                foregroundColor: OrderPresentation.mint,
                 minimumSize: const Size.fromHeight(48),
               ),
             ),
@@ -1290,7 +1252,7 @@ class _Place extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Icon(icon, size: 16, color: AppTheme.teal),
+        Icon(icon, size: 16, color: OrderPresentation.mint),
         const SizedBox(width: 6),
         Text(
           '$title ',
@@ -1300,7 +1262,7 @@ class _Place extends StatelessWidget {
           child: Text(
             value,
             style: text.bodySmall?.copyWith(
-              color: AppTheme.navy,
+              color: OrderPresentation.ink,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1325,43 +1287,10 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         title,
         style: text.labelMedium?.copyWith(
-          color: AppTheme.teal,
+          color: OrderPresentation.mint,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
         ),
-      ),
-    );
-  }
-}
-
-/// Una linea de explicacion, cuando no hay nada que mostrar.
-class _Hint extends StatelessWidget {
-  const _Hint(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Icon(
-            Icons.delivery_dining_outlined,
-            color: AppTheme.tealDeep,
-            size: 24,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1393,21 +1322,21 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 48, color: AppTheme.teal),
+            Icon(icon, size: 48, color: OrderPresentation.mint),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
               textAlign: TextAlign.center,
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+                color: OrderPresentation.ink,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: OrderPresentation.ink),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),
