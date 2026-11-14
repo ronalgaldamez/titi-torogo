@@ -170,7 +170,7 @@ class OrderController extends Controller
             $courier = User::query()
                 ->where('role', UserRole::Courier->value)
                 ->where('is_active', true)
-                ->find($data['courier_id']);
+                ->lockForUpdate()->find($data['courier_id']);
 
             if ($courier === null) {
                 return back()->with('error', 'Ese motorizado no está activo.');
@@ -178,6 +178,9 @@ class OrderController extends Controller
 
             if ($order->courier_id === $courier->id) {
                 return back()->with('status', 'Ese motorizado ya tiene el pedido asignado.');
+            }
+            if ($courier->hasActiveDelivery($order->id)) {
+                return back()->with('error', 'Ese motorizado ya lleva otro pedido. Elegí uno libre.');
             }
             $previous = $order->status->value;
 

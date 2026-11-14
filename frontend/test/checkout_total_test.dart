@@ -15,7 +15,7 @@ import 'package:torogo/features/cliente/pedido/pending_order_storage.dart';
 import 'package:torogo/models/product.dart';
 
 void main() {
-  for (final int status in <int>[201, 200, 500, 0, -1]) {
+  for (final int status in <int>[201, 200, 422, 500, 0, -1]) {
     testWidgets(
       'El checkout conserva total e intento (respuesta $status; 0=corte, -1=timeout)',
       (WidgetTester tester) async {
@@ -145,6 +145,18 @@ void main() {
             expect(body.containsKey('total'), isFalse);
             expect(body['tip_amount'], '1.00');
             expect(body['expected_delivery_fee'], '2.00');
+            if (submissions == 1 && status == 422) {
+              return http.Response(
+                jsonEncode({
+                  'errors': {
+                    'courier': [
+                      'Por ahora no hay motoristas disponibles. Tu carrito sigue guardado; intentá en unos minutos.',
+                    ],
+                  },
+                }),
+                422,
+              );
+            }
             if (submissions == 1 && status == -1) {
               return Completer<http.Response>().future;
             }
@@ -241,6 +253,26 @@ void main() {
           expect(tester.getRect(confirm), confirmPosition);
           await tester.tap(confirm);
           await tester.pumpAndSettle();
+
+          if (status == 422) {
+            expect(find.byType(OrderSentScreen), findsNothing);
+            expect(
+              find.text(
+                'Por ahora no hay motoristas disponibles. Tu carrito sigue guardado; intentá en unos minutos.',
+              ),
+              findsOneWidget,
+            );
+            expect(container.read(cartProvider).quantityOf(3), 1);
+            expect(find.text('Recuperar pedido'), findsNothing);
+            expect(confirm.hitTestable(), findsOneWidget);
+            expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+            await tester.runAsync(() async {
+              expect(await PendingOrderStorage().load(9), isNull);
+            });
+            expect(submissions, 1);
+            expect(tester.takeException(), isNull);
+            return;
+          }
 
           ProviderContainer activeContainer = container;
           if (status <= 0 || status == 500) {

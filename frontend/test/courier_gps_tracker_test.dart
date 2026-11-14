@@ -44,6 +44,111 @@ Position sample({double accuracy = 12, DateTime? time}) => Position(
 
 void main() {
   testWidgets(
+    'Disponible sin entregas publica GPS real y deja de publicar al salir',
+    (tester) async {
+      final positions = StreamController<Position>();
+      var presence = 0;
+      final presenceRequests = <http.Request>[];
+      var failConnection = true;
+      final client = MockClient((request) async {
+        if (request.method == 'GET') {
+          return http.Response('{"orders":[]}', 200);
+        }
+        presenceRequests.add(request);
+        presence++;
+        return failConnection
+            ? http.Response('{"message":"Sin conexión"}', 503)
+            : http.Response('{"accepted":true}', 200);
+      });
+      final tracker = CourierGpsTracker(
+        repository: () async =>
+            CourierOrderRepository(ApiClient(client: client)),
+        positionSource: (_) async => positions.stream,
+        onAssignmentsChanged: () {},
+      );
+      addTearDown(tracker.dispose);
+      addTearDown(positions.close);
+      addTearDown(client.close);
+      tracker.setAvailable(true);
+      await tracker.start();
+      positions.add(sample(accuracy: 200));
+      positions.add(
+        sample(time: DateTime.now().subtract(const Duration(minutes: 5))),
+      );
+      await tester.pump();
+      expect(presence, 0);
+      positions.add(sample());
+      await tester.pumpAndSettle();
+      expect(presence, 1, reason: tracker.message);
+      // Fuera del callback HTTP: expect() no debe competir con tester.pump().
+      expect(presenceRequests.single.method, 'PATCH');
+      expect(presenceRequests.single.url.path, endsWith('/courier/presence'));
+      expect(jsonDecode(presenceRequests.single.body)['accuracy'], 12);
+      expect(tracker.message, contains('Reintentaremos'));
+      failConnection = false;
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(presence, 2);
+      expect(tracker.message, contains('Disponible para recibir'));
+      tracker.setAvailable(false);
+      expect(tracker.running, isFalse);
+      await tester.pump(const Duration(seconds: 20));
+      positions.add(sample());
+      await tester.pump();
+      expect(presence, 2);
+    },
+  );
+
+  testWidgets(
+    'Terminar entrega mantiene presencia solo mientras sigue disponible',
+    (tester) async {
+      final positions = StreamController<Position>();
+      var assigned = true;
+      var presence = 0;
+      var delivery = 0;
+      final client = MockClient((request) async {
+        if (request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'orders': assigned ? [gpsOrder()] : [],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/presence')) {
+          presence++;
+        } else {
+          delivery++;
+        }
+        return http.Response('{"accepted":true}', 200);
+      });
+      final tracker = CourierGpsTracker(
+        repository: () async =>
+            CourierOrderRepository(ApiClient(client: client)),
+        positionSource: (_) async => positions.stream,
+        onAssignmentsChanged: () {},
+      );
+      addTearDown(tracker.dispose);
+      addTearDown(positions.close);
+      addTearDown(client.close);
+      tracker.setAvailable(true);
+      tracker.setOrders({1});
+      await tracker.start();
+      positions.add(sample());
+      await tester.pumpAndSettle();
+      expect(delivery, 1);
+      assigned = false;
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(delivery, 1);
+      expect(presence, 2);
+      expect(tracker.running, isTrue);
+      tracker.setAvailable(false);
+      expect(tracker.running, isFalse);
+    },
+  );
+
+  testWidgets(
     'Sin permiso no hay captura; el reintento explícito puede iniciar y detener GPS',
     (tester) async {
       final positions = StreamController<Position>();

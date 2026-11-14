@@ -11,12 +11,15 @@ use App\Http\Resources\AvailableOrderResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\UserResource;
 use App\Models\Order;
+use App\Models\User;
+use App\Support\CourierAvailability;
 use App\Support\Geometry;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Los pedidos vistos por el motorizado.
@@ -30,7 +33,7 @@ class CourierOrderController extends Controller
     /**
      * Radio de busqueda por defecto, en kilometros. La biblia dice 5 km.
      */
-    private const DEFAULT_RADIUS_KM = 5.0;
+    private const DEFAULT_RADIUS_KM = CourierAvailability::RADIUS_KM;
 
     /**
      * PATCH /api/courier/availability
@@ -39,16 +42,16 @@ class CourierOrderController extends Controller
      */
     public function updateAvailability(UpdateAvailabilityRequest $request): JsonResponse
     {
-        $user = $request->user();
+        return DB::transaction(function () use ($request) {
+            $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            $user->is_available = $request->validated('is_available');
+            $user->save();
+            Cache::forget(CourierAvailability::key($user->id));
 
-        // El modelo sale de la sesion: 'is_available' no es fillable a
-        // proposito, asi que se asigna explicito.
-        $user->is_available = $request->validated('is_available');
-        $user->save();
-
-        return response()->json([
-            'user' => new UserResource($user),
-        ]);
+            return response()->json([
+                'user' => new UserResource($user),
+            ]);
+        });
     }
 
     /** Pedidos cerrados asociados al motorizado, por fecha de cierre. */
@@ -214,7 +217,15 @@ class CourierOrderController extends Controller
                     'order' => 'Ese pedido ya no está disponible.',
                 ]);
             }
-            $model->courier_id = $request->user()->id;
+            // La misma fila se bloquea también al asignar desde el administrador.
+            $courier = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($courier->is_active && $courier->hasRole(\App\Enums\UserRole::Courier), 403, 'Tu cuenta de motorizado no está activa.');
+            if ($courier->hasActiveDelivery()) {
+                throw ValidationException::withMessages([
+                    'order' => 'Terminá tu entrega actual antes de tomar otro pedido.',
+                ]);
+            }
+            $model->courier_id = $courier->id;
             $model->save();
 
             // Avisa al cliente QUIEN le va a llevar el pedido.

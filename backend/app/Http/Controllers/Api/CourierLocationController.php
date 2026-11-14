@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
+use App\Models\User;
+use App\Support\CourierAvailability;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateCourierLocationRequest;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,28 @@ use Illuminate\Support\Facades\DB;
 
 class CourierLocationController extends Controller
 {
+    public function presence(UpdateCourierLocationRequest $request): JsonResponse
+    {
+        return DB::transaction(function () use ($request) {
+            $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($user->is_active && $user->is_available, 409, 'Activá tu disponibilidad para recibir pedidos.');
+            $key = CourierAvailability::key($user->id);
+            $captured = Carbon::parse($request->validated('captured_at'));
+            $previous = Cache::get($key);
+            if ($previous !== null && Carbon::parse($previous['captured_at'])->gte($captured)) {
+                return response()->json(['accepted' => false]);
+            }
+            Cache::put($key, [
+                'latitude' => (float) $request->validated('latitude'),
+                'longitude' => (float) $request->validated('longitude'),
+                'captured_at' => $captured->toISOString(),
+                'received_at' => now()->toIso8601String(),
+            ], now()->addMinutes(2));
+
+            return response()->json(['accepted' => true]);
+        });
+    }
+
     public function update(UpdateCourierLocationRequest $request, int $order): JsonResponse
     {
         return DB::transaction(function () use ($request, $order) {

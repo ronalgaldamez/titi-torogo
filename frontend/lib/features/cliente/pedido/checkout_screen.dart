@@ -53,6 +53,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _loading = true;
   bool _sending = false;
   String? _error;
+  final ScrollController _scroll = ScrollController();
   String _selectedTip = '0.00';
   bool _customTip = false;
   final TextEditingController _tipController = TextEditingController();
@@ -60,6 +61,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void dispose() {
     _tipController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -434,6 +436,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         }
         _error = message;
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) {
+          return;
+        }
+        if (_scroll.hasClients) {
+          await _scroll.animateTo(
+            _scroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
+      });
       if (pending == null &&
           error is ApiException &&
           error.statusCode == 422 &&
@@ -476,6 +490,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
+                controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md,
                   0,

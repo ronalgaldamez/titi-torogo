@@ -9,6 +9,8 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\CourierAvailability;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -115,6 +117,7 @@ class AuthController extends Controller
         // El "?->" cubre el caso de una sesion por cookie en vez de token:
         // ahi currentAccessToken() devuelve null y no hay token que borrar.
         $request->user()->currentAccessToken()?->delete();
+        Cache::forget(CourierAvailability::key($request->user()->id));
 
         return response()->json([
             'message' => 'Sesion cerrada.',

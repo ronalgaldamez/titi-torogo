@@ -60,7 +60,8 @@ class LandingPageTest extends TestCase
                 ->assertSee('Francisco Ronal Galdamez Funes')
                 ->assertSee('mailto:torogoappsv@gmail.com', false);
         }
-        $this->get('/informacion/privacidad')->assertSee('Ubicación durante las entregas');
+        $this->get('/informacion/privacidad')->assertSee('Ubicación para disponibilidad y entregas')
+            ->assertSee('Mientras el motorista mantiene Disponible activado');
         $this->get('/informacion/terminos')->assertSee('cinco minutos')->assertSee('Tejutla');
         $this->get('/informacion/cookies')->assertSee('XSRF-TOKEN')->assertSee('no guarda consentimiento');
         $this->get('/informacion/invalido')->assertNotFound();

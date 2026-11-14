@@ -11,6 +11,23 @@ class CourierOrderRepository {
 
   final ApiClient _api;
 
+  Future<void> sendPresence({
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+    required DateTime capturedAt,
+  }) async {
+    await _api.patch(
+      '/courier/presence',
+      body: {
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracy': accuracy,
+        'captured_at': capturedAt.toUtc().toIso8601String(),
+      },
+    );
+  }
+
   Future<void> sendLocation(
     int orderId, {
     required double latitude,
