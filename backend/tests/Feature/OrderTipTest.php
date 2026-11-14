@@ -100,6 +100,13 @@ class OrderTipTest extends TestCase
             'restaurant_id' => $restaurant, 'name' => 'Sub', 'price' => '4.00',
             'is_available' => true,
         ]);
+        $courier = User::factory()->courier()->create();
+        $courier->is_available = true;
+        $courier->save();
+        \Illuminate\Support\Facades\Cache::put(\App\Support\CourierAvailability::key($courier->id), [
+            'latitude' => 14.1, 'longitude' => -89.1,
+            'captured_at' => now()->toISOString(), 'received_at' => now()->toISOString(),
+        ], now()->addMinutes(2));
         Sanctum::actingAs($client);
         $this->payload = [
             'expected_delivery_fee' => '2.00',

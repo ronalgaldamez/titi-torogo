@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/api_client.dart';
 import 'courier_order_repository.dart';
 
-/// Comparte únicamente posiciones nuevas del GPS mientras hay entregas propias.
+/// Publica presencia al estar disponible y GPS privado durante entregas propias.
 class CourierGpsTracker extends ChangeNotifier {
   CourierGpsTracker({
     required this.repository,
@@ -18,6 +18,8 @@ class CourierGpsTracker extends ChangeNotifier {
   final VoidCallback onAssignmentsChanged;
   final Future<Stream<Position>> Function(bool ask) positionSource;
   Set<int> _orders = {};
+  bool _available = false;
+  bool get _needed => _available || _orders.isNotEmpty;
   StreamSubscription<Position>? _subscription;
   Timer? _timer;
   Position? _latest;
@@ -27,25 +29,33 @@ class CourierGpsTracker extends ChangeNotifier {
   bool _disposed = false;
   int _generation = 0;
   String message =
-      'Activá el GPS para compartir tu ubicación durante la entrega.';
+      'Activá el GPS para recibir pedidos y compartir tu ubicación durante la entrega.';
   bool get running => _subscription != null;
+  Position? get latestPosition => _latest;
+
+  void setAvailable(bool value) {
+    _available = value;
+    if (!_needed) {
+      _stop();
+    }
+  }
 
   void setOrders(Set<int> ids) {
     _orders = {...ids};
-    if (ids.isEmpty) {
+    if (!_needed) {
       _stop();
     }
   }
 
   Future<void> start({bool ask = false}) async {
-    if (_disposed || _starting || running || _orders.isEmpty) {
+    if (_disposed || _starting || running || !_needed) {
       return;
     }
     _starting = true;
     final generation = _generation;
     try {
       final stream = await positionSource(ask);
-      if (_disposed || generation != _generation || _orders.isEmpty) {
+      if (_disposed || generation != _generation || !_needed) {
         return;
       }
       _subscription = stream.listen(
@@ -96,7 +106,7 @@ class CourierGpsTracker extends ChangeNotifier {
   }
 
   Future<void> _send() async {
-    if (_disposed || _sending || _orders.isEmpty) {
+    if (_disposed || _sending || !_needed) {
       return;
     }
     _sending = true;
@@ -116,7 +126,7 @@ class CourierGpsTracker extends ChangeNotifier {
         _orders = ids;
         onAssignmentsChanged();
       }
-      if (_orders.isEmpty) {
+      if (!_needed) {
         _stop();
         return;
       }
@@ -126,6 +136,25 @@ class CourierGpsTracker extends ChangeNotifier {
               const Duration(seconds: 30)) {
         _message('Esperando una posición GPS reciente y precisa.');
         return;
+      }
+      if (_available) {
+        try {
+          await api.sendPresence(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracy: position.accuracy,
+            capturedAt: position.timestamp,
+          );
+        } on ApiException catch (error) {
+          if (error.statusCode != 409) {
+            rethrow;
+          }
+          _available = false;
+          onAssignmentsChanged();
+        }
+        if (_disposed || generation != _generation) {
+          return;
+        }
       }
       for (final id in {..._orders}) {
         if (_disposed || generation != _generation || !_orders.contains(id)) {
@@ -151,16 +180,21 @@ class CourierGpsTracker extends ChangeNotifier {
       if (_disposed || generation != _generation) {
         return;
       }
-      if (_orders.isEmpty) {
+      if (!_needed) {
         _stop();
       } else {
-        _message('GPS activo · Compartiendo ubicación durante tus entregas.');
+        _message(
+          _orders.isEmpty
+              ? 'GPS activo · Disponible para recibir pedidos cerca.'
+              : 'GPS activo · Compartiendo ubicación durante tus entregas.',
+        );
       }
     } on ApiException catch (error) {
       if (_disposed || generation != _generation) {
         return;
       }
       if (error.statusCode == 401 || error.statusCode == 403) {
+        _available = false;
         _orders.clear();
         _stop();
         _message('GPS detenido. Volvé a iniciar sesión para continuar.');
@@ -235,9 +269,9 @@ class CourierGpsTracker extends ChangeNotifier {
             distanceFilter: 0,
             intervalDuration: const Duration(seconds: 10),
             foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: 'Toro Go · Entrega en curso',
+              notificationTitle: 'Toro Go · GPS activo',
               notificationText:
-                  'Compartiendo tu ubicación con el cliente. Se detiene al finalizar tus entregas.',
+                  'Ubicación activa mientras estás disponible o llevás una entrega. Solo tu cliente ve el GPS de su pedido.',
               notificationChannelName: 'Seguimiento de entregas',
               enableWakeLock: true,
               setOngoing: true,

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -92,6 +93,14 @@ class User extends Authenticatable
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function hasActiveDelivery(?int $exceptOrder = null): bool
+    {
+        return $this->courierOrders()
+            ->whereNotIn('status', OrderStatus::finalValues())
+            ->when($exceptOrder !== null, fn ($query) => $query->where('id', '!=', $exceptOrder))
+            ->exists();
     }
 
     /**

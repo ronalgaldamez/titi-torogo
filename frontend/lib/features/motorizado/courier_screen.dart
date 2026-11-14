@@ -21,7 +21,7 @@ import 'pedidos/courier_gps_tracker.dart';
 import 'pedidos/courier_history_screen.dart';
 
 /// Destino del siguiente tramo de la entrega.
-Uri courierDirectionsUri(Order order) {
+Uri courierDirectionsUri(Order order, {Place? origin}) {
   final bool delivering = order.status == 'picked_up';
   final double latitude = delivering
       ? order.delivery!.latitude
@@ -31,6 +31,8 @@ Uri courierDirectionsUri(Order order) {
       : order.restaurant.longitude;
   return Uri.https('www.google.com', '/maps/dir/', <String, String>{
     'api': '1',
+    if (origin != null && origin.isReal && !origin.isApproximate)
+      'origin': '${origin.latitude},${origin.longitude}',
     'destination': '$latitude,$longitude',
     'travelmode': 'driving',
   });
@@ -124,10 +126,26 @@ class _CourierScreenState extends State<CourierScreen>
   }
 
   void _gpsChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) {
+      return;
+    }
+    final position = _gps.latestPosition;
+    setState(() {
+      if (position != null &&
+          DateTime.now().difference(position.timestamp) <=
+              const Duration(seconds: 30)) {
+        _place = Place(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracyMeters: position.accuracy,
+          isReal: true,
+        );
+      }
+    });
   }
 
   void _syncGps() {
+    _gps.setAvailable(_available);
     _gps.setOrders(
       _mine
           .where((o) => o.status == 'ready' || o.status == 'picked_up')
@@ -508,8 +526,20 @@ class _CourierScreenState extends State<CourierScreen>
 
   Future<void> _navigate(Order order) async {
     try {
+      final position = _gps.latestPosition;
+      final origin =
+          position != null &&
+              DateTime.now().difference(position.timestamp) <=
+                  const Duration(seconds: 30)
+          ? Place(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracyMeters: position.accuracy,
+              isReal: true,
+            )
+          : null;
       if (await launchUrl(
-        courierDirectionsUri(order),
+        courierDirectionsUri(order, origin: origin),
         mode: LaunchMode.externalApplication,
       )) {
         return;
@@ -530,6 +560,7 @@ class _CourierScreenState extends State<CourierScreen>
   Future<void> _confirmLogout() async {
     final confirmed = await showCourierLogout(context);
     if (confirmed && mounted) {
+      _gps.setAvailable(false);
       _gps.setOrders({});
       widget.onLogout?.call();
     }
@@ -688,7 +719,7 @@ class _CourierScreenState extends State<CourierScreen>
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          if (_mine.isNotEmpty) ...<Widget>[
+          if (_available || _mine.isNotEmpty) ...<Widget>[
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(
@@ -697,7 +728,7 @@ class _CourierScreenState extends State<CourierScreen>
               ),
               title: Text(_gps.message),
               subtitle: const Text(
-                'Solo durante pedidos asignados. No se comparte una ubicación de respaldo.',
+                'Activo mientras estás disponible o llevás una entrega. Solo el cliente de tu pedido ve tu ubicación.',
               ),
               trailing: _gps.running
                   ? null
@@ -728,6 +759,12 @@ class _CourierScreenState extends State<CourierScreen>
               icon: Icons.two_wheeler_outlined,
               title: 'Tu próxima ruta empieza aquí.',
               message: 'Ponete disponible para ver los pedidos que hay cerca.',
+            )
+          else if (_mine.isNotEmpty)
+            const CourierEmpty(
+              icon: Icons.two_wheeler_outlined,
+              title: 'Una entrega a la vez.',
+              message: 'Terminá tu pedido actual para tomar otro.',
             )
           else if (_nearby.isEmpty)
             const CourierEmpty(

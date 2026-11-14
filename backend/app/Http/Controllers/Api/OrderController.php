@@ -13,6 +13,7 @@ use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\Restaurant;
 use App\Support\Money;
+use App\Support\CourierAvailability;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -153,6 +154,12 @@ class OrderController extends Controller
         if (bccomp((string) $request->validated('expected_delivery_fee'), $prices['delivery_fee'], 2) !== 0) {
             throw ValidationException::withMessages([
                 'expected_delivery_fee' => 'Cambió el costo del envío. Revisá el nuevo total antes de confirmar.',
+            ]);
+        }
+
+        if (! CourierAvailability::near($restaurant)) {
+            throw ValidationException::withMessages([
+                'courier' => 'Por ahora no hay motoristas disponibles. Tu carrito sigue guardado; intentá en unos minutos.',
             ]);
         }
 

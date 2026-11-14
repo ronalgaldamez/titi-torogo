@@ -16,7 +16,8 @@ return [
                 'Para qué se utilizan' => [
                     'Para gestionar cuentas, comprobar cobertura, tramitar pedidos, coordinar entregas, mostrar su seguimiento privado, atender incidencias y proteger el servicio. La visita a esta página no se interpreta como autorización general para publicidad ni otros usos ajenos a esas finalidades.',
                 ],
-                'Ubicación durante las entregas' => [
+                'Ubicación para disponibilidad y entregas' => [
+                    'Mientras el motorista mantiene Disponible activado, la app envía su última ubicación precisa para comprobar si hay un motorista libre cerca del restaurante antes de admitir pedidos nuevos. Esta presencia caduca en menos de dos minutos sin nuevas posiciones y no se muestra a clientes ni restaurantes. Al desactivar la disponibilidad y no tener entregas, la captura se detiene.',
                     'La app solicita los permisos de ubicación necesarios. El motorista asignado puede compartir su posición durante una entrega activa, incluso con la pantalla bloqueada mientras el seguimiento esté funcionando. El cliente del pedido puede consultar esa posición cuando corresponde.',
                     'El backend conserva la última posición en caché hasta dos minutos y no crea un historial GPS del recorrido. Al finalizar la entrega deja de estar disponible para su seguimiento. Esto no borra el registro del pedido, su dirección ni necesariamente los registros técnicos o respaldos.',
                 ],
