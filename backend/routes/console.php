@@ -29,3 +29,5 @@ Artisan::command('orders:expire-pending', function () {
 })->purpose('Cancelar pedidos nuevos sin respuesta del restaurante');
 
 Schedule::command('orders:expire-pending')->everyTenSeconds()->withoutOverlapping();
+
+Schedule::command('backups:run')->everyMinute()->runInBackground();

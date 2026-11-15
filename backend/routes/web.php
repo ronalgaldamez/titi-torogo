@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\RestaurantCategoryController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Admin\LandingPageController;
+use App\Http\Controllers\Admin\BackupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +52,10 @@ Route::prefix('admin')->group(function (): void {
     // ---------------------- Con sesion: el panel ----------------------
 
     Route::middleware(['auth', 'admin'])->group(function (): void {
+        Route::get('/respaldos', [BackupController::class, 'index'])->name('admin.backups.index');
+        Route::post('/respaldos', [BackupController::class, 'store'])->middleware('throttle:5,1')->name('admin.backups.store');
+        Route::put('/respaldos/programacion', [BackupController::class, 'update'])->middleware('throttle:10,1')->name('admin.backups.update');
+        Route::get('/respaldos/{backup}/descargar', [BackupController::class, 'download'])->middleware('throttle:10,1')->name('admin.backups.download');
         Route::get('/pagina-web', [LandingPageController::class, 'edit'])->name('admin.landing.edit');
         Route::put('/pagina-web', [LandingPageController::class, 'update'])->middleware('throttle:30,1')->name('admin.landing.update');
         Route::get('/', [DashboardController::class, 'index'])

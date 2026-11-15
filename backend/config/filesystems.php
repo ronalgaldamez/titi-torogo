@@ -30,6 +30,17 @@ return [
 
     'disks' => [
 
+        'backups' => [
+            'driver' => 's3',
+            'key' => env('BACKUP_AWS_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_AWS_SECRET_ACCESS_KEY'),
+            'region' => env('BACKUP_AWS_DEFAULT_REGION', 'us-east-2'),
+            'bucket' => env('BACKUP_AWS_BUCKET'),
+            'http' => ['connect_timeout' => 10, 'timeout' => 120],
+            'retries' => 2,
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
