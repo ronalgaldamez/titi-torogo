@@ -2,17 +2,17 @@
 
 Esta lista organiza trabajo por revisar y acordar. No autoriza implementar funcionalidades ni modificar reglas de negocio automáticamente.
 
-Actualizada el 13/11/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; no significan que se hayan vuelto a ejecutar las pruebas hoy.
+Actualizada el 14/11/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; las validaciones de producción se registran aparte de las locales.
 
 ## Orden de trabajo acordado — 13/11/2026
 
-1. [ ] Resolver la prueba manual de disponibilidad: Ronald reportó que no pudo confirmar un pedido aunque el motorizado estaba activo. Comprobar «Disponible», GPS real y preciso recibido hace menos de dos minutos, distancia de hasta 5 km del restaurante y ausencia de otra entrega activa. Usar dos sesiones conectadas al mismo backend; confirmar que un motorista que cumple las condiciones permite crear el pedido y que, sin uno, se conserva el carrito.
-2. [ ] Comprobar manualmente una entrega a la vez: un motorista con un pedido activo no puede tomar otro ni recibir otra asignación desde el administrador.
-3. [ ] Después de resolver y validar lo anterior, hacer commit, push y PR de `titi/feature/disponibilidad-motorizados`; tras fusionarlo, actualizar el VPS y la app que se usará para probar. Los cambios siguen sin commit según el último estado compartido.
+1. [x] Validar disponibilidad en local: Ronald confirmó un pedido nuevo completo con cliente y motorista en dos sesiones, rutas correctas al restaurante y al cliente, y entrega final. La conservación del carrito al rechazar por falta de motorista tiene cobertura automática. La validación integral contra producción sigue pendiente.
+2. [x] Comprobar manualmente una entrega a la vez: Ronald confirmó «Una entrega a la vez» en la app, rechazo desde el administrador y posibilidad de tomar el segundo pedido después de entregar el primero.
+3. [x] Subir y fusionar `titi/feature/disponibilidad-motorizados`. Ronald confirmó local limpio y sincronizado con `origin/main`; el VPS llegó a `cb7b23d`, con cachés regeneradas, cinco servicios activos y HTTP 200. La corrección de coordenadas de la prueba local no se traslada a producción.
 4. [ ] Preparar los respaldos del VPS y comprobar una restauración aislada, con el alcance y costos acordados en la sección de respaldos.
 5. [ ] Continuar con el PIN de recogida según el alcance registrado abajo.
 
-Última evidencia reportada por Ronald: análisis de Flutter sin problemas, 78 pruebas de Flutter aprobadas y 78 pruebas del backend aprobadas (876 verificaciones). No se volvieron a ejecutar hoy; siguen pendientes las pruebas manuales anteriores.
+Verificaciones de la etapa de disponibilidad: 20 pruebas seleccionadas de Flutter, 78 pruebas del backend (876 verificaciones) y tres pruebas concurrentes en PostgreSQL (36 verificaciones) aprobadas; análisis de navegación sin problemas. Ronald completó después las pruebas manuales locales anteriores. No equivalen a una validación del recorrido contra producción.
 
 ## Propuestas por acordar: disponibilidad de motoristas, PIN y efectivo
 
@@ -29,7 +29,13 @@ Seguir el orden de trabajo acordado arriba: validar disponibilidad y una entrega
 
 ## Prioridad: respaldos de producción desde el administrador
 
-Pendiente prioritario acordado con Ronald el 01/11/2026. Alcance: backend Laravel en `backend/` y su panel de administrador. Solo se registra el trabajo; no implementar ni cambiar la configuración de producción todavía.
+Pendiente prioritario acordado con Ronald el 01/11/2026. El 14/11/2026 autorizó continuar: una copia diaria a las 03:00 de El Salvador y retención de 30 días. Creó el bucket privado `torogo-backups` en Ohio, con versiones habilitadas, y el usuario `torogo-backups-vps` con la política `ToroGoBackupsVps`, limitada al prefijo `backups/`. Ronald confirmó guardar las variables `BACKUP_AWS_*` en el `.env` del VPS, separadas de las imágenes; las claves no se copiaron al repositorio.
+
+Desarrollo local en `titi/feature/respaldos-vps`: panel manual/programado, historial, avisos de fallo, descarga privada, PostgreSQL custom y archivos locales, comprobación SHA-256 y exclusión de ejecuciones simultáneas. La programación comienza desactivada. Ver `backend/BACKUPS.md` para alcance, pruebas, despliegue y restauración aislada. El VPS reportó PostgreSQL/pg_dump 18.6, base de 9246 kB, 1,8 MB de archivos públicos y 34 GB libres. La estimación inicial de almacenamiento fue del orden de centavos al mes para el tamaño actual; solicitudes, versiones antiguas, transferencias y crecimiento pueden agregar costo.
+
+Antes de activar producción: configurar el ciclo de vida de objetos y versiones en S3, exigir TLS, desplegar y generar una copia real, descargarla y verificar restauración aislada. La prueba automática local usa pg_dump/pg_restore reales con bases sintéticas y S3 simulado; no sustituye esa verificación contra el bucket real. Siguen pendientes la protección aparte de secretos y de `torogo-images` y las alertas fuera del panel.
+
+Validación local del 14/11/2026: suite backend con 88 pruebas aprobadas y 1007 verificaciones; cuatro pruebas de integración omitidas en SQLite. La prueba específica de restauración PostgreSQL se ejecutó aparte y aprobó con 13 verificaciones, usando dos bases temporales eliminadas al finalizar. Formato PHP y revisión de diferencias aprobados. No se ejecutó una copia contra el S3 real ni se desplegó esta rama en el VPS.
 
 - [ ] Permitir al administrador generar un respaldo manual con «Respaldar ahora».
 - [ ] Programar respaldos automáticos desde el panel, con hora de El Salvador; el servidor debe ejecutarlos aunque el administrador esté desconectado.

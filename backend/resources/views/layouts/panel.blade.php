@@ -53,6 +53,7 @@
                     ['route' => 'admin.orders.index', 'label' => 'Pedidos'],
                     ['route' => 'admin.customers.index', 'label' => 'Clientes'],
                     ['route' => 'admin.settings.index', 'label' => 'Configuración'],
+                    ['route' => 'admin.backups.index', 'label' => 'Respaldos'],
                     ['route' => 'admin.landing.edit', 'label' => 'Página web'],
                 ];
             @endphp
@@ -95,6 +96,14 @@
             </div>
         @endif
 
+        @php
+            $backupResult = \App\Models\Backup::whereIn('status', ['succeeded', 'failed'])->latest('id')->first();
+        @endphp
+        @if ($backupResult?->status === 'failed')
+            <div role="alert" class="mb-6 rounded-2xl bg-coral/15 px-5 py-4 text-sm font-semibold text-coral">
+                Falló el último respaldo. <a class="underline" href="{{ route('admin.backups.index') }}">Revisar historial y reintentar</a>.
+            </div>
+        @endif
         @yield('content')
     </main>
 
