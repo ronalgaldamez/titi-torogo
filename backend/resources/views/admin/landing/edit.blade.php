@@ -8,7 +8,7 @@
 @if ($errors->any())
     <div role="alert" class="mt-6 rounded-xl bg-coral/10 p-5 text-coral"><strong>No se guardaron los cambios.</strong><ul class="mt-2 list-disc pl-5">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
 @endif
-<form method="POST" action="{{ route('admin.landing.update') }}" enctype="multipart/form-data" class="mt-6 space-y-5">
+<form method="POST" action="{{ route('admin.landing.update') }}" enctype="multipart/form-data" class="mt-6 space-y-5" data-confirm-title="¿Publicar estos cambios?" data-confirm="El contenido se publicará en la página web de ToroGo.">
     @csrf @method('PUT')
     <section class="rounded-2xl bg-white p-6 shadow-sm">
         <h2 class="text-lg font-bold">Imágenes</h2><p class="mt-1 text-sm text-navy/60">JPG, PNG o WebP. Máximo 3 MB y 3000 × 3000 píxeles. Formato horizontal recomendado.</p>

@@ -51,7 +51,7 @@
             @endif
         </p>
 
-        <form method="POST" action="{{ route('admin.couriers.toggle', $courier) }}" class="mt-4">
+        <form method="POST" action="{{ route('admin.couriers.toggle', $courier) }}" class="mt-4" data-confirm-title="{{ $courier->is_active ? '¿Desactivar esta cuenta?' : '¿Activar esta cuenta?' }}" data-confirm="Cambiarás el acceso de {{ $courier->name }}. Al desactivarlo, perderá acceso a su operación; su historial se conservará." data-confirm-danger="{{ $courier->is_active ? 'true' : 'false' }}">
             @csrf
             <button type="submit"
                     class="{{ $courier->is_active

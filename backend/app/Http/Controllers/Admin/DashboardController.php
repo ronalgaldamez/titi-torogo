@@ -52,6 +52,7 @@ class DashboardController extends Controller
             'todayOrders' => $today->count(),
             'todaySales' => Money::add(...$sold->pluck('total')->all()),
             'days' => $this->lastSevenDays(),
+            'recentOrders' => Order::query()->with('restaurant:id,name')->latest('id')->limit(6)->get(),
 
             'restaurants' => Restaurant::query()->count(),
             'openRestaurants' => Restaurant::query()
