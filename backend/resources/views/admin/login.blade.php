@@ -1,76 +1,34 @@
-{{--
-    El login del panel.
-
-    Es una pantalla aparte del layout: aca todavia no hay sesion, asi que no
-    tiene sentido mostrarle el menu ni el boton de salir a alguien que no entro.
---}}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-admin-theme="original">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Entrar · ToroGo</title>
     @include('partials.favicon')
     @vite(['resources/css/app.css'])
+    @include('admin.partials.assets')
 </head>
-<body class="flex min-h-screen items-center justify-center bg-background px-6 text-navy antialiased">
-
-    <div class="w-full max-w-sm">
-
-        <div class="mb-6 text-center">
-            <div class="text-3xl font-extrabold tracking-tight">
-                <span class="text-teal">Toro</span><span class="text-navy">Go</span>
-            </div>
-            <p class="mt-1 text-sm text-navy/60">Panel de administración</p>
-        </div>
-
-        <div class="rounded-2xl bg-white p-6 shadow-sm">
-
-            {{--
-                Los errores van arriba del formulario y con el mismo texto que
-                manda el controlador ("Las credenciales no coinciden" o "Esta
-                cuenta no es de administrador"). No se traducen: se muestran tal
-                cual, que es lo que la persona necesita leer.
-            --}}
-            @if ($errors->any())
-                <div class="mb-4 rounded-xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral">
-                    {{ $errors->first() }}
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('login.attempt') }}" class="space-y-4">
-                @csrf
-
-                <div>
-                    <label for="email" class="mb-1 block text-sm font-semibold">Correo</label>
-                    <input id="email" name="email" type="email" required autofocus
-                           value="{{ old('email') }}"
-                           class="w-full rounded-xl border border-navy/15 px-4 py-2.5 outline-none transition focus:border-teal focus:ring-2 focus:ring-teal/20">
-                </div>
-
-                <div>
-                    <label for="password" class="mb-1 block text-sm font-semibold">Contraseña</label>
-                    <input id="password" name="password" type="password" required
-                           class="w-full rounded-xl border border-navy/15 px-4 py-2.5 outline-none transition focus:border-teal focus:ring-2 focus:ring-teal/20">
-                </div>
-
-                <label class="flex items-center gap-2 text-sm text-navy/70">
-                    <input type="checkbox" name="remember" value="1"
-                           class="h-4 w-4 rounded border-navy/20 text-teal focus:ring-teal/30">
-                    Mantener la sesión abierta
-                </label>
-
-                <button type="submit"
-                        class="w-full rounded-xl bg-teal px-4 py-3 font-bold text-white transition hover:bg-teal-deep">
-                    Entrar
-                </button>
-            </form>
-        </div>
-
-        <p class="mt-4 text-center text-xs text-navy/50">
-            Solo la cuenta del administrador puede entrar a este panel.
-        </p>
-    </div>
-
+<body class="admin-app admin-login-page">
+    <section class="admin-login-brand" aria-label="ToroGo Administración">
+        @include('admin.partials.logo')
+        <div class="admin-login-message"><span class="admin-overline">TODO EN SU LUGAR</span><h1>Una operación<br>bien llevada.</h1><p>Tu equipo, tus negocios y cada entrega. El control está de tu lado.</p></div>
+        <footer>Hecho para mover lo nuestro.</footer>
+    </section>
+    <main class="admin-login-form-area">
+        <div class="admin-login-appearance">@include('admin.partials.appearance')</div>
+        <span class="admin-overline">BIENVENIDO DE NUEVO</span>
+        <h2>Entrá a tu panel.</h2>
+        <p>Administrá ToroGo desde donde estés.</p>
+        @if ($errors->any())<div role="alert" class="admin-notice admin-notice-error mt-5">{{ $errors->first() }}</div>@endif
+        <form method="POST" action="{{ route('login.attempt') }}" class="space-y-5" data-skip-confirm>
+            @csrf
+            <div><label for="email" class="mb-2 block text-sm font-semibold">Correo electrónico</label><input id="email" name="email" type="email" required autocomplete="username" value="{{ old('email') }}" class="w-full rounded-xl border px-4 py-3"></div>
+            <div><label for="password" class="mb-2 block text-sm font-semibold">Contraseña</label><div class="admin-password-field"><input id="password" name="password" type="password" required autocomplete="current-password" class="w-full rounded-xl border px-4 py-3"><button type="button" id="admin-show-password" class="admin-password-toggle" aria-controls="password" aria-pressed="false">Mostrar</button></div></div>
+            <label class="flex items-center gap-2 text-sm text-navy/70"><input type="checkbox" name="remember" value="1" class="h-4 w-4">Mantener la sesión abierta</label>
+            <button type="submit" class="admin-button">Entrar al administrador</button>
+        </form>
+        <footer><span>Solo para administradores</span><span>El Salvador</span></footer>
+    </main>
+    <p id="admin-submit-status" class="admin-submit-status" role="status" aria-live="polite" hidden>Entrando. Esperá un momento…</p>
 </body>
 </html>

@@ -16,7 +16,7 @@
         <h2 class="text-lg font-bold">Última copia correcta</h2>
         <p class="mt-2">{{ $lastSuccess?->finished_at?->timezone('America/El_Salvador')->format('d/m/Y h:i a') ?? 'Todavía no hay una copia correcta.' }}</p>
         <p class="mt-2 text-sm text-navy/70">Una copia correcta confirma la subida y su integridad. La recuperación debe comprobarse en un entorno aislado.</p>
-        <form method="POST" action="{{ route('admin.backups.store') }}" class="mt-4">
+        <form method="POST" action="{{ route('admin.backups.store') }}" class="mt-4" data-confirm-title="¿Crear un respaldo ahora?" data-confirm="Se generará una copia privada de la base de datos y las imágenes locales en el bucket de respaldos.">
             @csrf
             <button @disabled(!$configured || $active) class="rounded-full bg-navy px-5 py-3 font-semibold text-white disabled:opacity-50">Respaldar ahora</button>
         </form>
@@ -27,7 +27,7 @@
 
     <section class="mt-6 rounded-2xl bg-white p-6 shadow-sm">
         <h2 class="text-lg font-bold">Programación diaria</h2>
-        <form method="POST" action="{{ route('admin.backups.update') }}" class="mt-4 flex flex-wrap items-end gap-5">
+        <form method="POST" action="{{ route('admin.backups.update') }}" class="mt-4 flex flex-wrap items-end gap-5" data-confirm-title="¿Guardar la programación?" data-confirm="Se actualizarán la activación y la hora diaria de los respaldos automáticos del servidor.">
             @csrf @method('PUT')
             <input type="hidden" name="enabled" value="0">
             <label class="flex items-center gap-2"><input type="checkbox" name="enabled" value="1" @checked(old('enabled', $settings->enabled))> Activar respaldos automáticos</label>

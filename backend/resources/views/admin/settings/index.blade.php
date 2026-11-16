@@ -39,7 +39,7 @@
             </div>
 
             <form method="POST" action="{{ route('admin.settings.update', $zone) }}"
-                  class="mt-5 flex flex-wrap items-end gap-4 border-t border-navy/10 pt-5">
+                  class="mt-5 flex flex-wrap items-end gap-4 border-t border-navy/10 pt-5" data-confirm-title="¿Guardar las nuevas tarifas?" data-confirm="Las tarifas de {{ $zone->name }} se aplicarán a los pedidos nuevos. Los importes de pedidos anteriores se conservan.">
                 @csrf
 
                 <div>

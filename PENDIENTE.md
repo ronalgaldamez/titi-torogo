@@ -148,3 +148,11 @@ Problema original: existían pedidos de prueba que seguían pendientes durante d
 La prioridad sigue siendo terminar y validar el delivery de comida. Mantener la paleta, tipografía y tema actuales; discutir nuevas dependencias, cambios de backend y decisiones arquitectónicas antes de implementarlos.
 
 - [ ] Validar ofertas de platos: programar en hora de El Salvador, activar/desactivar, comprobar precio del cliente y rechazo de una oferta vencida en el carrito; verificar que pedidos anteriores y reintentos mantengan sus importes.
+
+## Rediseño del administrador
+
+Implementado en `codex/rediseno-admin`: acceso y tablero renovados con datos reales, logo oficial, menú lateral con sección activa también al crear o editar, fondos Original/Negro/Blanco recordados en el navegador, menú móvil y tablas como fichas. Las pantallas existentes conservan rutas, campos, archivos y validaciones. Las acciones de escritura piden confirmación (excepto iniciar sesión); los botones se bloquean mientras se envía y se recuperan al volver con Atrás. El bloqueo de doble clic corresponde al formulario abierto; no agrega idempotencia global entre pestañas.
+
+Pendiente: revisión visual de Ronald en su celular y PC, subir la rama, revisar el PR y desplegar al VPS. No se modificó producción. Las imágenes y los estilos del rediseño están incluidos en el repositorio y se compila Tailwind con el proceso habitual.
+
+Validación local: compilación de producción correcta; suite backend con 91 pruebas aprobadas y cuatro integraciones omitidas por sus requisitos de PostgreSQL/concurrencia. Después se agregó y aprobó una prueba adicional con registros para los formularios de edición e intervención. Tres pruebas de interfaz comprueban cancelación, confirmación, doble envío, regreso con Atrás y temas. Navegador local: acceso, tablero, nueve secciones a 320 px, fondos y confirmación de tarifas sin guardar cambios; nombres y correos se apilan en las fichas móviles.

@@ -57,7 +57,7 @@
             @endif
         </p>
 
-        <form method="POST" action="{{ route('admin.restaurants.toggle', $restaurant) }}" class="mt-4">
+        <form method="POST" action="{{ route('admin.restaurants.toggle', $restaurant) }}" class="mt-4" data-confirm-title="{{ $restaurant->is_active ? '¿Desactivar esta cuenta?' : '¿Activar esta cuenta?' }}" data-confirm="Cambiarás el acceso de {{ $restaurant->name }}. Al desactivarlo, perderá acceso a su operación; su historial se conservará." data-confirm-danger="{{ $restaurant->is_active ? 'true' : 'false' }}">
             @csrf
             <button type="submit"
                     class="{{ $restaurant->is_active

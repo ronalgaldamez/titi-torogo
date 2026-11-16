@@ -173,7 +173,7 @@
                     </p>
                 @else
                     {{-- Reasignar motorizado --}}
-                    <form method="POST" action="{{ route('admin.orders.assign', $order) }}" class="mt-3">
+                    <form method="POST" action="{{ route('admin.orders.assign', $order) }}" class="mt-3" data-confirm-title="¿Asignar este motorizado?" data-confirm="Se actualizará el motorizado del pedido #{{ $order->id }}. Si cambia la asignación, el anterior perderá acceso al pedido.">
                         @csrf
                         <label for="courier_id" class="mb-1 block text-xs font-semibold text-navy/70">
                             Asignarle un motorizado
@@ -200,7 +200,7 @@
                     </form>
 
                     @if ($order->courier_id !== null && $order->status === \App\Enums\OrderStatus::Ready)
-                        <form method="POST" action="{{ route('admin.orders.release', $order) }}" class="mt-3">
+                        <form method="POST" action="{{ route('admin.orders.release', $order) }}" class="mt-3" data-confirm-title="¿Liberar este pedido?" data-confirm="Se quitará el motorizado del pedido #{{ $order->id }} y volverá a estar disponible para que otro lo tome.">
                             @csrf
                             <button type="submit"
                                     class="w-full rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-navy transition hover:bg-teal-soft">
@@ -210,7 +210,7 @@
                     @endif
 
                     {{-- Cancelar --}}
-                    <form method="POST" action="{{ route('admin.orders.cancel', $order) }}" class="mt-4 border-t border-navy/10 pt-4">
+                    <form method="POST" action="{{ route('admin.orders.cancel', $order) }}" class="mt-4 border-t border-navy/10 pt-4" data-confirm-title="¿Cancelar este pedido?" data-confirm="El pedido #{{ $order->id }} se cancelará definitivamente. El cliente verá el cambio y el pedido no se podrá reabrir." data-confirm-danger="true">
                         @csrf
                         <p class="text-xs text-navy/60">
                             Cancelar es definitivo: el pedido no se puede reabrir. El cliente lo ve al instante

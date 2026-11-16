@@ -1,0 +1,1 @@
+<label class="admin-appearance" for="admin-theme"><span>Fondo</span><select id="admin-theme" aria-label="Fondo del administrador"><option value="original">Original</option><option value="black">Negro</option><option value="white">Blanco</option></select></label>
