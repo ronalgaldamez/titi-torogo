@@ -783,6 +783,45 @@ class _OrderCard extends StatelessWidget {
               _ => order.statusLabel,
             }, style: const TextStyle(fontSize: 11, color: AppTheme.yellow)),
           const SizedBox(height: 19),
+          if (order.pickupPin != null && order.status == 'ready') ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF183B49),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'PIN DE RECOGIDA',
+                    style: TextStyle(
+                      color: AppTheme.discoveryMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  Text(
+                    order.pickupPin!,
+                    style: const TextStyle(
+                      color: AppTheme.yellow,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 5,
+                    ),
+                  ),
+                  const Text(
+                    'Dáselo al motorista cuando le entregués la comida.',
+                    style: TextStyle(
+                      color: AppTheme.discoveryPaper,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           for (final item in order.items)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),

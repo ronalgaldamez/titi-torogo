@@ -194,6 +194,7 @@ void main() {
               {
                 'id': entry.key,
                 'status': entry.value,
+                if (entry.value == 'ready') 'pickup_pin': '012345',
                 if (entry.value == 'pending')
                   'acceptance_expires_at': DateTime.now()
                       .add(const Duration(minutes: 5))
@@ -313,6 +314,8 @@ void main() {
       await tester.tap(tabs[2]);
       await tester.pumpAndSettle();
       expect(find.text('Esperando motorista'), findsOneWidget);
+      expect(find.text('PIN DE RECOGIDA'), findsOneWidget);
+      expect(find.text('012345'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('El motorizado ya lo recogió.'),
         200,

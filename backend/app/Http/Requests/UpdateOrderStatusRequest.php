@@ -32,6 +32,7 @@ class UpdateOrderStatusRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::enum(OrderStatus::class)],
+            'pickup_pin' => ['sometimes', 'string', 'regex:/^[0-9]{6}$/'],
         ];
     }
 
@@ -43,6 +44,8 @@ class UpdateOrderStatusRequest extends FormRequest
         return [
             'status.required' => 'Falta el estado nuevo.',
             'status.enum' => 'Ese estado no existe.',
+            'pickup_pin.string' => 'Ingresá el PIN de recogida de 6 dígitos.',
+            'pickup_pin.regex' => 'El PIN de recogida debe tener 6 dígitos.',
         ];
     }
 }

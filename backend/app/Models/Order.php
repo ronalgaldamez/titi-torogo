@@ -4,12 +4,12 @@ namespace App\Models;
 
 use App\Enums\OrderStatus;
 use App\Events\OrderUpdated;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Un pedido.
@@ -22,6 +22,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Order extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $hidden = ['pickup_pin'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Order $order): void {
+            $order->pickup_pin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        });
+    }
 
     /**
      * @var list<string>
@@ -50,6 +59,7 @@ class Order extends Model
     {
         return [
             'status' => OrderStatus::class,
+            'pickup_pin' => 'encrypted',
 
             // decimal:2 -> el dinero viaja como TEXTO ("10.50"), nunca como
             // float. Las sumas se hacen con bcadd.
