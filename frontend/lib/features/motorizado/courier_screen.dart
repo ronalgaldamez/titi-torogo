@@ -84,7 +84,7 @@ class _CourierScreenState extends State<CourierScreen>
 
   bool _loading = true;
   bool _busy = false;
-  bool _pickupPromptOpen = false;
+  bool _pinPromptOpen = false;
   String? _error;
   int _loadVersion = 0;
 
@@ -468,19 +468,21 @@ class _CourierScreenState extends State<CourierScreen>
   }
 
   Future<void> _advance(Order order, _Step step) async {
-    if (_busy || _pickupPromptOpen) return;
-    String? pickupPin;
-    if (step.status == 'picked_up' && order.pickupPinRequired) {
-      _pickupPromptOpen = true;
+    if (_busy || _pinPromptOpen) return;
+    final pickingUp = step.status == 'picked_up';
+    final pinRequired = pickingUp
+        ? order.pickupPinRequired
+        : order.deliveryPinRequired;
+    String? pin;
+    if (pinRequired) {
+      _pinPromptOpen = true;
       try {
-        pickupPin = await _askPickupPin(order.id);
+        pin = await _askOrderPin(order.id, pickingUp: pickingUp);
       } finally {
-        _pickupPromptOpen = false;
+        _pinPromptOpen = false;
       }
-      if (pickupPin == null || !mounted) return;
-    }
-    // Entregar es el final del viaje y mueve plata, asi que se pregunta.
-    if (step.status == 'delivered') {
+      if (pin == null || !mounted) return;
+    } else if (!pickingUp) {
       final bool confirmed = await _confirm(
         title: '¿Marcar el pedido #${order.id} como entregado?',
         message:
@@ -497,9 +499,12 @@ class _CourierScreenState extends State<CourierScreen>
     await _run(
       () async {
         final ApiClient api = await _session.client();
-        await CourierOrderRepository(
-          api,
-        ).setStatus(order.id, step.status, pickupPin: pickupPin);
+        await CourierOrderRepository(api).setStatus(
+          order.id,
+          step.status,
+          pickupPin: pickingUp ? pin : null,
+          deliveryPin: pickingUp ? null : pin,
+        );
       },
       okMessage: step.status == 'delivered'
           ? 'Pedido #${order.id} entregado. ¡Buen trabajo!'
@@ -507,7 +512,8 @@ class _CourierScreenState extends State<CourierScreen>
     );
   }
 
-  Future<String?> _askPickupPin(int orderId) async {
+  Future<String?> _askOrderPin(int orderId, {required bool pickingUp}) async {
+    final title = pickingUp ? 'PIN de recogida' : 'PIN de entrega';
     String enteredPin = '';
     bool submitted = false;
     final formKey = GlobalKey<FormState>();
@@ -515,15 +521,17 @@ class _CourierScreenState extends State<CourierScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         scrollable: true,
-        title: Text('PIN de recogida · #$orderId'),
+        title: Text('$title · #$orderId'),
         content: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Pedile al restaurante el código cuando recibás la comida.',
+              Text(
+                pickingUp
+                    ? 'Pedile al restaurante el código cuando recibás la comida.'
+                    : 'Pedile al cliente el código cuando le entregués el pedido.',
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -556,7 +564,7 @@ class _CourierScreenState extends State<CourierScreen>
                 Navigator.pop(dialogContext, enteredPin);
               }
             },
-            child: const Text('Confirmar recogida'),
+            child: Text(pickingUp ? 'Confirmar recogida' : 'Confirmar entrega'),
           ),
         ],
       ),

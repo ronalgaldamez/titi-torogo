@@ -296,6 +296,24 @@ class CourierOrderController extends Controller
                 RateLimiter::clear($key);
             }
 
+            // shortcut: los pedidos anteriores a la migración terminan con el flujo previo.
+            if ($status === OrderStatus::Delivered && $model->status === OrderStatus::PickedUp && $model->getRawOriginal('delivery_pin') !== null) {
+                $key = 'delivery-pin:'.$model->id;
+                if (RateLimiter::tooManyAttempts($key, 5)) {
+                    $seconds = RateLimiter::availableIn($key);
+
+                    return response()->json(['message' => "Demasiados intentos. Volvé a intentar en {$seconds} segundos."], 429)
+                        ->header('Retry-After', (string) $seconds);
+                }
+
+                $pin = $request->validated('delivery_pin');
+                if (! is_string($pin) || ! hash_equals($model->delivery_pin, $pin)) {
+                    RateLimiter::hit($key, 300);
+
+                    return response()->json(['message' => 'PIN de entrega incorrecto. Pedile al cliente el código de este pedido.'], 422);
+                }
+            }
+
             $previous = $model->status->value;
 
             if (! $model->moveTo($status)) {

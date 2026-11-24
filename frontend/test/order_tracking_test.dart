@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -73,6 +74,36 @@ Future<void> openSection(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets('El cliente puede copiar el PIN desde el pedido pendiente', (
+    tester,
+  ) async {
+    String? copied;
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    await tester.pumpWidget(
+      trackingContent({...timedOrder('pending'), 'delivery_pin': '012345'}),
+    );
+    expect(find.text('Código de entrega · Pedido #50'), findsOneWidget);
+    expect(find.text('012345'), findsOneWidget);
+    expect(
+      find.text('Dale este código al motorista cuando recibás tu pedido'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Copiar código'));
+    await tester.pump();
+    expect(copied, '012345');
+    expect(find.text('Código copiado'), findsOneWidget);
+  });
+
   testWidgets('El estado usa su propia hora y no inventa una fecha faltante', (
     tester,
   ) async {

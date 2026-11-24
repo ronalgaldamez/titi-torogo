@@ -123,12 +123,15 @@ class OrderTipTest extends TestCase
             ->assertJsonPath('order.total', '7.25')->assertJsonPath('order.tip_amount', '1.25')
             ->assertJsonPath('order.courier_fee', '1.50')->assertJsonPath('order.delivery_fee', '2.00');
         $id = $response->json('order.id');
+        $pin = $response->json('order.delivery_pin');
+        $this->assertMatchesRegularExpression('/^[0-9]{6}$/', $pin);
         $payload['tip_amount'] = '2.00';
         $this->postJson('/api/orders', $payload)->assertOk()
             ->assertJsonPath('order.id', $id)->assertJsonPath('order.total', '7.25')
-            ->assertJsonPath('order.tip_amount', '1.25');
+            ->assertJsonPath('order.tip_amount', '1.25')->assertJsonPath('order.delivery_pin', $pin);
         $this->postJson('/api/orders/recover', ['idempotency_key' => $payload['idempotency_key']])
-            ->assertOk()->assertJsonPath('order.tip_amount', '1.25')->assertJsonPath('order.total', '7.25');
+            ->assertOk()->assertJsonPath('order.tip_amount', '1.25')->assertJsonPath('order.total', '7.25')
+            ->assertJsonPath('order.delivery_pin', $pin);
         $this->assertDatabaseCount('orders', 1);
     }
 

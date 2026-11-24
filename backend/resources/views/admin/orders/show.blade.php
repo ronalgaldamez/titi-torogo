@@ -167,6 +167,24 @@
             <div class="rounded-2xl bg-yellow/20 p-6">
                 <h2 class="text-sm font-bold">Intervenir</h2>
 
+                @if ($order->delivery_verified_by !== null)
+                    <p class="mt-2 text-sm font-semibold">Entrega verificada por el administrador #{{ $order->delivery_verified_by }}</p>
+                    <p class="mt-1 break-words text-sm">{{ $order->delivery_verification_reason }}</p>
+                @endif
+
+                @if ($order->status === \App\Enums\OrderStatus::PickedUp && $order->getRawOriginal('delivery_pin') !== null)
+                    <form method="POST" action="{{ route('admin.orders.verify-delivery', $order) }}" class="mt-4 border-b border-navy/10 pb-4" data-confirm-title="¿Cerrar la entrega?" data-confirm="Confirmá que verificaste la entrega del pedido #{{ $order->id }}. El cliente verá el pedido como entregado.">
+                        @csrf
+                        <p class="mb-2 text-sm">Si el cliente no puede recuperar el PIN, verificá que recibió el pedido antes de cerrar la entrega.</p>
+                        <label for="delivery_verification_reason" class="mb-1 block text-xs font-semibold">Motivo y cómo verificaste la entrega</label>
+                        <textarea id="delivery_verification_reason" name="delivery_verification_reason" required maxlength="500" rows="3" class="w-full rounded-xl border border-navy/15 bg-white px-4 py-2">{{ old('delivery_verification_reason') }}</textarea>
+                        @error('delivery_verification_reason')
+                            <p class="mt-1 text-sm text-coral">{{ $message }}</p>
+                        @enderror
+                        <button type="submit" class="mt-2 rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white">Autorizar cierre de entrega</button>
+                    </form>
+                @endif
+
                 @if (! $activo)
                     <p class="mt-2 text-sm text-navy/70">
                         Este pedido ya está cerrado ({{ $order->status->label() }}). No hay nada que hacer.

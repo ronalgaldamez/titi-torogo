@@ -32,8 +32,8 @@ use Illuminate\View\View;
  *   - NO mueve el pedido por el recorrido normal (aceptar, preparar, listo).
  *     Eso es del restaurante y del motorizado; si el administrador pudiera
  *     tocar todo, el historial dejaria de decir quien hizo que.
- *   - Lo unico que hace es CANCELAR (cortar) y REASIGNAR el motorizado, que
- *     son exactamente las dos intervenciones que pide la biblia.
+ *   - Puede cancelar, reasignar y cerrar una entrega verificada si el cliente
+ *     perdió el PIN de entrega.
  */
 class OrderController extends Controller
 {
@@ -138,6 +138,33 @@ class OrderController extends Controller
                 'status',
                 "El pedido #{$order->id} quedó cancelado. El cliente ya lo ve en su app.",
             );
+        });
+    }
+
+    public function verifyDelivery(Request $request, Order $order): RedirectResponse
+    {
+        $data = $request->validate([
+            'delivery_verification_reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        return DB::transaction(function () use ($request, $order, $data) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            if ($order->status === OrderStatus::Delivered) {
+                return back()->with('status', 'El pedido ya está entregado.');
+            }
+            if ($order->status !== OrderStatus::PickedUp || $order->getRawOriginal('delivery_pin') === null) {
+                return back()->with('error', 'Solo podés autorizar una entrega con PIN después de la recogida.');
+            }
+
+            $previous = $order->status->value;
+            $order->moveTo(OrderStatus::Delivered);
+            $order->delivery_verified_by = $request->user()->id;
+            $order->delivery_verification_reason = $data['delivery_verification_reason'];
+            $order->save();
+
+            DB::afterCommit(fn () => OrderUpdated::announce($order, $previous));
+
+            return back()->with('status', "Entrega del pedido #{$order->id} verificada y cerrada.");
         });
     }
 

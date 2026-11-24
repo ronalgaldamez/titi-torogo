@@ -106,6 +106,8 @@ class Order {
     this.distanceKm,
     this.pickupPin,
     this.pickupPinRequired = false,
+    this.deliveryPin,
+    this.deliveryPinRequired = false,
   });
 
   final int id;
@@ -148,6 +150,8 @@ class Order {
   final String? cancellationReason;
   final String? pickupPin;
   final bool pickupPinRequired;
+  final String? deliveryPin;
+  final bool deliveryPinRequired;
 
   String? get acceptanceDeadlineLabel {
     final date = acceptanceExpiresAt;
@@ -238,6 +242,8 @@ class Order {
       cancellationReason: json['cancellation_reason'] as String?,
       pickupPin: json['pickup_pin'] as String?,
       pickupPinRequired: json['pickup_pin_required'] == true,
+      deliveryPin: json['delivery_pin'] as String?,
+      deliveryPinRequired: json['delivery_pin_required'] == true,
       distanceKm: (json['distance_km'] as num?)?.toDouble(),
     );
   }

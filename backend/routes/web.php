@@ -110,7 +110,8 @@ Route::prefix('admin')->group(function (): void {
         Route::get('/pedidos/{order}', [OrderController::class, 'show'])
             ->name('admin.orders.show');
 
-        // Las dos intervenciones que pide la biblia: cancelar y reasignar.
+        Route::post('/pedidos/{order}/verificar-entrega', [OrderController::class, 'verifyDelivery'])
+            ->name('admin.orders.verify-delivery');
         Route::post('/pedidos/{order}/cancelar', [OrderController::class, 'cancel'])
             ->name('admin.orders.cancel');
         Route::post('/pedidos/{order}/motorizado', [OrderController::class, 'assignCourier'])
