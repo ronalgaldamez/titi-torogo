@@ -39,6 +39,7 @@ void main() {
         'status_label': status == 'ready' ? 'Listo para recoger' : 'En camino',
         'is_active': true,
         'pickup_pin_required': id == 21 && status == 'ready',
+        'delivery_pin_required': id == 21 && status == 'picked_up',
         'restaurant': {
           'id': 7,
           'name': 'Restaurante de prueba',
@@ -75,6 +76,15 @@ void main() {
         if (request.method == 'PATCH' &&
             request.url.path.endsWith('/courier/orders/21')) {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
+          if (body['status'] == 'delivered') {
+            expect(body['delivery_pin'], '098765');
+            expect(body.containsKey('pickup_pin'), isFalse);
+            pickupStatus = 'delivered';
+            return http.Response(
+              jsonEncode({'order': order(21, pickupStatus)}),
+              200,
+            );
+          }
           expect(body['status'], 'picked_up');
           if (body['pickup_pin'] != '012345') {
             return http.Response('{"message":"PIN incorrecto"}', 422);
@@ -97,7 +107,10 @@ void main() {
         if (request.url.path.endsWith('/courier/orders')) {
           return http.Response(
             jsonEncode({
-              'orders': [order(21, pickupStatus), order(22, 'picked_up')],
+              'orders': [
+                if (pickupStatus != 'delivered') order(21, pickupStatus),
+                order(22, 'picked_up'),
+              ],
             }),
             200,
           );
@@ -184,6 +197,19 @@ void main() {
         await tester.tap(find.text('Cancelar'));
         await tester.pump(const Duration(milliseconds: 300));
         expect(mutations, 2);
+        await tester.ensureVisible(pickup);
+        await tester.tap(pickup);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('PIN de entrega · #21'), findsOneWidget);
+        await tester.enterText(find.byType(TextFormField), '098765');
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Confirmar entrega'),
+        );
+        for (int i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(pickupStatus, 'delivered');
+        expect(mutations, 3);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => client);
     },

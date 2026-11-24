@@ -2,7 +2,30 @@
 
 Esta lista organiza trabajo por revisar y acordar. No autoriza implementar funcionalidades ni modificar reglas de negocio automáticamente.
 
-Actualizada el 14/11/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; las validaciones de producción se registran aparte de las locales.
+Actualizada el 23/11/2026. Las casillas distinguen implementación completada de verificaciones todavía pendientes; las validaciones de producción se registran aparte de las locales.
+
+## Retomar desde aquí — 17/11/2026
+
+**El PIN de entrega está implementado en local en `codex/pin-entrega`. Ronald confirmó el 23/11/2026 que la prueba manual del PIN de entrega funcionó bien. La recogida ya estaba aprobada.**
+
+### PIN de entrega
+
+- [x] Generar al crear el pedido un código cifrado de seis dígitos y distinto del de recogida. Conservarlo al reintentar o recuperar el pedido.
+- [x] Mostrar el código al cliente en el seguimiento, junto al número del pedido y con «Copiar código» y el aviso acordado.
+- [x] Validar el código después de la recogida para el motorista asignado y limitar los intentos por pedido a cinco fallos en cinco minutos. El código se mantiene privado para el cliente.
+- [x] Permitir al administrador cerrar la entrega verificada si el cliente perdió el PIN. El historial conserva el administrador y el motivo.
+- [x] Conservar el flujo de los pedidos creados antes de la migración. El cierre mantiene importes y dirección y no registra liquidaciones de efectivo.
+- [x] Validación manual del flujo de entrega confirmada por Ronald. El cierre administrativo cuenta con cobertura automática para permisos, motivo, auditoría y reintentos.
+
+La migración se aplicó en PostgreSQL local. La rama parte de `6be51cc`: GitHub devolvió cero PR para `codex/pin-recogida` y el `main` remoto sigue en `f57a53b`. El despliegue de recogida sigue sin confirmar. La entrega queda local, pendiente de commit, push y despliegue.
+
+### Estado de lo anterior y continuidad
+
+- PIN de recogida: implementado en `codex/pin-recogida`; seis dígitos cifrados, visibles al restaurante propio cuando está listo; cinco fallos por ventana de cinco minutos; pedidos anteriores sin PIN conservan su flujo. Correcciones de revisión completadas: diálogo desplazable con teclado abierto y prueba con otro restaurante activo. Ronald aprobó la prueba manual. Ver `backend/PICKUP_PIN.md`.
+- Identificación acordada: el motorista dice «Vengo por el pedido #123»; el restaurante identifica ese número y entrega el PIN de recogida junto con la comida. No mostrar ese PIN al motorista de antemano. Verificar primero lo que ya muestran ambas pantallas antes de añadir cambios de identificación.
+- El administrador rediseñado y la actualización de dependencias ya se fusionaron y desplegaron al VPS. Ronald compartió compilación correcta y auditoría npm con cero vulnerabilidades reportadas.
+- Respaldo manual de producción correcto y restauración aislada del archivo `torogo-backup-5.tar.gz` comprobados. Sigue por confirmar la ejecución automática y la protección aparte de secretos e imágenes de S3; las secciones antiguas de este documento conservan casillas desactualizadas.
+- Al retomar tras apagar la PC, primero levantar Docker Desktop y los servicios locales, el emulador y/o el celular según la prueba. Restablecer los puertos 8080 y 8081 por dispositivo si se reinició ADB. No reiniciar ADB innecesariamente si los dispositivos ya aparecen conectados; hubo desconexiones con el Samsung. Ejecutar `flutter run` desde `frontend` y compilar un dispositivo a la vez.
 
 ## Orden de trabajo acordado — 13/11/2026
 
@@ -10,7 +33,8 @@ Actualizada el 14/11/2026. Las casillas distinguen implementación completada de
 2. [x] Comprobar manualmente una entrega a la vez: Ronald confirmó «Una entrega a la vez» en la app, rechazo desde el administrador y posibilidad de tomar el segundo pedido después de entregar el primero.
 3. [x] Subir y fusionar `titi/feature/disponibilidad-motorizados`. Ronald confirmó local limpio y sincronizado con `origin/main`; el VPS llegó a `cb7b23d`, con cachés regeneradas, cinco servicios activos y HTTP 200. La corrección de coordenadas de la prueba local no se traslada a producción.
 4. [ ] Preparar los respaldos del VPS y comprobar una restauración aislada, con el alcance y costos acordados en la sección de respaldos.
-5. [ ] Validar manualmente el PIN de recogida implementado en `codex/pin-recogida` antes de publicarlo.
+5. [x] Validar manualmente el PIN de recogida implementado en `codex/pin-recogida`: Ronald confirmó que todo salió bien; revisión y correcciones completadas.
+6. [x] Implementar el PIN de entrega del cliente. Ronald confirmó la prueba manual el 23/11/2026.
 
 Verificaciones de la etapa de disponibilidad: 20 pruebas seleccionadas de Flutter, 78 pruebas del backend (876 verificaciones) y tres pruebas concurrentes en PostgreSQL (36 verificaciones) aprobadas; análisis de navegación sin problemas. Ronald completó después las pruebas manuales locales anteriores. No equivalen a una validación del recorrido contra producción.
 
@@ -21,11 +45,11 @@ Registradas el 07/11/2026 a solicitud de Ronald. Antes de implementar, revisar l
 - [ ] Validar el bloqueo por falta de motoristas, implementado en `titi/feature/disponibilidad-motorizados` el 08/11/2026: cuenta activa y disponible, ubicación real y precisa reciente (menos de dos minutos), hasta 5 km del restaurante y sin pedidos activos asignados. El servidor rechaza pedidos nuevos con un aviso, conserva el carrito y permite recuperar pedidos ya creados. La presencia usa caché privada y el GPS existente; no reserva ni asigna automáticamente. Probar backend, Flutter y dos sesiones antes de marcar como terminado.
 - [ ] Validar una entrega por motorista: bloqueo en toma y asignación administrativa bajo bloqueo de fila del usuario; pedidos históricos conservados. Al terminar, cancelar o liberar la entrega puede recibir otra. Si permanece disponible, el GPS sigue publicando presencia; al desactivarse sin entregas se detiene.
 - [ ] Definir qué ocurre si un pedido ya aceptado no consigue motorista: acordar plazo, avisos al cliente y restaurante, intervención del administrador y condiciones de cancelación. No fijar tiempos ni cancelar pedidos existentes automáticamente.
-- [ ] PIN de recogida implementado en `codex/pin-recogida`, pendiente de prueba manual y publicación: seis dígitos por pedido nuevo, cifrados en la base y visibles únicamente al restaurante propio cuando está listo. El motorista asignado debe ingresarlos al recoger; cinco fallos por pedido en una ventana de cinco minutos, con espera indicada por el servidor. Se conservan los reintentos sin duplicar avisos ni horas. Los pedidos anteriores, sin PIN, terminan con el flujo previo. La migración ya se aplicó en local; no en el VPS. Ver `backend/PICKUP_PIN.md`.
-- [ ] Evaluar un PIN distinto para la entrega: lo conserva el cliente y el motorista asignado lo ingresa para confirmar. Acordar el procedimiento cuando el cliente no pueda proporcionarlo y registrar cualquier intervención autorizada.
+- [x] PIN de recogida implementado y probado manualmente por Ronald en `codex/pin-recogida`: seis dígitos por pedido nuevo, cifrados en la base y visibles únicamente al restaurante propio cuando está listo. El motorista asignado debe ingresarlos al recoger; cinco fallos por pedido en una ventana de cinco minutos, con espera indicada por el servidor. Se conservan los reintentos sin duplicar avisos ni horas. Los pedidos anteriores, sin PIN, terminan con el flujo previo. Revisar Git y despliegue antes de publicar. Ver `backend/PICKUP_PIN.md`.
+- [x] Implementar el PIN distinto para la entrega del cliente, incluida la excepción autorizada por el administrador.
 - [ ] Definir liquidaciones de efectivo: registrar cuánto cobró el motorista, cuánto corresponde al restaurante, a ToroGo y al propio motorista, lo entregado y el saldo pendiente. Conservar el desglose original de cada pedido y evitar registros duplicados. El PIN acredita pasos del pedido, no demuestra que se haya liquidado el dinero.
 
-Seguir el orden de trabajo acordado arriba: validar disponibilidad y una entrega por motorista, publicar los cambios, preparar respaldos y continuar con el PIN de recogida. Las liquidaciones y el alcance del PIN de entrega siguen por acordar.
+La recogida y su prueba manual ya están aprobadas. Las liquidaciones de efectivo siguen por acordar.
 
 ## Prioridad: respaldos de producción desde el administrador
 

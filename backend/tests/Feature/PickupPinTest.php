@@ -83,7 +83,7 @@ class PickupPinTest extends TestCase
         $this->patchJson($url, ['status' => 'picked_up'])->assertOk();
         $this->assertEquals($time, $this->order->fresh()->picked_up_at);
         Event::assertDispatchedTimes(OrderUpdated::class, 1);
-        $this->patchJson($url, ['status' => 'delivered'])->assertOk();
+        $this->patchJson($url, ['status' => 'delivered', 'delivery_pin' => $this->order->delivery_pin])->assertOk();
     }
 
     public function test_five_wrong_attempts_block_even_correct_pin_until_cooldown_expires(): void

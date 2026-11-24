@@ -23,12 +23,15 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $hidden = ['pickup_pin'];
+    protected $hidden = ['pickup_pin', 'delivery_pin'];
 
     protected static function booted(): void
     {
         static::creating(function (Order $order): void {
             $order->pickup_pin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            do {
+                $order->delivery_pin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            } while ($order->delivery_pin === $order->pickup_pin);
         });
     }
 
@@ -60,6 +63,7 @@ class Order extends Model
         return [
             'status' => OrderStatus::class,
             'pickup_pin' => 'encrypted',
+            'delivery_pin' => 'encrypted',
 
             // decimal:2 -> el dinero viaja como TEXTO ("10.50"), nunca como
             // float. Las sumas se hacen con bcadd.

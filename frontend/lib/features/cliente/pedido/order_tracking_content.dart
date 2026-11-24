@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../models/courier_location.dart';
 import '../../../models/order.dart';
@@ -30,6 +31,7 @@ class OrderTrackingContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final closed = order.status == 'cancelled' || order.status == 'rejected';
     final date = order.createdAt;
+    final deliveryPin = order.deliveryPin;
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
       child: SingleChildScrollView(
@@ -88,6 +90,39 @@ class OrderTrackingContent extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (deliveryPin != null)
+              Card(
+                margin: const EdgeInsets.only(top: 13),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Código de entrega · Pedido #${order.id}'),
+                      SelectableText(
+                        deliveryPin,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const Text(
+                        'Dale este código al motorista cuando recibás tu pedido',
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: deliveryPin),
+                          );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Código copiado')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                        label: const Text('Copiar código'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const SizedBox(height: 13),
             Text.rich(
               TextSpan(

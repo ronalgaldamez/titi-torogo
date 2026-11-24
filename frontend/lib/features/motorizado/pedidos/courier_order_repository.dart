@@ -136,10 +136,15 @@ class CourierOrderRepository {
     int orderId,
     String status, {
     String? pickupPin,
+    String? deliveryPin,
   }) async {
     final Map<String, dynamic> json = await _api.patch(
       '/courier/orders/$orderId',
-      body: <String, dynamic>{'status': status, 'pickup_pin': ?pickupPin},
+      body: <String, dynamic>{
+        'status': status,
+        'pickup_pin': ?pickupPin,
+        'delivery_pin': ?deliveryPin,
+      },
     );
 
     return Order.fromJson(json['order'] as Map<String, dynamic>);
