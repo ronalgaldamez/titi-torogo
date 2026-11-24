@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
+use App\Enums\UserRole;
 use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAvailabilityRequest;
@@ -17,9 +18,10 @@ use App\Support\Geometry;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Los pedidos vistos por el motorizado.
@@ -219,7 +221,7 @@ class CourierOrderController extends Controller
             }
             // La misma fila se bloquea también al asignar desde el administrador.
             $courier = User::query()->lockForUpdate()->findOrFail($request->user()->id);
-            abort_unless($courier->is_active && $courier->hasRole(\App\Enums\UserRole::Courier), 403, 'Tu cuenta de motorizado no está activa.');
+            abort_unless($courier->is_active && $courier->hasRole(UserRole::Courier), 403, 'Tu cuenta de motorizado no está activa.');
             if ($courier->hasActiveDelivery()) {
                 throw ValidationException::withMessages([
                     'order' => 'Terminá tu entrega actual antes de tomar otro pedido.',
@@ -272,6 +274,26 @@ class CourierOrderController extends Controller
                 return response()->json([
                     'order' => new OrderResource($model->load(['items', 'restaurant'])),
                 ]);
+            }
+
+            // shortcut: los pedidos anteriores a la migración no tienen PIN y conservan su flujo hasta cerrarse.
+            if ($status === OrderStatus::PickedUp && $model->status === OrderStatus::Ready && $model->getRawOriginal('pickup_pin') !== null) {
+                $key = 'pickup-pin:'.$model->id;
+                if (RateLimiter::tooManyAttempts($key, 5)) {
+                    $seconds = RateLimiter::availableIn($key);
+
+                    return response()->json(['message' => "Demasiados intentos. Volvé a intentar en {$seconds} segundos."], 429)
+                        ->header('Retry-After', (string) $seconds);
+                }
+
+                $pin = $request->validated('pickup_pin');
+                if (! is_string($pin) || ! hash_equals($model->pickup_pin, $pin)) {
+                    RateLimiter::hit($key, 300);
+
+                    return response()->json(['message' => 'PIN de recogida incorrecto. Pedile al restaurante el código de este pedido.'], 422);
+                }
+
+                RateLimiter::clear($key);
             }
 
             $previous = $model->status->value;

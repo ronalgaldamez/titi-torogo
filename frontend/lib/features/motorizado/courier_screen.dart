@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
@@ -83,6 +84,7 @@ class _CourierScreenState extends State<CourierScreen>
 
   bool _loading = true;
   bool _busy = false;
+  bool _pickupPromptOpen = false;
   String? _error;
   int _loadVersion = 0;
 
@@ -466,6 +468,17 @@ class _CourierScreenState extends State<CourierScreen>
   }
 
   Future<void> _advance(Order order, _Step step) async {
+    if (_busy || _pickupPromptOpen) return;
+    String? pickupPin;
+    if (step.status == 'picked_up' && order.pickupPinRequired) {
+      _pickupPromptOpen = true;
+      try {
+        pickupPin = await _askPickupPin(order.id);
+      } finally {
+        _pickupPromptOpen = false;
+      }
+      if (pickupPin == null || !mounted) return;
+    }
     // Entregar es el final del viaje y mueve plata, asi que se pregunta.
     if (step.status == 'delivered') {
       final bool confirmed = await _confirm(
@@ -484,12 +497,71 @@ class _CourierScreenState extends State<CourierScreen>
     await _run(
       () async {
         final ApiClient api = await _session.client();
-        await CourierOrderRepository(api).setStatus(order.id, step.status);
+        await CourierOrderRepository(
+          api,
+        ).setStatus(order.id, step.status, pickupPin: pickupPin);
       },
       okMessage: step.status == 'delivered'
           ? 'Pedido #${order.id} entregado. ¡Buen trabajo!'
           : 'Pedido #${order.id} recogido.',
     );
+  }
+
+  Future<String?> _askPickupPin(int orderId) async {
+    String enteredPin = '';
+    bool submitted = false;
+    final formKey = GlobalKey<FormState>();
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text('PIN de recogida · #$orderId'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pedile al restaurante el código cuando recibás la comida.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                onChanged: (value) => enteredPin = value,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'PIN de 6 dígitos',
+                ),
+                validator: (value) =>
+                    RegExp(r'^[0-9]{6}$').hasMatch(value ?? '')
+                    ? null
+                    : 'Ingresá los 6 dígitos del código.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (submitted) return;
+              if (formKey.currentState!.validate()) {
+                submitted = true;
+                Navigator.pop(dialogContext, enteredPin);
+              }
+            },
+            child: const Text('Confirmar recogida'),
+          ),
+        ],
+      ),
+    );
+    return pin;
   }
 
   Future<bool> _confirm({

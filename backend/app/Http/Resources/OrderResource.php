@@ -2,6 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\OrderStatus;
+use App\Enums\UserRole;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,7 +13,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * El dinero va como TEXTO ("10.50"), igual que en el resto de la API.
  *
- * @mixin \App\Models\Order
+ * @mixin Order
  */
 class OrderResource extends JsonResource
 {
@@ -27,6 +30,15 @@ class OrderResource extends JsonResource
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'is_active' => $this->status->isActive(),
+
+            // El código solo lo consulta el dueño del restaurante, nunca el motorista ni el cliente.
+            'pickup_pin' => $this->when(
+                $this->status === OrderStatus::Ready
+                    && $request->user()?->hasRole(UserRole::Restaurant)
+                    && $request->user()->id === $this->restaurant->user_id,
+                fn () => $this->pickup_pin,
+            ),
+            'pickup_pin_required' => $this->status === OrderStatus::Ready && $this->getRawOriginal('pickup_pin') !== null,
 
             'restaurant' => [
                 'id' => $this->restaurant->id,

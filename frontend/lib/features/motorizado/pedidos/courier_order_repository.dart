@@ -132,10 +132,14 @@ class CourierOrderRepository {
   ///
   /// picked_up o delivered. Cualquier otro estado lo rechaza el backend: los
   /// del restaurante no le corresponden al motorizado.
-  Future<Order> setStatus(int orderId, String status) async {
+  Future<Order> setStatus(
+    int orderId,
+    String status, {
+    String? pickupPin,
+  }) async {
     final Map<String, dynamic> json = await _api.patch(
       '/courier/orders/$orderId',
-      body: <String, dynamic>{'status': status},
+      body: <String, dynamic>{'status': status, 'pickup_pin': ?pickupPin},
     );
 
     return Order.fromJson(json['order'] as Map<String, dynamic>);

@@ -32,11 +32,13 @@ void main() {
         ),
       );
       int mutations = 0;
+      String pickupStatus = 'ready';
       Map<String, dynamic> order(int id, String status) => {
         'id': id,
         'status': status,
         'status_label': status == 'ready' ? 'Listo para recoger' : 'En camino',
         'is_active': true,
+        'pickup_pin_required': id == 21 && status == 'ready',
         'restaurant': {
           'id': 7,
           'name': 'Restaurante de prueba',
@@ -70,6 +72,19 @@ void main() {
           );
         }
         if (request.method != 'GET') mutations++;
+        if (request.method == 'PATCH' &&
+            request.url.path.endsWith('/courier/orders/21')) {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['status'], 'picked_up');
+          if (body['pickup_pin'] != '012345') {
+            return http.Response('{"message":"PIN incorrecto"}', 422);
+          }
+          pickupStatus = 'picked_up';
+          return http.Response(
+            jsonEncode({'order': order(21, pickupStatus)}),
+            200,
+          );
+        }
         if (request.url.path.endsWith('/me')) {
           return http.Response('{"is_available":false}', 200);
         }
@@ -82,7 +97,7 @@ void main() {
         if (request.url.path.endsWith('/courier/orders')) {
           return http.Response(
             jsonEncode({
-              'orders': [order(21, 'ready'), order(22, 'picked_up')],
+              'orders': [order(21, pickupStatus), order(22, 'picked_up')],
             }),
             200,
           );
@@ -111,13 +126,49 @@ void main() {
         final delivery = find.byKey(const ValueKey('courier-action-22'));
         expect(pickup.hitTestable(), findsOneWidget);
         expect(delivery.hitTestable(), findsOneWidget);
+        await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+        await tester.pump();
+        expect(delivery.hitTestable(), findsOneWidget);
+        await tester.tap(pickup);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('PIN de recogida · #21'), findsOneWidget);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+        expect(find.text('Confirmar recogida').hitTestable(), findsOneWidget);
+        await tester.tap(find.text('Confirmar recogida'));
+        await tester.pump();
+        expect(find.text('Ingresá los 6 dígitos del código.'), findsOneWidget);
+        expect(mutations, 0);
+        await tester.tap(find.text('Cancelar'));
+        tester.view.resetViewInsets();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.tap(pickup);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(find.byType(TextFormField), '111111');
+        await tester.tap(find.text('Confirmar recogida'));
+        for (int i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(find.text('PIN incorrecto'), findsOneWidget);
+        expect(mutations, 1);
+        await tester.tap(pickup);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(find.byType(TextFormField), '012345');
+        await tester.tap(find.text('Confirmar recogida'));
+        for (int i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(pickupStatus, 'picked_up');
+        expect(mutations, 2);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pump(const Duration(milliseconds: 300));
         expect(
           tester.getBottomRight(delivery).dy,
           lessThanOrEqualTo(tester.getTopLeft(find.byType(NavigationBar)).dy),
         );
-        await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-        await tester.pump();
-        expect(delivery.hitTestable(), findsOneWidget);
+        await tester.ensureVisible(delivery);
         await tester.tap(delivery);
         await tester.pump(const Duration(milliseconds: 300));
         expect(
@@ -132,7 +183,7 @@ void main() {
         );
         await tester.tap(find.text('Cancelar'));
         await tester.pump(const Duration(milliseconds: 300));
-        expect(mutations, 0);
+        expect(mutations, 2);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => client);
     },
