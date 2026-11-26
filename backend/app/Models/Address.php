@@ -54,6 +54,18 @@ class Address extends Model
         ];
     }
 
+    public function deliveryVersion(): string
+    {
+        return hash('sha256', json_encode([
+            $this->id,
+            $this->label,
+            $this->address,
+            $this->reference,
+            number_format($this->latitude, 7, '.', ''),
+            number_format($this->longitude, 7, '.', ''),
+        ], JSON_THROW_ON_ERROR));
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

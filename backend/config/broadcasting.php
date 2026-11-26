@@ -42,7 +42,9 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // El aviso es síncrono; Reverb debe fallar antes del timeout de la app.
+                'connect_timeout' => 2,
+                'timeout' => 4,
             ],
         ],
 

@@ -11,6 +11,7 @@ class Address {
     required this.longitude,
     required this.isDefault,
     this.reference,
+    this.deliveryVersion,
   });
 
   final int id;
@@ -26,6 +27,7 @@ class Address {
 
   final double latitude;
   final double longitude;
+  final String? deliveryVersion;
 
   /// La que el checkout elige sola.
   final bool isDefault;
@@ -42,6 +44,7 @@ class Address {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       isDefault: json['is_default'] as bool,
+      deliveryVersion: json['delivery_version'] as String?,
     );
   }
 }

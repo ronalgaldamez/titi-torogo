@@ -8,7 +8,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Tests\TestCase;
 
 class OrderTipTest extends TestCase
@@ -51,6 +53,49 @@ class OrderTipTest extends TestCase
         $this->travel(2)->minutes();
         $this->postJson('/api/orders', $this->payload)->assertOk()
             ->assertJsonPath('order.acceptance_expires_at', $deadline);
+        $this->assertDatabaseCount('orders', 1);
+    }
+
+    public function test_order_is_confirmed_and_visible_to_the_kitchen_when_broadcast_fails(): void
+    {
+        Event::fake([CouriersUpdated::class]);
+        Exceptions::fake();
+        Event::listen(OrderUpdated::class, fn () => throw new RuntimeException('Reverb no disponible'));
+
+        $id = $this->postJson('/api/orders', $this->payload)->assertCreated()->json('order.id');
+        $this->postJson('/api/orders', $this->payload)->assertOk()->assertJsonPath('order.id', $id);
+        $this->assertDatabaseCount('orders', 1);
+        Exceptions::assertReported(RuntimeException::class);
+
+        $restaurantOwner = \App\Models\Restaurant::findOrFail($this->payload['restaurant_id'])->user;
+        Sanctum::actingAs($restaurantOwner);
+        $this->getJson('/api/restaurant/orders')->assertOk()->assertJsonPath('orders.0.id', $id);
+    }
+
+    public function test_address_edit_with_the_same_fee_requires_confirmation_and_retries_keep_the_snapshot(): void
+    {
+        $payload = $this->payload;
+        $payload['expected_address_version'] = $this->getJson('/api/addresses')->assertOk()
+            ->json('addresses.0.delivery_version');
+        $addressPath = '/api/addresses/'.$payload['address_id'];
+        $address = ['label' => 'Casa', 'address' => 'Nueva dirección', 'latitude' => 14.312345678, 'longitude' => -89.25];
+        $updatedVersion = $this->putJson($addressPath, $address)->assertOk()->json('address.delivery_version');
+        $this->assertNotSame($payload['expected_address_version'], $updatedVersion);
+
+        $this->postJson('/api/orders', $payload)->assertUnprocessable()
+            ->assertJsonValidationErrors('expected_address_version');
+        $this->assertDatabaseCount('orders', 0);
+
+        $payload['expected_address_version'] = $updatedVersion;
+        $order = $this->postJson('/api/orders', $payload)->assertCreated()
+            ->assertJsonPath('order.delivery.address', 'Nueva dirección')
+            ->assertJsonPath('order.total', '6.00')->json('order.id');
+
+        $address['address'] = 'Otra dirección';
+        $this->putJson($addressPath, $address)->assertOk();
+        $this->postJson('/api/orders', $payload)->assertOk()
+            ->assertJsonPath('order.id', $order)
+            ->assertJsonPath('order.delivery.address', 'Nueva dirección');
         $this->assertDatabaseCount('orders', 1);
     }
 

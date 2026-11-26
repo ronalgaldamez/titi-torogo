@@ -148,9 +148,13 @@ class ApiClient {
     }
 
     if (response.statusCode >= 400) {
+      final errors = decoded is Map ? decoded['errors'] : null;
       throw ApiException(
         _messageFrom(decoded) ?? 'Ocurrio un error (${response.statusCode}).',
         statusCode: response.statusCode,
+        validationFields: errors is Map
+            ? errors.keys.whereType<String>().toSet()
+            : const {},
       );
     }
 
@@ -187,10 +191,15 @@ class ApiClient {
 
 /// Error con el mensaje ya listo para mostrar en pantalla.
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode});
+  ApiException(
+    this.message, {
+    this.statusCode,
+    this.validationFields = const {},
+  });
 
   final String message;
   final int? statusCode;
+  final Set<String> validationFields;
 
   @override
   String toString() => message;

@@ -22,12 +22,7 @@ import 'restaurant_history_screen.dart';
 ///
 /// La lista se actualiza SOLA cuando entra o se mueve un pedido: el backend
 /// avisa por el canal de tiempo real del restaurante (ver core/realtime.dart).
-/// Si el tiempo real no esta disponible, se sigue actualizando con el boton de
-/// arriba o deslizando hacia abajo.
-///
-/// FALTA TODAVIA: el sonido fuerte cuando entra un pedido nuevo, que la biblia
-/// pide para este perfil. La lista en vivo ya esta; el ruido es el paso que
-/// sigue.
+/// La consulta periódica recupera los avisos perdidos mientras la app está abierta.
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({this.onLogout, super.key});
 
@@ -45,7 +40,8 @@ class _Action {
   final String label;
 }
 
-class _OrdersScreenState extends State<OrdersScreen> {
+class _OrdersScreenState extends State<OrdersScreen>
+    with WidgetsBindingObserver {
   final Session _session = Session(AuthStorage());
 
   List<Order> _orders = <Order>[];
@@ -59,6 +55,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   String? _error;
   bool _loading = true;
+  Timer? _refreshTimer;
+  Future<void>? _refresh;
+  bool? _queuedSilent;
 
   /// El restaurante de la sesion. Null hasta que la primera carga lo traiga
   /// (viene en la misma respuesta de la lista).
@@ -66,6 +65,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   /// La escucha del tiempo real de la cocina. Null = no se pudo abrir.
   RealtimeWatch? _watch;
+  bool _startingRealtime = false;
 
   StreamSubscription<Map<String, dynamic>>? _liveSub;
   StreamSubscription<bool>? _connectedSub;
@@ -83,11 +83,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_load());
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        unawaited(_load(silent: true));
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(silent: true));
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _liveSub?.cancel();
     _connectedSub?.cancel();
 
@@ -105,7 +120,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// muestran el circulito ni el cartel de error. Si el aviso llega y el
   /// telefono justo se quedo sin datos, la pantalla se queda con lo que ya
   /// tenia: algo viejo a la vista es mejor que una pantalla vacia.
-  Future<void> _load({bool silent = false, int? newOrderId}) async {
+  Future<void> _load({bool silent = false}) {
+    // Una consulta por vez. Si llegó otro aviso, se vuelve a consultar.
+    _queuedSilent = (_queuedSilent ?? true) && silent;
+    return _refresh ??= _refreshOrders();
+  }
+
+  Future<void> _refreshOrders() async {
+    try {
+      while (mounted && _queuedSilent != null) {
+        final silent = _queuedSilent!;
+        _queuedSilent = null;
+        await _fetchOrders(silent: silent);
+      }
+    } finally {
+      _refresh = null;
+    }
+  }
+
+  Future<void> _fetchOrders({required bool silent}) async {
     if (!silent) {
       setState(() {
         _loading = true;
@@ -121,11 +154,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
         return;
       }
 
-      if (newOrderId != null) {
-        for (final order in data.orders.where(
-          (order) => order.id == newOrderId,
-        )) {
-          _ringIfNewOrder(order);
+      if (_restaurantId != null) {
+        final knownIds = _orders.map((order) => order.id).toSet();
+        for (final order in data.orders) {
+          if (order.status == 'pending' && !knownIds.contains(order.id)) {
+            _notifyNewOrder(order);
+          }
         }
       }
       setState(() {
@@ -137,7 +171,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       // El id del restaurante viene en la misma respuesta, asi que recien
       // ahora se puede escuchar el canal de la cocina.
       _restaurantId = data.restaurantId;
-      _startRealtime();
+      unawaited(_startRealtime());
     } on ApiException catch (error) {
       if (!mounted) {
         return;
@@ -157,15 +191,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   /// Prende el tiempo real de la cocina.
   ///
-  /// Todo esto es 'si se puede': si Reverb no esta disponible, la lista se
-  /// sigue actualizando con el boton de arriba o deslizando hacia abajo.
   Future<void> _startRealtime() async {
     final int? restaurantId = _restaurantId;
 
     // Ya hay una escucha abierta, o todavia no sabemos cual es el restaurante.
-    if (_watch != null || restaurantId == null || restaurantId <= 0) {
+    if (_startingRealtime ||
+        _watch != null ||
+        restaurantId == null ||
+        restaurantId <= 0) {
       return;
     }
+    _startingRealtime = true;
 
     // El canal de notificaciones y el permiso de Android 13+.
     //
@@ -177,6 +213,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _connectedSub ??= Realtime.instance.connected.listen((bool connected) {
       if (mounted) {
         setState(() => _connected = connected);
+        if (connected) unawaited(_load(silent: true));
       }
     });
 
@@ -196,6 +233,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
       debugPrint('Tiempo real: no se pudo escuchar el restaurante ($error)');
 
       return;
+    } finally {
+      _startingRealtime = false;
     }
 
     if (!mounted) {
@@ -205,28 +244,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     _watch = watch;
-    _liveSub = watch.messages.listen(_onLiveMessage);
-  }
-
-  /// Llego un aviso del tiempo real.
-  ///
-  /// Dos cosas, en este orden: primero se fija si es un PEDIDO NUEVO (para
-  /// sonar) y despues recarga la lista.
-  void _onLiveMessage(Map<String, dynamic> payload) {
-    final id = payload['order_id'];
-    _load(
-      silent: true,
-      newOrderId: payload['previous_status'] == null && id is int ? id : null,
-    );
+    _liveSub = watch.messages.listen((_) => unawaited(_load(silent: true)));
   }
 
   // Solo se notifica después de recuperar el pedido con los permisos actuales.
-  void _ringIfNewOrder(Order order) {
-    if (order.status != 'pending' ||
-        _orders.any((Order other) => other.id == order.id)) {
-      return;
-    }
-
+  void _notifyNewOrder(Order order) {
     final int units = order.items.fold<int>(
       0,
       (int sum, OrderItem item) => sum + item.quantity,

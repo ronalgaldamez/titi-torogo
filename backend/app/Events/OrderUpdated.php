@@ -51,12 +51,13 @@ class OrderUpdated implements ShouldBroadcastNow
 
     public static function announce(Order $order, ?string $previousStatus = null): void
     {
-        self::dispatch($order, $previousStatus);
+        // El pedido ya está guardado cuando se publica el aviso.
+        rescue(fn () => self::dispatch($order, $previousStatus));
 
         if ($order->status === OrderStatus::Ready
             || $previousStatus === OrderStatus::Ready->value
             || $order->wasChanged('courier_id')) {
-            CouriersUpdated::dispatch($order->id);
+            rescue(fn () => CouriersUpdated::dispatch($order->id));
         }
     }
 
