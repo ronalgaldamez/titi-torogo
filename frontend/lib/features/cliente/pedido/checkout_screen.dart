@@ -10,6 +10,7 @@ import '../../../models/address.dart';
 import '../../../models/order.dart';
 import '../carrito/cart.dart';
 import '../carrito/cart_provider.dart';
+import '../checkout_appearance.dart';
 import '../direcciones/address_form_screen.dart';
 import '../direcciones/address_repository.dart';
 import '../direcciones/addresses_screen.dart';
@@ -229,14 +230,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final _PickerResult? result = await showModalBottomSheet<_PickerResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.background,
+      backgroundColor: flowSheet,
+      barrierColor: const Color(0xA6040E17),
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppRadius.card),
         ),
       ),
-      builder: (BuildContext context) =>
-          _AddressPicker(addresses: _addresses, selectedId: _address?.id),
+      builder: (context) => Theme(
+        data: checkoutTheme(context),
+        child: Material(
+          type: MaterialType.transparency,
+          child: _AddressPicker(
+            addresses: _addresses,
+            selectedId: _address?.id,
+          ),
+        ),
+      ),
     );
 
     if (!mounted || result == null) {
@@ -461,7 +472,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Widget build(BuildContext context) {
     final Cart currentCart = ref.watch(cartProvider);
     final Cart cart = _pending?.cart ?? currentCart;
-    final TextTheme text = Theme.of(context).textTheme;
+    final theme = checkoutTheme(context);
+    final text = theme.textTheme;
+    const tipPresets = ['0.00', '0.50', '1.00', '2.00'];
 
     final bool canConfirm =
         !_loading &&
@@ -473,354 +486,268 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     return PopScope(
       canPop: !_sending,
-      child: Scaffold(
-        backgroundColor: AppTheme.background,
-        appBar: AppBar(
-          backgroundColor: AppTheme.background,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'Confirmar pedido',
-            style: text.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppTheme.navy,
-            ),
-          ),
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                ),
-                children: <Widget>[
-                  if (_pending != null) ...<Widget>[
-                    const _ErrorBox(
-                      message:
-                          'Revisá si el pedido llegó al restaurante. Recuperar no envía un pedido nuevo.',
+      child: Theme(
+        data: theme,
+        child: Scaffold(
+          backgroundColor: AppTheme.discoveryBackground,
+          appBar: checkoutAppBar(),
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(22, 6, 22, 22),
+                  children: <Widget>[
+                    CheckoutHeading(
+                      'Confirmar pedido',
+                      caption: cart.restaurantName,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                  const _SectionTitle('Entregar en'),
-                  _AddressCard(address: _address, onTap: _openAddressPicker),
-                  const SizedBox(height: AppSpacing.sm),
-                  _CheckoutCard(
-                    children: <Widget>[
-                      const _SectionTitle('Tu pedido'),
-                      for (final CartItem item in cart.items)
-                        _ItemLine(
-                          item: item,
-                          onRemove: _pending != null || _sending
-                              ? null
-                              : () => ref
-                                    .read(cartProvider.notifier)
-                                    .remove(item.product.id),
-                        ),
+                    const SizedBox(height: 16),
+                    if (_pending != null) ...<Widget>[
+                      const _ErrorBox(
+                        message:
+                            'Revisá si el pedido llegó al restaurante. Recuperar no envía un pedido nuevo.',
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                     ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _CheckoutCard(
-                    children: <Widget>[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const Expanded(
-                            child: _SectionTitle('Propina al motorista'),
+                    const _SectionTitle('Entregar en'),
+                    _AddressCard(address: _address, onTap: _openAddressPicker),
+                    const SizedBox(height: AppSpacing.sm),
+                    _CheckoutSection(
+                      children: <Widget>[
+                        const _SectionTitle('Tu pedido'),
+                        for (final CartItem item in cart.items)
+                          _ItemLine(
+                            item: item,
+                            onRemove: _pending != null || _sending
+                                ? null
+                                : () => ref
+                                      .read(cartProvider.notifier)
+                                      .remove(item.product.id),
                           ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            'Opcional',
-                            style: text.labelSmall?.copyWith(
-                              color: AppTheme.tealDeep,
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _CheckoutSection(
+                      children: <Widget>[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Expanded(
+                              child: _SectionTitle('Propina al motorista'),
                             ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'El 100% es para el motorista. La pagás al recibir.',
-                        style: text.bodySmall?.copyWith(
-                          color: AppTheme.tealDeep,
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              'Opcional',
+                              style: text.labelSmall?.copyWith(
+                                color: AppTheme.discoveryMuted,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: <Widget>[
-                          for (final String amount in <String>[
-                            '0.00',
-                            '0.50',
-                            '1.00',
-                            '2.00',
-                          ])
-                            ChoiceChip(
-                              showCheckmark: false,
-                              side: WidgetStateBorderSide.resolveWith(
-                                (states) => BorderSide(
-                                  color: states.contains(WidgetState.selected)
-                                      ? AppTheme.teal
-                                      : Theme.of(
-                                          context,
-                                        ).colorScheme.outlineVariant,
+                        Text(
+                          'El 100% es para el motorista. La pagás al recibir.',
+                          style: text.bodySmall?.copyWith(
+                            color: AppTheme.discoveryMuted,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final amount in [...tipPresets, null])
+                              ChoiceChip(
+                                showCheckmark: false,
+                                side: const BorderSide(color: flowRule),
+                                color: WidgetStateProperty.resolveWith(
+                                  (states) =>
+                                      states.contains(WidgetState.selected)
+                                      ? AppTheme.discoveryPaper
+                                      : AppTheme.discoveryBackground,
                                 ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xs,
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.padded,
+                                labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: WidgetStateColor.resolveWith(
+                                    (states) =>
+                                        states.contains(WidgetState.selected)
+                                        ? AppTheme.discoveryBackground
+                                        : AppTheme.discoveryPaper,
+                                  ),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                label: Text(switch (amount) {
+                                  null => 'Otro monto',
+                                  '0.00' => 'Sin propina',
+                                  _ => '\$$amount',
+                                }),
+                                selected: amount == null
+                                    ? _customTip ||
+                                          (_pending != null &&
+                                              !tipPresets.contains(_tipAmount))
+                                    : !_customTip && _tipAmount == amount,
+                                onSelected: _pending != null || _sending
+                                    ? null
+                                    : (_) => setState(() {
+                                        _customTip = amount == null;
+                                        if (amount != null) {
+                                          _selectedTip = amount;
+                                        }
+                                      }),
                               ),
-                              selectedColor: AppTheme.tealSoft,
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.surface,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xs,
-                              ),
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.padded,
-                              labelStyle: text.labelLarge?.copyWith(
-                                color: AppTheme.tealDeep,
-                              ),
-                              shape: RoundedRectangleBorder(
+                          ],
+                        ),
+                        if (_customTip && _pending == null) ...<Widget>[
+                          const SizedBox(height: AppSpacing.sm),
+                          TextField(
+                            controller: _tipController,
+                            enabled: !_sending,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Propina personalizada',
+                              prefixText: '\$ ',
+                              helperText: 'Hasta \$100.00',
+                              errorText: _tipError,
+                              filled: true,
+                              fillColor: flowField,
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(
                                   AppSpacing.sm,
                                 ),
                               ),
-                              label: Text(
-                                amount == '0.00' ? 'Sin propina' : '\$$amount',
-                              ),
-                              selected: !_customTip && _tipAmount == amount,
-                              onSelected: _pending != null || _sending
-                                  ? null
-                                  : (_) => setState(() {
-                                      _selectedTip = amount;
-                                      _customTip = false;
-                                    }),
                             ),
-                          ChoiceChip(
-                            showCheckmark: false,
-                            side: WidgetStateBorderSide.resolveWith(
-                              (states) => BorderSide(
-                                color: states.contains(WidgetState.selected)
-                                    ? AppTheme.teal
-                                    : Theme.of(
-                                        context,
-                                      ).colorScheme.outlineVariant,
-                              ),
-                            ),
-                            selectedColor: AppTheme.tealSoft,
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                            ),
-                            materialTapTargetSize: MaterialTapTargetSize.padded,
-                            labelStyle: text.labelLarge?.copyWith(
-                              color: AppTheme.tealDeep,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.sm,
-                              ),
-                            ),
-                            label: const Text('Otro monto'),
-                            selected:
-                                _customTip ||
-                                (_pending != null &&
-                                    !<String>[
-                                      '0.00',
-                                      '0.50',
-                                      '1.00',
-                                      '2.00',
-                                    ].contains(_tipAmount)),
-                            onSelected: _pending != null || _sending
-                                ? null
-                                : (_) => setState(() => _customTip = true),
+                            onChanged: (_) => setState(() {}),
                           ),
                         ],
-                      ),
-                      if (_customTip && _pending == null) ...<Widget>[
-                        const SizedBox(height: AppSpacing.sm),
-                        TextField(
-                          controller: _tipController,
-                          enabled: !_sending,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Propina personalizada',
-                            prefixText: '\$ ',
-                            helperText: 'Hasta \$100.00',
-                            errorText: _tipError,
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.sm,
-                              ),
-                            ),
-                          ),
-                          onChanged: (_) => setState(() {}),
-                        ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _CheckoutCard(
-                    children: <Widget>[
-                      const _SectionTitle('Resumen'),
-                      _SummaryRow(label: 'Platos', value: '\$${cart.subtotal}'),
-                      _SummaryRow(
-                        label: 'Envío',
-                        value: _feeReady
-                            ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
-                            : '...',
-                        hint: _feeReady && _deliveryFee == null
-                            ? 'No llegamos a esa dirección'
-                            : null,
-                      ),
-                      _SummaryRow(label: 'Propina', value: '\$$_tipAmount'),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                        child: Divider(height: 1),
-                      ),
-                      Row(
-                        children: <Widget>[
-                          const Icon(
-                            Icons.payments_outlined,
-                            size: 18,
-                            color: AppTheme.teal,
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Expanded(
-                            child: Text(
-                              'Pagás en efectivo al recibir',
-                              style: text.bodySmall?.copyWith(
-                                color: AppTheme.navy,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (_error != null) ...<Widget>[
-                    const SizedBox(height: AppSpacing.md),
-                    _ErrorBox(message: _error!),
-                    TextButton(
-                      onPressed: _sending ? null : _load,
-                      child: const Text('Actualizar'),
                     ),
-                  ],
-                ],
-              ),
-        bottomNavigationBar: _loading
-            ? null
-            : Material(
-                color: Colors.white,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    const SizedBox(height: AppSpacing.sm),
+                    _CheckoutSection(
                       children: <Widget>[
+                        const _SectionTitle('Resumen'),
                         _SummaryRow(
-                          label: 'Total',
-                          value: _deliveryFee == null ? '—' : '\$$_total',
-                          strong: true,
+                          label: 'Platos',
+                          value: '\$${cart.subtotal}',
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: canConfirm ? _confirm : null,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.coralDeep,
-                              minimumSize: const Size.fromHeight(54),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.image,
+                        _SummaryRow(
+                          label: 'Envío',
+                          value: _feeReady
+                              ? (_deliveryFee == null ? '—' : '\$$_deliveryFee')
+                              : '...',
+                          hint: _feeReady && _deliveryFee == null
+                              ? 'No llegamos a esa dirección'
+                              : null,
+                        ),
+                        _SummaryRow(label: 'Propina', value: '\$$_tipAmount'),
+                      ],
+                    ),
+                    if (_error != null) ...<Widget>[
+                      const SizedBox(height: AppSpacing.md),
+                      _ErrorBox(message: _error!),
+                      TextButton(
+                        onPressed: _sending ? null : _load,
+                        child: const Text('Actualizar'),
+                      ),
+                    ],
+                  ],
+                ),
+          bottomNavigationBar: _loading
+              ? null
+              : Material(
+                  color: flowSheet,
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: flowRule)),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(22, 11, 22, 13),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Total',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Pagás en efectivo al recibir',
+                                      style: TextStyle(
+                                        color: AppTheme.discoveryMuted,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            child: _sending
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: <Widget>[
-                                      Flexible(
-                                        child: Text(
-                                          _pending == null
-                                              ? 'Confirmar pedido'
-                                              : 'Recuperar pedido',
-                                          textAlign: TextAlign.center,
-                                          style: text.titleSmall?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.sm),
-                                      const Icon(
-                                        Icons.arrow_forward_rounded,
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
+                              Text(
+                                _deliveryFee == null ? '—' : '\$$_total',
+                                style: const TextStyle(
+                                  color: AppTheme.discoveryAccent,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        if (!canConfirm &&
-                            !_sending &&
-                            _tipError == null) ...<Widget>[
                           const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            _feeReady && _deliveryFee == null
-                                ? 'Todavía no llegamos a esa dirección. Probá con otra.'
-                                : 'Elegí una dirección para continuar.',
-                            textAlign: TextAlign.center,
-                            style: text.bodySmall?.copyWith(
-                              color: AppTheme.coral,
-                            ),
+                          CheckoutAction(
+                            _pending == null
+                                ? 'Confirmar pedido'
+                                : 'Recuperar pedido',
+                            onPressed: canConfirm ? _confirm : null,
+                            loading: _sending,
                           ),
+                          if (!canConfirm &&
+                              !_sending &&
+                              _tipError == null) ...<Widget>[
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              _feeReady && _deliveryFee == null
+                                  ? 'Todavía no llegamos a esa dirección. Probá con otra.'
+                                  : 'Elegí una dirección para continuar.',
+                              textAlign: TextAlign.center,
+                              style: text.bodySmall?.copyWith(
+                                color: AppTheme.discoveryAccent,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+        ),
       ),
     );
   }
 }
 
-/// Agrupa las secciones del checkout con la misma superficie y espaciado.
-class _CheckoutCard extends StatelessWidget {
-  const _CheckoutCard({required this.children});
+/// Separa los bloques del pedido con una línea fina.
+class _CheckoutSection extends StatelessWidget {
+  const _CheckoutSection({required this.children});
 
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.md,
-      vertical: AppSpacing.sm,
-    ),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(AppRadius.image),
+    padding: const EdgeInsets.only(top: 12),
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: flowRule)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -844,7 +771,7 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         title,
         style: text.titleSmall?.copyWith(
-          color: AppTheme.navy,
+          color: AppTheme.discoveryPaper,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -865,25 +792,29 @@ class _AddressCard extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(AppRadius.image),
+      color: flowSheet,
+      borderRadius: const BorderRadius.horizontal(right: Radius.circular(11)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              left: BorderSide(color: AppTheme.discoveryAccent, width: 3),
+            ),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
           child: Row(
             children: <Widget>[
-              const Icon(Icons.place_rounded, color: AppTheme.teal),
+              const Icon(Icons.place_outlined, color: AppTheme.discoveryAccent),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: address == null
                     ? Text(
                         'Elegí una dirección',
-                        style: text.titleSmall?.copyWith(color: AppTheme.navy),
+                        style: text.titleSmall?.copyWith(
+                          color: AppTheme.discoveryPaper,
+                        ),
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -892,7 +823,7 @@ class _AddressCard extends StatelessWidget {
                             address!.label,
                             style: text.titleSmall?.copyWith(
                               fontWeight: FontWeight.w800,
-                              color: AppTheme.navy,
+                              color: AppTheme.discoveryPaper,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -915,7 +846,11 @@ class _AddressCard extends StatelessWidget {
                         ],
                       ),
               ),
-              const Icon(Icons.expand_more_rounded, color: AppTheme.navy),
+              const SizedBox(width: 8),
+              const Text(
+                'Cambiar',
+                style: TextStyle(color: flowMint, fontWeight: FontWeight.w700),
+              ),
             ],
           ),
         ),
@@ -924,7 +859,7 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-/// Permite quitar platos antes de confirmar; bloqueada mientras hay un intento pendiente.
+/// Permite quitar platos antes de confirmar.
 class _ItemLine extends StatelessWidget {
   const _ItemLine({required this.item, this.onRemove});
 
@@ -932,80 +867,59 @@ class _ItemLine extends StatelessWidget {
   final VoidCallback? onRemove;
 
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: AppTheme.tealSoft,
-              borderRadius: BorderRadius.circular(AppSpacing.sm),
-            ),
-            child: Text(
-              '${item.quantity}×',
-              style: text.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: AppTheme.tealDeep,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+    child: Row(
+      children: [
+        CheckoutThumbnail(item.product.imageUrl),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.product.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-            ),
+              Text(
+                '${item.quantity} × \$${item.product.price}',
+                style: const TextStyle(color: AppTheme.discoveryMuted),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              item.product.name,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-            ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          '\$${item.subtotal}',
+          style: const TextStyle(
+            color: AppTheme.discoveryAccent,
+            fontWeight: FontWeight.w800,
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            '\$${item.subtotal}',
-            style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+        ),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            tooltip: 'Quitar plato',
+            icon: const Icon(Icons.delete_outline_rounded),
           ),
-          if (onRemove != null)
-            IconButton(
-              onPressed: onRemove,
-              tooltip: 'Quitar plato',
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 /// Una fila del resumen: "Platos $3.00".
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.hint,
-    this.strong = false,
-  });
+  const _SummaryRow({required this.label, required this.value, this.hint});
 
   final String label;
   final String value;
   final String? hint;
-  final bool strong;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
 
-    final TextStyle? style = strong
-        ? text.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          )
-        : text.bodyMedium?.copyWith(color: AppTheme.navy);
-
+    final style = text.bodyMedium?.copyWith(color: AppTheme.discoveryMuted);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
@@ -1014,19 +928,14 @@ class _SummaryRow extends StatelessWidget {
           Row(
             children: <Widget>[
               Expanded(child: Text(label, style: style)),
-              Text(
-                value,
-                style: strong
-                    ? text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.coral,
-                      )
-                    : text.bodyMedium?.copyWith(color: AppTheme.navy),
-              ),
+              Text(value, style: text.bodyMedium),
             ],
           ),
           if (hint != null)
-            Text(hint!, style: text.bodySmall?.copyWith(color: AppTheme.coral)),
+            Text(
+              hint!,
+              style: text.bodySmall?.copyWith(color: AppTheme.discoveryAccent),
+            ),
         ],
       ),
     );
@@ -1048,182 +957,89 @@ class _PickerResult {
 /// La lista de direcciones para elegir.
 class _AddressPicker extends StatelessWidget {
   const _AddressPicker({required this.addresses, required this.selectedId});
+
   final List<Address> addresses;
   final int? selectedId;
+
   @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.tealSoft,
-                  borderRadius: BorderRadius.circular(4),
-                ),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: CheckoutHeading('¿Dónde te lo llevamos?')),
+              IconButton(
+                tooltip: 'Cerrar direcciones',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    '¿Dónde te lo llevamos?',
-                    style: text.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.navy,
-                    ),
-                  ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (addresses.isEmpty)
+            const Text('Todavía no tenés direcciones guardadas.'),
+          for (final address in addresses) ...[
+            Semantics(
+              selected: address.id == selectedId,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  address.id == selectedId
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: address.id == selectedId
+                      ? flowMint
+                      : AppTheme.discoveryMuted,
                 ),
-                IconButton(
-                  tooltip: 'Cerrar direcciones',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: AppTheme.navy,
-                ),
-              ],
-            ),
-            Text(
-              'Elegí una dirección para este pedido.',
-              style: text.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (addresses.isEmpty)
-              Text(
-                'Todavía no tenés direcciones guardadas.',
-                style: text.bodyMedium,
-              ),
-            for (final address in addresses)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Semantics(
-                  selected: address.id == selectedId,
-                  child: Material(
+                title: Text(
+                  address.label,
+                  style: TextStyle(
                     color: address.id == selectedId
-                        ? AppTheme.tealSoft
-                        : Theme.of(context).colorScheme.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.image),
-                      side: BorderSide(
-                        color: address.id == selectedId
-                            ? AppTheme.teal
-                            : Colors.transparent,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => Navigator.of(
-                        context,
-                      ).pop(_PickerResult(_PickerAction.pick, address)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Row(
-                          children: <Widget>[
-                            const Icon(
-                              Icons.place_outlined,
-                              color: AppTheme.tealDeep,
-                              size: 22,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Wrap(
-                                    spacing: AppSpacing.xs,
-                                    runSpacing: AppSpacing.xs,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: <Widget>[
-                                      Text(
-                                        address.label,
-                                        style: text.titleSmall?.copyWith(
-                                          color: AppTheme.navy,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      if (address.isDefault)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.tealSoft,
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Predeterminada',
-                                            style: text.labelSmall?.copyWith(
-                                              color: AppTheme.tealDeep,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.xs),
-                                  Text(
-                                    address.address,
-                                    style: text.bodySmall?.copyWith(
-                                      color: AppTheme.navy,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Icon(
-                              address.id == selectedId
-                                  ? Icons.check_circle_rounded
-                                  : Icons.radio_button_unchecked_rounded,
-                              color: AppTheme.tealDeep,
-                              size: 22,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                        ? flowMint
+                        : AppTheme.discoveryPaper,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(address.address),
+                    if (address.isDefault) const Text('Predeterminada'),
+                  ],
+                ),
+                onTap: () => Navigator.of(
+                  context,
+                ).pop(_PickerResult(_PickerAction.pick, address)),
               ),
-            const SizedBox(height: AppSpacing.sm),
-            OutlinedButton.icon(
+            ),
+            const Divider(height: 1),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          CheckoutAction(
+            'Nueva dirección',
+            icon: Icons.add_rounded,
+            onPressed: () => Navigator.of(
+              context,
+            ).pop(const _PickerResult(_PickerAction.create)),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
               onPressed: () => Navigator.of(
                 context,
-              ).pop(const _PickerResult(_PickerAction.create)),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Nueva dirección'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                foregroundColor: AppTheme.tealDeep,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.image),
-                ),
-              ),
+              ).pop(const _PickerResult(_PickerAction.manage)),
+              child: const Text('Administrar mis direcciones'),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).pop(const _PickerResult(_PickerAction.manage)),
-                child: const Text('Administrar mis direcciones'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// El aviso de error que devolvio el backend.
@@ -1239,17 +1055,20 @@ class _ErrorBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppTheme.tealSoft,
+        color: flowSheet,
         borderRadius: BorderRadius.circular(AppRadius.image),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppTheme.coral),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppTheme.discoveryAccent,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
           ),
         ],

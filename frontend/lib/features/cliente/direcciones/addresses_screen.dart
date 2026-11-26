@@ -5,6 +5,7 @@ import '../../../core/auth_storage.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/address.dart';
+import '../checkout_appearance.dart';
 import 'address_form_screen.dart';
 import 'address_repository.dart';
 
@@ -85,53 +86,33 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Mis direcciones',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.md,
-          ),
-          child: FilledButton.icon(
-            onPressed: () => _openForm(),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.coral,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.image),
-              ),
-            ),
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: Text(
+    return Theme(
+      data: checkoutTheme(context),
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        appBar: checkoutAppBar(),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+            child: CheckoutAction(
               'Nueva dirección',
-              style: text.labelLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
+              icon: Icons.add_rounded,
+              onPressed: () => _openForm(),
             ),
           ),
         ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 6, 22, 12),
+              child: CheckoutHeading('Mis direcciones', caption: 'Entrega'),
+            ),
+            Expanded(child: _body()),
+          ],
+        ),
       ),
-      body: _body(),
     );
   }
 
@@ -164,15 +145,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      color: AppTheme.teal,
+      color: flowMint,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.md,
-        ),
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, AppSpacing.md),
         children: <Widget>[
           for (final Address address in _addresses)
             _AddressRow(
@@ -193,107 +169,39 @@ class _AddressRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.image),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppTheme.tealSoft,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.place_outlined,
-                    size: 20,
-                    color: AppTheme.tealDeep,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Wrap(
-                        spacing: AppSpacing.xs,
-                        runSpacing: AppSpacing.xs,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          Text(
-                            address.label,
-                            style: text.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.navy,
-                            ),
-                          ),
-                          if (address.isDefault) ...<Widget>[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.tealSoft,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.pill,
-                                ),
-                              ),
-                              child: Text(
-                                'Predeterminada',
-                                style: text.labelSmall?.copyWith(
-                                  color: AppTheme.tealDeep,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        address.address,
-                        style: text.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                      if (address.reference != null &&
-                          address.reference!.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(
-                          address.reference!,
-                          style: text.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppTheme.tealDeep,
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) => Column(
+    children: [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          address.isDefault
+              ? Icons.check_circle_outline_rounded
+              : Icons.place_outlined,
+          color: address.isDefault ? flowMint : AppTheme.discoveryMuted,
+        ),
+        title: Text(
+          address.label,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: address.isDefault ? flowMint : AppTheme.discoveryPaper,
           ),
         ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(address.address),
+            if (address.reference case final reference?
+                when reference.isNotEmpty)
+              Text(reference),
+            if (address.isDefault) const Text('Predeterminada'),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
       ),
-    );
-  }
+      const Divider(height: 1),
+    ],
+  );
 }
 
 /// Pantalla de aviso: error de red o lista vacia.
@@ -322,21 +230,21 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(icon, size: 48, color: AppTheme.teal),
+            Icon(icon, size: 48, color: flowMint),
             const SizedBox(height: AppSpacing.md),
             Text(
               title,
               textAlign: TextAlign.center,
               style: text.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navy,
+                color: AppTheme.discoveryPaper,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              style: text.bodyMedium?.copyWith(color: AppTheme.discoveryPaper),
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),

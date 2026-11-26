@@ -58,6 +58,40 @@ void main() {
     },
   );
 
+  testWidgets('El total largo cabe entero con letra al 200 %', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: const OrderSentScreen(
+          orderId: 29,
+          restaurantName: 'Restaurante',
+          total: '123456.78',
+          alreadySent: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final total = tester.getRect(find.text(r'$123456.78'));
+    expect(
+      total.top,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.text('En efectivo')).dy),
+    );
+    expect(total.left, greaterThanOrEqualTo(0));
+    expect(total.right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Movimiento reducido y recuperación muestran los datos sin esperar',
     (tester) async {
