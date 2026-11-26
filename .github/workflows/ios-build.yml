@@ -869,6 +869,9 @@ jobs:
           CONFIGURATION: ${{ steps.params.outputs.configuration }}
           BUILD_NUMBER: ${{ steps.params.outputs.build_number }}
           DISTRIBUTION: ${{ steps.params.outputs.distribution }}
+          TOROGO_API_BASE_URL: ${{ vars.TOROGO_API_BASE_URL }}
+          TOROGO_REVERB_WS_URL: ${{ vars.TOROGO_REVERB_WS_URL }}
+          TOROGO_REVERB_APP_KEY: ${{ vars.TOROGO_REVERB_APP_KEY }}
         run: |
           set -e
           fail() { echo "::error::$*" >&2; exit 1; }
@@ -1085,7 +1088,15 @@ jobs:
               flutter build ios --debug --no-codesign $FLUTTER_VERSION_FLAGS
             else
               echo "Building Flutter iOS Release..."
-              flutter build ios --release --no-codesign $FLUTTER_VERSION_FLAGS
+              api_base_url="${API_BASE_URL:-${TOROGO_API_BASE_URL:-}}"
+              reverb_ws_url="${REVERB_WS_URL:-${TOROGO_REVERB_WS_URL:-}}"
+              reverb_app_key="${REVERB_APP_KEY:-${TOROGO_REVERB_APP_KEY:-}}"
+              [ -n "$api_base_url" ] && [ -n "$reverb_ws_url" ] && [ -n "$reverb_app_key" ] \
+                || fail "Configurá TOROGO_API_BASE_URL, TOROGO_REVERB_WS_URL y TOROGO_REVERB_APP_KEY en GitHub Actions."
+              flutter build ios --release --no-codesign $FLUTTER_VERSION_FLAGS \
+                "--dart-define=API_BASE_URL=$api_base_url" \
+                "--dart-define=REVERB_WS_URL=$reverb_ws_url" \
+                "--dart-define=REVERB_APP_KEY=$reverb_app_key"
             fi
             cd "$GITHUB_WORKSPACE/$IOS_PATH"
 

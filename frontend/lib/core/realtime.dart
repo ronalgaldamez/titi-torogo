@@ -260,7 +260,7 @@ class Realtime {
       options: PusherChannelsOptions.fromHost(
         scheme: uri.scheme,
         host: uri.host,
-        port: uri.port,
+        port: uri.hasPort ? uri.port : null,
         key: _appKey,
       ),
       // El paquete pide reconectarse llamando a refresh(). Se le dice que si,
