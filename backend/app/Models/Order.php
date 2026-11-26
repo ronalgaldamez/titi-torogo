@@ -143,14 +143,7 @@ class Order extends Model
         $this->cancellation_reason = 'El restaurante no respondió a tiempo.';
         $this->save();
 
-        DB::afterCommit(function () {
-            // Una caída de Reverb no debe impedir cancelar los siguientes pedidos.
-            try {
-                OrderUpdated::announce($this, OrderStatus::Pending->value);
-            } catch (\Throwable $error) {
-                report($error);
-            }
-        });
+        DB::afterCommit(fn () => OrderUpdated::announce($this, OrderStatus::Pending->value));
 
         return true;
     }

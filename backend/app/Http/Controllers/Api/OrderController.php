@@ -102,14 +102,7 @@ class OrderController extends Controller
             $model->cancellation_reason = 'El cliente canceló el pedido.';
             $model->save();
 
-            DB::afterCommit(function () use ($model): void {
-                // La cancelación queda confirmada aunque Reverb no esté disponible.
-                try {
-                    OrderUpdated::announce($model, OrderStatus::Pending->value);
-                } catch (\Throwable $error) {
-                    report($error);
-                }
-            });
+            DB::afterCommit(fn () => OrderUpdated::announce($model, OrderStatus::Pending->value));
 
             return $this->ok($model);
         });
@@ -139,6 +132,12 @@ class OrderController extends Controller
         // findOrFail sobre la relacion, la de otro usuario da 404 y no se
         // filtra si existe.
         $address = $user->addresses()->findOrFail($request->validated('address_id'));
+        $addressVersion = $request->validated('expected_address_version');
+        if ($addressVersion !== null && $addressVersion !== $address->deliveryVersion()) {
+            throw ValidationException::withMessages([
+                'expected_address_version' => 'La dirección cambió. Revisá dónde querés recibir el pedido antes de confirmar.',
+            ]);
+        }
 
         $restaurant = $this->openRestaurant((int) $request->validated('restaurant_id'));
 

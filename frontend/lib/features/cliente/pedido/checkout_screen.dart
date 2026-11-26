@@ -92,10 +92,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _load();
   }
 
-  Future<void> _load({int? selectedAddressId}) async {
+  Future<void> _load({
+    int? selectedAddressId,
+    bool refreshPrices = false,
+  }) async {
+    _feeVersion++;
     setState(() {
       _loading = true;
       _error = null;
+      _deliveryFee = null;
+      _feeReady = false;
     });
 
     try {
@@ -145,10 +151,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _addresses = addresses;
         _address = selected;
         _loading = false;
+        _feeReady = selected == null;
       });
 
       if (selected != null) {
-        await _resolveFee(selected);
+        await _resolveFee(selected, refreshPrices: refreshPrices);
       }
     } on ApiException catch (error) {
       if (!mounted) {
@@ -172,7 +179,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   /// Y de paso resuelve la otra pregunta: si la tarifa vuelve null, esa
   /// direccion queda FUERA de toda zona de reparto, y hay que decirlo antes
   /// de dejar confirmar.
-  Future<void> _resolveFee(Address address) async {
+  Future<void> _resolveFee(
+    Address address, {
+    bool refreshPrices = false,
+  }) async {
     final version = ++_feeVersion;
     final int? restaurantId = ref.read(cartProvider).restaurantId;
 
@@ -197,9 +207,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         return;
       }
 
+      final pricesChanged =
+          refreshPrices &&
+          await ref
+              .read(cartProvider.notifier)
+              .refreshPrices(
+                restaurantId,
+                detail.categories.expand((category) => category.products),
+              );
+      if (!mounted || version != _feeVersion) return;
+
       setState(() {
         _deliveryFee = detail.restaurant.deliveryFee;
         _feeReady = true;
+        if (pricesChanged) {
+          _error =
+              'Cambió el precio de uno o más platos. Revisá el nuevo total antes de confirmar.';
+        }
       });
     } on ApiException catch (error) {
       if (!mounted || version != _feeVersion) {
@@ -463,7 +487,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           error is ApiException &&
           error.statusCode == 422 &&
           address != null) {
-        await _resolveFee(address);
+        if (error.validationFields.contains('expected_address_version')) {
+          await _reloadAddresses();
+        } else {
+          await _resolveFee(
+            address,
+            refreshPrices: error.validationFields.contains('items'),
+          );
+        }
       }
     }
   }
@@ -653,7 +684,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       const SizedBox(height: AppSpacing.md),
                       _ErrorBox(message: _error!),
                       TextButton(
-                        onPressed: _sending ? null : _load,
+                        onPressed: _sending
+                            ? null
+                            : () => _load(
+                                selectedAddressId: _address?.id,
+                                refreshPrices: true,
+                              ),
                         child: const Text('Actualizar'),
                       ),
                     ],

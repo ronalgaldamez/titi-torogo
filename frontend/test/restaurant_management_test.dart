@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -350,6 +352,84 @@ void main() {
       expect(find.text('Propina al motorista'), findsOneWidget);
       expect(requests, 1);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, () => client);
+  });
+
+  testWidgets('Cocina recupera pedidos sin avisos de Reverb', (tester) async {
+    SharedPreferences.setMockInitialValues({'torogo_token': 'test'});
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    AndroidFlutterLocalNotificationsPlugin.registerWith();
+    const channel = MethodChannel('dexterous.com/flutter/local_notifications');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final notifications = <int>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'show') notifications.add(call.arguments['id'] as int);
+      return switch (call.method) {
+        'initialize' || 'requestNotificationsPermission' => true,
+        _ => null,
+      };
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    var requests = 0;
+    var arrived = false;
+    final client = MockClient((request) async {
+      expectSync(request.url.path, endsWith('/restaurant/orders'));
+      requests++;
+      return http.Response(
+        jsonEncode({
+          'restaurant': {'id': 0},
+          'orders': [
+            if (arrived)
+              {
+                'id': 42,
+                'status': 'pending',
+                'status_label': 'Pendiente',
+                'is_active': true,
+                'restaurant': {
+                  'id': 7,
+                  'name': 'Local',
+                  'address': 'Centro',
+                  'latitude': 14.1,
+                  'longitude': -89.1,
+                },
+                'subtotal': '4.00',
+                'delivery_fee': '2.00',
+                'courier_fee': '1.50',
+                'platform_fee': '0.50',
+                'total': '6.00',
+                'payment_method': 'cash',
+              },
+          ],
+        }),
+        200,
+      );
+    });
+    addTearDown(client.close);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(home: OrdersScreen()));
+      await tester.pumpAndSettle();
+      expect(requests, 1);
+      expect(find.text('Pedido #42'), findsNothing);
+
+      arrived = true;
+      await tester.pump(const Duration(seconds: 15));
+      await tester.pumpAndSettle();
+      expect(requests, 2);
+      expect(find.text('Pedido #42'), findsOneWidget);
+      expect(notifications, [42]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(seconds: 15));
+      expect(requests, 2);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(requests, 3);
+      expect(find.text('Pedido #42'), findsOneWidget);
+      expect(notifications, [42]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
     }, () => client);
   });
 }

@@ -70,8 +70,9 @@ class CartNotifier extends Notifier<Cart> {
     );
 
     if (index >= 0) {
-      items[index] = items[index].withQuantity(
-        items[index].quantity + quantity,
+      items[index] = CartItem(
+        product: product,
+        quantity: items[index].quantity + quantity,
       );
     } else {
       items.add(CartItem(product: product, quantity: quantity));
@@ -85,6 +86,36 @@ class CartNotifier extends Notifier<Cart> {
       ),
     );
 
+    return true;
+  }
+
+  Future<bool> refreshPrices(
+    int restaurantId,
+    Iterable<Product> products,
+  ) async {
+    final cart = state;
+    if (cart.restaurantId != restaurantId) return false;
+
+    final available = {
+      for (final product in products)
+        if (product.isAvailable) product.id: product,
+    };
+    var changed = false;
+    final items = cart.items.map((item) {
+      final product = available[item.product.id];
+      if (product == null || product.price == item.product.price) return item;
+      changed = true;
+      return CartItem(product: product, quantity: item.quantity);
+    }).toList();
+    if (!changed) return false;
+
+    await _set(
+      Cart(
+        restaurantId: cart.restaurantId,
+        restaurantName: cart.restaurantName,
+        items: items,
+      ),
+    );
     return true;
   }
 

@@ -29,6 +29,32 @@ class _SlowCartNotifier extends CartNotifier {
 }
 
 void main() {
+  test(
+    'Agregar desde el menú actualizado conserva unidades y cambia el precio',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final cart = container.read(cartProvider.notifier);
+      await cart.add(_product, restaurantId: 7, restaurantName: 'Restaurante');
+      await cart.add(
+        const Product(
+          id: 3,
+          name: 'Sub de pollo',
+          price: '5.50',
+          isAvailable: true,
+          sortOrder: 0,
+        ),
+        restaurantId: 7,
+        restaurantName: 'Restaurante',
+      );
+
+      final updated = container.read(cartProvider);
+      expect(updated.quantityOf(3), 2);
+      expect(updated.subtotal, '11.00');
+    },
+  );
+
   testWidgets(
     'Los controles del carrito tienen 48 px y actualizan cantidades',
     (WidgetTester tester) async {

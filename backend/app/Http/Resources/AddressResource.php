@@ -26,6 +26,7 @@ class AddressResource extends JsonResource
             // Las coordenadas viajan como numero: van al mapa.
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
+            'delivery_version' => $this->deliveryVersion(),
 
             // La que viene elegida en el checkout.
             'is_default' => $this->is_default,

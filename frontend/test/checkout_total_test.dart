@@ -64,6 +64,7 @@ void main() {
           'latitude': 14.2,
           'longitude': -89.2,
           'is_default': true,
+          'delivery_version': 'version-confirmada',
         };
         final Map<String, dynamic> serverOrder = <String, dynamic>{
           'id': 42,
@@ -145,6 +146,7 @@ void main() {
             expect(body.containsKey('total'), isFalse);
             expect(body['tip_amount'], '1.00');
             expect(body['expected_delivery_fee'], '2.00');
+            expect(body['expected_address_version'], 'version-confirmada');
             if (submissions == 1 && status == 422) {
               return http.Response(
                 jsonEncode({

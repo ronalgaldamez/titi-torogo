@@ -34,6 +34,8 @@ class StoreOrderRequest extends FormRequest
             // verifica en el controlador con findOrFail sobre la relacion:
             // aqui no se puede, porque esta regla no sabe quien esta pidiendo.
             'address_id' => ['required', 'integer'],
+            // Opcional para las versiones de la app anteriores a esta cotización.
+            'expected_address_version' => ['sometimes', 'string', 'size:64'],
             // Solo compara la cotización; el servidor sigue calculando el cobro.
             'expected_delivery_fee' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:999999.99'],
 
@@ -71,6 +73,7 @@ class StoreOrderRequest extends FormRequest
         return [
             'restaurant_id.required' => 'Falta el restaurante.',
             'address_id.required' => 'Elegí a dónde te lo llevamos.',
+            'expected_address_version.*' => 'Actualizá la dirección y revisala antes de confirmar.',
             'expected_delivery_fee.*' => 'Actualizá el envío y revisá el total antes de confirmar.',
 
             'items.required' => 'Tu pedido está vacío.',
