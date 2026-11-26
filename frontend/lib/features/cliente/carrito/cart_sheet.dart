@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../checkout_appearance.dart';
 import '../pedido/checkout_screen.dart';
 import 'cart.dart';
 import 'cart_provider.dart';
@@ -136,278 +137,206 @@ class CartBar extends ConsumerWidget {
   }
 }
 
-/// La hoja con el pedido armado.
-///
-/// Se abre desde la barrita. Sirve para repasar y ajustar cantidades antes de
-/// seguir, sin salir de la carta.
-///
+/// Devuelve true al continuar para que la ruta que abrió la hoja navegue.
 class CartSheet extends ConsumerWidget {
   const CartSheet({super.key});
 
-  /// Abre la hoja desde abajo.
-  ///
-  /// Devuelve `true` si el cliente toco "Continuar".
-  ///
-  /// Abrir el checkout lo hace QUIEN ABRIO LA HOJA (la barrita) y no la hoja
-  /// misma: cuando este `show` termina, el contexto de la hoja se esta
-  /// cerrando, y usarlo para navegar es pedir un error.
-  static Future<bool?> show(BuildContext context) {
-    return showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: AppTheme.background,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.card),
-        ),
-      ),
-      builder: (BuildContext context) => const CartSheet(),
-    );
-  }
+  static Future<bool?> show(BuildContext context) => showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: flowSheet,
+    barrierColor: const Color(0xA6040E17),
+    showDragHandle: true,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => const CartSheet(),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final Cart cart = ref.watch(cartProvider);
-    final TextTheme text = Theme.of(context).textTheme;
+    final cart = ref.watch(cartProvider);
+    final theme = checkoutTheme(context);
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.md,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD8DEE3),
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    cart.restaurantName ?? 'Tu pedido',
-                    style: text.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.navy,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Cerrar carrito',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: AppTheme.navy,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (cart.isEmpty)
-              Text(
-                'Tu carrito está vacío.',
-                style: text.bodyMedium?.copyWith(color: AppTheme.navy),
-              )
-            else ...<Widget>[
-              for (final CartItem item in cart.items) _ItemRow(item: item),
-              const SizedBox(height: AppSpacing.sm),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Subtotal',
-                      style: text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.navy,
+    Future<void> clearCart() async {
+      final route = ModalRoute.of(context);
+      await ref.read(cartProvider.notifier).clear();
+      if (context.mounted && route?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
+    }
+
+    return Theme(
+      data: theme,
+      child: Material(
+        color: flowSheet,
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: CheckoutHeading(
+                        'Tu carrito',
+                        caption: cart.restaurantName,
                       ),
                     ),
-                  ),
-                  Text(
-                    '\$${cart.subtotal}',
-                    style: text.titleMedium?.copyWith(
-                      color: AppTheme.coral,
-                      fontWeight: FontWeight.w800,
+                    IconButton(
+                      tooltip: 'Cerrar carrito',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (cart.isEmpty)
+                  const Text('Tu carrito está vacío.')
+                else ...[
+                  for (final (index, item) in cart.items.indexed) ...[
+                    const Divider(height: 1),
+                    _ItemRow(
+                      item: item,
+                      onClear: index == 0 ? clearCart : null,
+                    ),
+                  ],
+                  const Divider(height: 1),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      const Expanded(child: Text('Subtotal')),
+                      Text(
+                        '\$${cart.subtotal}',
+                        style: const TextStyle(
+                          color: AppTheme.discoveryAccent,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Text(
+                    'El envío se calcula al elegir la dirección.',
+                    style: TextStyle(color: AppTheme.discoveryMuted),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  CheckoutAction(
+                    'Continuar a la entrega',
+                    onPressed: () => Navigator.of(context).pop(true),
                   ),
                 ],
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              // El envio NO se muestra con un numero inventado: depende de la
-              // direccion, y eso se elige en el checkout.
-              Text(
-                'El envío se calcula al elegir la dirección.',
-                style: text.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  // pop(true): le avisa a la barrita que abra el checkout.
-                  // La hoja NO navega sola (ver CartSheet.show).
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.coral,
-                    minimumSize: const Size(0, 54),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.image),
-                    ),
-                  ),
-                  iconAlignment: IconAlignment.end,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                  label: Text(
-                    'Continuar a la entrega',
-                    style: text.labelLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.center,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  onPressed: () async {
-                    await ref.read(cartProvider.notifier).clear();
-
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  label: const Text('Vaciar carrito'),
-                ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Una linea del pedido, con los botones de cantidad.
 class _ItemRow extends ConsumerWidget {
-  const _ItemRow({required this.item});
+  const _ItemRow({required this.item, this.onClear});
 
   final CartItem item;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
+    final notifier = ref.read(cartProvider.notifier);
+    final product = item.product;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            item.product.name,
-            style: text.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppTheme.navy,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '\$${item.product.price} c/u',
-            style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppSpacing.xs),
+        children: [
           Row(
-            children: <Widget>[
-              // Los botones de cantidad. El de menos, cuando queda en 1 unidad,
-              // saca la linea entera: mantener una linea de cero no tiene sentido.
-              _RoundButton(
-                icon: Icons.remove_rounded,
-                tooltip: 'Quitar una unidad de ${item.product.name}',
-                onPressed: () =>
-                    ref.read(cartProvider.notifier).decrease(item.product.id),
-              ),
-              SizedBox(
-                width: 32,
-                child: Text(
-                  '${item.quantity}',
-                  textAlign: TextAlign.center,
-                  style: text.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.navy,
-                  ),
+            children: [
+              CheckoutThumbnail(product.imageUrl),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      '\$${product.price} c/u',
+                      style: const TextStyle(color: AppTheme.discoveryMuted),
+                    ),
+                  ],
                 ),
               ),
-              _RoundButton(
-                icon: Icons.add_rounded,
-                tooltip: 'Agregar una unidad de ${item.product.name}',
-                onPressed: () => ref
-                    .read(cartProvider.notifier)
-                    .add(
-                      item.product,
-                      restaurantId: ref.read(cartProvider).restaurantId!,
-                      restaurantName:
-                          ref.read(cartProvider).restaurantName ?? '',
-                    ),
-              ),
-              Expanded(
-                child: Text(
-                  '\$${item.subtotal}',
-                  textAlign: TextAlign.right,
-                  style: text.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.coral,
-                  ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '\$${item.subtotal}',
+                style: const TextStyle(
+                  color: AppTheme.discoveryAccent,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: flowRule),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size.square(48),
+                        ),
+                        tooltip: 'Quitar una unidad de ${product.name}',
+                        onPressed: () => notifier.decrease(product.id),
+                        icon: const Icon(Icons.remove_rounded),
+                      ),
+                      Text('${item.quantity}'),
+                      IconButton(
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size.square(48),
+                        ),
+                        tooltip: 'Agregar una unidad de ${product.name}',
+                        onPressed: () {
+                          final cart = ref.read(cartProvider);
+                          notifier.add(
+                            product,
+                            restaurantId: cart.restaurantId!,
+                            restaurantName: cart.restaurantName ?? '',
+                          );
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onClear != null)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.discoveryAccent,
+                    ),
+                    onPressed: onClear,
+                    child: const Text('Vaciar carrito'),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Un botón de cantidad con área táctil de al menos 48 × 48.
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        backgroundColor: AppTheme.tealSoft,
-        foregroundColor: AppTheme.tealDeep,
-        minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.image),
-        ),
-      ),
-      icon: Icon(icon, size: 24),
     );
   }
 }

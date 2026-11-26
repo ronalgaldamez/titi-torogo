@@ -200,12 +200,19 @@ void main() {
           expect(find.text(r'$6.00'), findsOneWidget);
           expect(find.text('Tu pedido'), findsOneWidget);
           expect(find.text('Propina al motorista'), findsOneWidget);
-          expect(find.text('Resumen'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.text('Resumen'),
+            120,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(find.text('Resumen').hitTestable(), findsOneWidget);
           expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
           expect(tester.takeException(), isNull);
           if (status == 201) {
-            await tester.ensureVisible(
+            await tester.scrollUntilVisible(
               find.widgetWithText(ChoiceChip, 'Otro monto'),
+              -100,
+              scrollable: find.byType(Scrollable).first,
             );
             await tester.tap(find.widgetWithText(ChoiceChip, 'Otro monto'));
             await tester.pumpAndSettle();

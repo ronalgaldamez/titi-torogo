@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../checkout_appearance.dart';
 import 'order_tracking_screen.dart';
 
 /// Confirma el envío recibido por el servidor, no la aceptación del restaurante.
@@ -67,213 +68,181 @@ class _OrderSentScreenState extends State<OrderSentScreen>
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: AppSpacing.lg),
-              FadeTransition(
-                opacity: _check,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.65, end: 1).animate(_check),
-                  child: Center(
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.mint,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 40,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              FadeTransition(
-                opacity: _heading,
-                child: Column(
-                  children: [
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        widget.alreadySent
-                            ? 'Pedido recuperado'
-                            : '¡Pedido enviado!',
-                        textAlign: TextAlign.center,
-                        style: text.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.navy,
+    final theme = checkoutTheme(context);
+    final text = theme.textTheme;
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        appBar: checkoutAppBar(back: false),
+        body: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 17, 22, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FadeTransition(
+                  opacity: _check,
+                  child: ScaleTransition(
+                    alignment: Alignment.centerLeft,
+                    scale: Tween<double>(begin: 0.65, end: 1).animate(_check),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: flowMint.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 29,
+                          color: flowMint,
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Pedido #${widget.orderId}',
-                      style: text.bodyMedium?.copyWith(
-                        color: AppTheme.tealDeep,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AnimatedBuilder(
-                animation: _details,
-                builder: (context, child) => IgnorePointer(
-                  ignoring: _details.value == 0,
-                  child: ExcludeSemantics(
-                    excluding: _details.value == 0,
-                    child: FadeTransition(
-                      opacity: _details,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.025),
-                          end: Offset.zero,
-                        ).animate(_details),
-                        child: child,
-                      ),
+                const SizedBox(height: 17),
+                FadeTransition(
+                  opacity: _heading,
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pedido #${widget.orderId}',
+                          style: const TextStyle(
+                            color: flowMint,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        CheckoutHeading(
+                          widget.alreadySent
+                              ? 'Pedido recuperado'
+                              : '¡Pedido enviado!',
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          widget.alreadySent
+                              ? 'Este pedido ya se había enviado. No se creó otro pedido.'
+                              : 'Estamos esperando la confirmación del restaurante.',
+                          style: text.bodyMedium?.copyWith(
+                            color: AppTheme.discoveryMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.card),
+                const SizedBox(height: 17),
+                AnimatedBuilder(
+                  animation: _details,
+                  builder: (context, child) => IgnorePointer(
+                    ignoring: _details.value == 0,
+                    child: ExcludeSemantics(
+                      excluding: _details.value == 0,
+                      child: FadeTransition(
+                        opacity: _details,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.025),
+                            end: Offset.zero,
+                          ).animate(_details),
+                          child: child,
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.restaurantName,
+                        style: text.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      OverflowBar(
+                        alignment: MainAxisAlignment.spaceBetween,
+                        spacing: AppSpacing.sm,
+                        overflowSpacing: AppSpacing.xs,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.storefront_outlined,
-                                color: AppTheme.tealDeep,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  widget.restaurantName,
-                                  style: text.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                            ),
-                            child: Divider(height: 1),
-                          ),
-                          Text(
-                            'Total a pagar al recibir',
-                            textAlign: TextAlign.center,
-                            style: text.bodyMedium,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            '\$${widget.total}',
-                            textAlign: TextAlign.center,
-                            style: text.displaySmall?.copyWith(
-                              color: AppTheme.coral,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'Pagás en efectivo al recibir',
-                            textAlign: TextAlign.center,
-                            style: text.bodySmall?.copyWith(
-                              color: AppTheme.tealDeep,
-                            ),
-                          ),
-                          if (widget.tipAmount != '0.00') ...[
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              'Incluye \$${widget.tipAmount} de propina para el motorista',
-                              textAlign: TextAlign.center,
-                              style: text.bodySmall,
-                            ),
-                          ],
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppSpacing.md,
-                            ),
-                            child: Divider(height: 1),
-                          ),
-                          Row(
+                          const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: AppTheme.tealDeep,
-                                size: 20,
+                              Text(
+                                'Total a pagar al recibir',
+                                style: TextStyle(
+                                  color: AppTheme.discoveryMuted,
+                                ),
                               ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  widget.alreadySent
-                                      ? 'Este pedido ya se había enviado. No se creó otro pedido.'
-                                      : 'Consultá el seguimiento para ver la confirmación del restaurante y la entrega.',
-                                  style: text.bodySmall,
+                              Text(
+                                'En efectivo',
+                                style: TextStyle(
+                                  color: AppTheme.discoveryMuted,
                                 ),
                               ),
                             ],
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              '\$${widget.total}',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: AppTheme.discoveryAccent,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -1.2,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    FilledButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pushReplacement<void, void>(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  OrderTrackingScreen(orderId: widget.orderId),
-                            ),
+                      if (widget.tipAmount != '0.00')
+                        Text(
+                          'Incluye \$${widget.tipAmount} de propina para el motorista',
+                          style: text.bodySmall?.copyWith(
+                            color: AppTheme.discoveryMuted,
                           ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.coralDeep,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(54),
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.image),
+                        ),
+                      const SizedBox(height: 17),
+                      CheckoutAction(
+                        'Ver seguimiento',
+                        onPressed: () =>
+                            Navigator.of(context).pushReplacement<void, void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => OrderTrackingScreen(
+                                  orderId: widget.orderId,
+                                ),
+                              ),
+                            ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).popUntil((route) => route.isFirst),
+                          child: const Text('Volver al inicio'),
                         ),
                       ),
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                      label: const Text('Ver seguimiento'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextButton(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).popUntil((route) => route.isFirst),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        foregroundColor: AppTheme.tealDeep,
-                      ),
-                      child: const Text('Volver al inicio'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

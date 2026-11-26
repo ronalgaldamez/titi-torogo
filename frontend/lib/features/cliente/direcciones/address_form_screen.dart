@@ -7,6 +7,7 @@ import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../models/address.dart';
 import '../home/home_repository.dart';
+import '../checkout_appearance.dart';
 import 'address_repository.dart';
 
 /// El formulario de una direccion: sirve para CREAR y para EDITAR.
@@ -390,99 +391,99 @@ class _AddressFormScreenState extends State<AddressFormScreen>
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    final theme = checkoutTheme(context);
+    final text = theme.textTheme;
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          _isEditing ? 'Editar dirección' : 'Nueva dirección',
-          style: text.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppTheme.navy,
-          ),
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: AppTheme.discoveryBackground,
+        appBar: checkoutAppBar(
+          actions: <Widget>[
+            if (_isEditing)
+              IconButton(
+                onPressed: _saving ? null : _delete,
+                icon: const Icon(Icons.delete_outline_rounded),
+                color: AppTheme.discoveryAccent,
+                tooltip: 'Borrar dirección',
+              ),
+          ],
         ),
-        actions: <Widget>[
-          if (_isEditing)
-            IconButton(
-              onPressed: _saving ? null : _delete,
-              icon: const Icon(Icons.delete_outline_rounded),
-              color: AppTheme.coral,
-              tooltip: 'Borrar dirección',
-            ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.xl,
-          ),
-          children: <Widget>[
-            _Field(
-              controller: _label,
-              label: 'Nombre de la dirección',
-              hint: 'Ej. Casa o trabajo',
-              validator: _validateLabel,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _Field(
-              controller: _address,
-              label: 'Dirección',
-              hint: 'Colonia, calle y número de casa',
-              validator: _validateAddress,
-              maxLines: 2,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _Field(
-              controller: _reference,
-              label: 'Referencia (opcional)',
-              hint: 'Ej. Portón azul, frente a la tienda',
-              validator: _validateReference,
-              maxLines: 2,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _LocationCard(
-              place: _place,
-              inZone: _inZone,
-              locating: _locating,
-              onRefresh: _locate,
-              onOpenSettings: () => LocationService().openSettings(),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SwitchListTile(
-              value: _isDefault,
-              onChanged: _saving
-                  ? null
-                  : (bool value) => setState(() => _isDefault = value),
-              contentPadding: EdgeInsets.zero,
-              activeThumbColor: AppTheme.teal,
-              title: const Text('Usar como predeterminada'),
-              subtitle: const Text('Se seleccionará al confirmar tus pedidos.'),
-            ),
-            if (_error != null) ...<Widget>[
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, AppSpacing.lg),
+            children: <Widget>[
+              CheckoutHeading(
+                _isEditing ? 'Editar dirección' : 'Nueva dirección',
+                caption: 'Entrega',
+              ),
               const SizedBox(height: AppSpacing.md),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppTheme.tealSoft,
-                  borderRadius: BorderRadius.circular(AppRadius.image),
-                ),
-                child: Text(
-                  _error!,
-                  style: text.bodyMedium?.copyWith(color: AppTheme.navy),
+              _Field(
+                controller: _label,
+                label: 'Nombre de la dirección',
+                hint: 'Ej. Casa o trabajo',
+                validator: _validateLabel,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _Field(
+                controller: _address,
+                label: 'Dirección',
+                hint: 'Colonia, calle y número de casa',
+                validator: _validateAddress,
+                maxLines: 2,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _Field(
+                controller: _reference,
+                label: 'Referencia (opcional)',
+                hint: 'Ej. Portón azul, frente a la tienda',
+                validator: _validateReference,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _LocationCard(
+                place: _place,
+                inZone: _inZone,
+                locating: _locating,
+                onRefresh: _locate,
+                onOpenSettings: () => LocationService().openSettings(),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Divider(height: 1),
+              CheckboxListTile(
+                value: _isDefault,
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _isDefault = value ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.trailing,
+                activeColor: flowMint,
+                checkColor: AppTheme.discoveryBackground,
+                title: const Text('Usar como predeterminada'),
+                subtitle: const Text(
+                  'Se seleccionará al confirmar tus pedidos.',
                 ),
               ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              child: FilledButton(
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: flowSheet,
+                    borderRadius: BorderRadius.circular(AppRadius.image),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: text.bodyMedium?.copyWith(
+                      color: AppTheme.discoveryPaper,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              CheckoutAction(
+                _isEditing ? 'Guardar cambios' : 'Guardar dirección',
+                loading: _saving,
                 // Sin ubicacion real O con una aproximada, el boton queda
                 // apagado: el cliente ya ve en la tarjeta de arriba por que.
                 onPressed:
@@ -492,33 +493,9 @@ class _AddressFormScreenState extends State<AddressFormScreen>
                         _inZone == false)
                     ? null
                     : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.coral,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 54),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.image),
-                  ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        _isEditing ? 'Guardar cambios' : 'Guardar dirección',
-                        style: text.labelLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -549,7 +526,7 @@ class _Field extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: AppTheme.navy,
+            color: AppTheme.discoveryPaper,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -564,14 +541,18 @@ class _Field extends StatelessWidget {
             decoration: InputDecoration(
               hintText: hint,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: flowField,
+              hintStyle: const TextStyle(color: AppTheme.discoveryMuted),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(9),
+                borderSide: const BorderSide(color: flowRule),
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
                 vertical: 14,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.image),
-                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(9),
               ),
             ),
           ),
@@ -675,17 +656,12 @@ class _LocationCard extends StatelessWidget {
 
     final _LocationState state = _state;
 
-    final Color background = switch (state) {
-      _LocationState.good => AppTheme.tealSoft,
-      _LocationState.outside => AppTheme.coral,
+    final accent = switch (state) {
+      _LocationState.good => flowMint,
+      _LocationState.outside => AppTheme.discoveryAccent,
       _ => AppTheme.yellow,
     };
-
-    final Color foreground = switch (state) {
-      _LocationState.good => AppTheme.tealDeep,
-      _LocationState.outside => Colors.white,
-      _ => AppTheme.navy,
-    };
+    const foreground = AppTheme.discoveryPaper;
 
     final IconData icon = switch (state) {
       _LocationState.good => Icons.my_location_rounded,
@@ -729,17 +705,16 @@ class _LocationCard extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.only(left: 11),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadius.image),
+        border: Border(left: BorderSide(color: accent, width: 3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(icon, size: 18, color: foreground),
+              Icon(icon, size: 18, color: accent),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
