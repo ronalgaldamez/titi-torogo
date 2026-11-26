@@ -122,6 +122,36 @@ class CourierAvailabilityTest extends TestCase
         $this->assertDatabaseCount('orders', 2);
     }
 
+    public function test_courier_can_buy_with_a_pin_when_another_courier_is_available(): void
+    {
+        $this->presence();
+        DB::table('addresses')->where('id', $this->payload['address_id'])
+            ->update(['user_id' => $this->courier->id]);
+        Sanctum::actingAs($this->courier);
+        $this->postJson('/api/orders', $this->payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('courier');
+        $this->assertDatabaseCount('orders', 0);
+
+        $other = User::factory()->courier()->create();
+        $other->is_available = true;
+        $other->save();
+        Sanctum::actingAs($other);
+        $this->patchJson('/api/courier/presence', [
+            'latitude' => 14.1, 'longitude' => -89.1, 'accuracy' => 10,
+            'captured_at' => now()->toISOString(),
+        ])->assertOk();
+
+        Sanctum::actingAs($this->courier);
+        $created = $this->postJson('/api/orders', $this->payload)->assertCreated();
+        $id = $created->json('order.id');
+        $pin = $created->json('order.delivery_pin');
+        $this->assertMatchesRegularExpression('/^[0-9]{6}$/', $pin);
+        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('order.delivery_pin', $pin);
+        $this->postJson('/api/orders/recover', ['idempotency_key' => $this->payload['idempotency_key']])
+            ->assertOk()->assertJsonPath('order.id', $id)->assertJsonPath('order.delivery_pin', $pin);
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     public function test_presence_is_private_validated_expires_and_is_cleared_when_unavailable_or_logged_out(): void
     {
         $point = ['latitude' => 14.1, 'longitude' => -89.1, 'accuracy' => 10,

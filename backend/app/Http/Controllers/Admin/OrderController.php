@@ -102,7 +102,7 @@ class OrderController extends Controller
 
         return view('admin.orders.show', [
             'order' => $order,
-            'couriers' => $this->couriersForAssignment(),
+            'couriers' => $this->couriersForAssignment($order->user_id),
         ]);
     }
 
@@ -206,6 +206,9 @@ class OrderController extends Controller
             if ($order->courier_id === $courier->id) {
                 return back()->with('status', 'Ese motorizado ya tiene el pedido asignado.');
             }
+            if ($order->user_id === $courier->id) {
+                return back()->with('error', 'El motorizado que hizo el pedido no puede repartirlo.');
+            }
             if ($courier->hasActiveDelivery($order->id)) {
                 return back()->with('error', 'Ese motorizado ya lleva otro pedido. Elegí uno libre.');
             }
@@ -295,11 +298,12 @@ class OrderController extends Controller
      *
      * @return Collection<int, User>
      */
-    private function couriersForAssignment(): Collection
+    private function couriersForAssignment(int $customerId): Collection
     {
         return User::query()
             ->where('role', UserRole::Courier->value)
             ->where('is_active', true)
+            ->whereKeyNot($customerId)
             ->orderByDesc('is_available')
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'vehicle', 'is_available']);

@@ -7,7 +7,7 @@ use App\Events\OrderUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\RecoverOrderRequest;
-use App\Http\Resources\OrderResource;
+use App\Http\Resources\CustomerOrderResource;
 use App\Models\Address;
 use App\Models\DeliveryZone;
 use App\Models\Order;
@@ -94,7 +94,7 @@ class OrderController extends Controller
             if ($model->status !== OrderStatus::Pending || $model->accepted_at !== null) {
                 return response()->json([
                     'message' => 'Solo podés cancelar antes de que el restaurante acepte el pedido.',
-                    'order' => new OrderResource($model->load(['items', 'restaurant', 'courier'])),
+                    'order' => new CustomerOrderResource($model->load(['items', 'restaurant', 'courier'])),
                 ], 409);
             }
 
@@ -156,7 +156,7 @@ class OrderController extends Controller
             ]);
         }
 
-        if (! CourierAvailability::near($restaurant)) {
+        if (! CourierAvailability::near($restaurant, $user->id)) {
             throw ValidationException::withMessages([
                 'courier' => 'Por ahora no hay motoristas disponibles. Tu carrito sigue guardado; intentá en unos minutos.',
             ]);
@@ -235,7 +235,7 @@ class OrderController extends Controller
         // El aviso sale desde store(), despues del commit de la transaccion externa.
 
         return response()->json([
-            'order' => new OrderResource($order->load(['items', 'restaurant', 'courier'])),
+            'order' => new CustomerOrderResource($order->load(['items', 'restaurant', 'courier'])),
         ], 201);
     }
 
@@ -277,7 +277,7 @@ class OrderController extends Controller
         }
 
         return response()->json([
-            'orders' => OrderResource::collection($query->get()),
+            'orders' => CustomerOrderResource::collection($query->get()),
         ]);
     }
 
@@ -296,7 +296,7 @@ class OrderController extends Controller
             ->findOrFail($order);
 
         return response()->json([
-            'order' => new OrderResource($model),
+            'order' => new CustomerOrderResource($model),
         ]);
     }
 
@@ -307,7 +307,7 @@ class OrderController extends Controller
     private function ok(Order $order): JsonResponse
     {
         return response()->json([
-            'order' => new OrderResource($order->load(['items', 'restaurant', 'courier'])),
+            'order' => new CustomerOrderResource($order->load(['items', 'restaurant', 'courier'])),
         ]);
     }
 

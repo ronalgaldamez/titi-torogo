@@ -18,11 +18,12 @@ class CourierAvailability
         return "courier-presence:{$userId}";
     }
 
-    public static function near(Restaurant $restaurant): bool
+    public static function near(Restaurant $restaurant, int $customerId): bool
     {
         $couriers = User::query()
             ->where('role', UserRole::Courier->value)
             ->where('is_active', true)->where('is_available', true)
+            ->whereKeyNot($customerId)
             ->whereDoesntHave('courierOrders', fn ($query) => $query
                 ->whereNotIn('status', OrderStatus::finalValues()))
             ->get(['id']);

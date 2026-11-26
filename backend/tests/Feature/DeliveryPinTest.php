@@ -76,6 +76,7 @@ class DeliveryPinTest extends TestCase
 
     public function test_assigned_courier_needs_pin_after_pickup_and_retries_preserve_delivery(): void
     {
+        $this->freezeTime();
         $url = '/api/courier/orders/'.$this->order->id;
         $correct = ['status' => 'delivered', 'delivery_pin' => $this->order->delivery_pin];
         Sanctum::actingAs($this->courier);
@@ -104,6 +105,58 @@ class DeliveryPinTest extends TestCase
             ->assertJsonPath('order.total', '6.00')->assertJsonPath('order.delivery.address', 'Casa');
         $this->assertEquals($time, $this->order->fresh()->delivered_at);
         Event::assertDispatchedTimes(OrderUpdated::class, 1);
+    }
+
+    public function test_restaurant_owner_sees_the_delivery_pin_only_as_the_buyer(): void
+    {
+        $this->order->user_id = $this->owner->id;
+        $this->order->save();
+        $pin = $this->order->delivery_pin;
+        Sanctum::actingAs($this->owner);
+
+        $this->getJson('/api/orders')->assertOk()->assertJsonPath('orders.0.delivery_pin', $pin);
+        $this->getJson('/api/orders/'.$this->order->id)->assertOk()->assertJsonPath('order.delivery_pin', $pin);
+        $this->getJson('/api/restaurant/orders')->assertOk()
+            ->assertJsonPath('orders.0.id', $this->order->id)
+            ->assertJsonMissingPath('orders.0.delivery_pin');
+    }
+
+    public function test_a_courier_cannot_be_assigned_their_own_order(): void
+    {
+        $this->order->user_id = $this->courier->id;
+        $this->order->courier_id = null;
+        $this->order->save();
+        $id = $this->order->id;
+        $nearby = '/api/courier/orders/available?latitude=14.1&longitude=-89.1';
+        $assign = "/admin/pedidos/{$id}/motorizado";
+        $other = User::factory()->courier()->create();
+
+        Sanctum::actingAs($this->courier);
+        $this->getJson($nearby)->assertOk()->assertJsonCount(0, 'orders');
+        $this->postJson("/api/courier/orders/{$id}/take")->assertUnprocessable()->assertJsonValidationErrors('order');
+
+        Sanctum::actingAs($other);
+        $this->getJson($nearby)->assertOk()->assertJsonPath('orders.0.id', $id)->assertJsonMissingPath('orders.0.delivery_pin');
+
+        $this->actingAs(User::factory()->admin()->create(), 'web');
+        $this->get("/admin/pedidos/{$id}")->assertOk()
+            ->assertViewHas('couriers', fn ($couriers) => $couriers->pluck('id')->all() === [$other->id]);
+        $this->post($assign, ['courier_id' => $this->courier->id])->assertSessionHas('error');
+        $this->assertNull($this->order->fresh()->courier_id);
+        $this->post($assign, ['courier_id' => $other->id])->assertSessionHas('status');
+        $this->assertSame($other->id, $this->order->fresh()->courier_id);
+    }
+
+    public function test_a_legacy_self_assignment_does_not_reveal_the_pin(): void
+    {
+        $this->order->user_id = $this->courier->id;
+        $this->order->status = OrderStatus::PickedUp;
+        $this->order->save();
+        Sanctum::actingAs($this->courier);
+
+        $this->getJson('/api/orders/'.$this->order->id)->assertOk()->assertJsonMissingPath('order.delivery_pin');
+        $this->getJson('/api/courier/orders')->assertOk()
+            ->assertJsonMissingPath('orders.0.delivery_pin')->assertJsonPath('orders.0.delivery_pin_required', true);
     }
 
     public function test_only_admin_can_close_verified_delivery_and_first_intervention_is_retained(): void
