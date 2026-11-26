@@ -171,6 +171,7 @@ class CourierOrderController extends Controller
             // juntas son la definicion de "disponible".
             ->where('status', OrderStatus::Ready->value)
             ->whereNull('courier_id')
+            ->where('user_id', '!=', $request->user()->id)
             ->with(['items', 'restaurant'])
             ->get();
 
@@ -217,6 +218,11 @@ class CourierOrderController extends Controller
             if ($model->status !== OrderStatus::Ready || $model->courier_id !== null) {
                 throw ValidationException::withMessages([
                     'order' => 'Ese pedido ya no está disponible.',
+                ]);
+            }
+            if ($model->user_id === $request->user()->id) {
+                throw ValidationException::withMessages([
+                    'order' => 'No podés repartir un pedido que hiciste.',
                 ]);
             }
             // La misma fila se bloquea también al asignar desde el administrador.

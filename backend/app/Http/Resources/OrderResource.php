@@ -40,12 +40,6 @@ class OrderResource extends JsonResource
             ),
             'pickup_pin_required' => $this->status === OrderStatus::Ready && $this->getRawOriginal('pickup_pin') !== null,
 
-            'delivery_pin' => $this->when(
-                $this->status->isActive()
-                    && $request->user()?->hasRole(UserRole::Client)
-                    && $request->user()->id === $this->user_id,
-                fn () => $this->delivery_pin,
-            ),
             'delivery_pin_required' => $this->status === OrderStatus::PickedUp && $this->getRawOriginal('delivery_pin') !== null,
 
             'restaurant' => [
